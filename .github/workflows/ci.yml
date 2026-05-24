@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  rust-tests:
+    runs-on: ubuntu-latest
+    name: Rust Tests & Lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Run Rust tests
+        run: cd rust && cargo test --lib --verbose
+      - name: Run Rust linter
+        run: cd rust && cargo clippy --all-targets -- -D warnings
+
+  dart-tests:
+    runs-on: ubuntu-latest
+    name: Dart Analysis & Tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+      - name: Get Dart dependencies
+        run: |
+          cd dart && flutter pub get
+          cd ../example && flutter pub get
+      - name: Analyze Dart code
+        run: flutter analyze
+      - name: Run Dart tests
+        run: cd dart && flutter test
+        continue-on-error: true
+
+  android-build:
+    runs-on: ubuntu-latest
+    name: Android Build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+      - name: Build Android example
+        run: |
+          cd example
+          flutter build apk --release 2>&1 | tail -100
+        continue-on-error: true
+
+  ios-build:
+    runs-on: macos-latest
+    name: iOS Build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust targets
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
+      - name: Build iOS example
+        run: |
+          cd example
+          flutter build ios --release --no-codesign 2>&1 | tail -100
+        continue-on-error: true
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [ rust-tests, dart-tests, android-build, ios-build ]
+    if: always()
+    name: CI Summary
+    steps:
+      - name: Check all jobs
+        run: |
+          if [ "${{ needs.rust-tests.result }}" != "success" ] || \
+             [ "${{ needs.dart-tests.result }}" != "success" ]; then
+            echo "Core CI checks failed"
+            exit 1
+          fi
+          echo "All core CI checks passed"

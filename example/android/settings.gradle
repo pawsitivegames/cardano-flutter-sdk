@@ -1,0 +1,36 @@
+pluginManagement {
+    def flutterSdkPath = {
+        def properties = new Properties()
+        file("local.properties").withInputStream { properties.load(it) }
+        properties.getProperty("flutter.sdk")
+    }()
+    settings.ext.flutterSdkPath = flutterSdkPath
+
+    includeBuild("${settings.ext.flutterSdkPath}/packages/flutter_tools/gradle")
+
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+
+plugins {
+    id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
+}
+
+include ":app"
+
+Set pluginProjects = []
+new File(rootDir, '.flutter-plugins-dependencies').withReader('UTF-8') { reader ->
+    final pubspec = new groovy.json.JsonSlurper().parseText(reader.text)
+    pubspec.plugins.android.forEach { androidPlugin ->
+        assert androidPlugin.containsKey('name') : "Plugin ${androidPlugin} must have a 'name'."
+        final String name = androidPlugin.name
+        final String path = androidPlugin.path ?: "${rootDir}/../${name}"
+        final File pluginDir = new File(path)
+        include ":${name}"
+        project(":${name}").projectDir = pluginDir
+        pluginProjects.add(project(":${name}"))
+    }
+}

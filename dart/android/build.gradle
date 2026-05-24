@@ -1,0 +1,54 @@
+group 'com.example.cardano_flutter_rs'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    // NDK r28+ required for 16KB page size support (mandatory since Nov 2025)
+    ext.kotlin_version = '1.9.0'
+    ext.ndkVersion = '28.0.12674087'
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        // AGP 8.7.3+ required for 16KB page size support
+        classpath 'com.android.tools.build:gradle:8.7.3'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    compileSdkVersion 35
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 35
+        // 16KB page size required for Play Store (Nov 2025+)
+        // This is automatically handled by AGP 8.7.3+
+        // but we specify it explicitly for clarity
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    // Configure Rust/FFI build
+    externalNativeBuild {
+        cmake {
+            path "CMakeLists.txt"
+        }
+    }
+}

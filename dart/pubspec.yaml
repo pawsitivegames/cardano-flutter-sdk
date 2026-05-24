@@ -1,0 +1,36 @@
+name: cardano_flutter_rs
+description: Production-grade Cardano SDK for Flutter, powered by Rust + CML.
+version: 0.1.0
+homepage: https://github.com/YOUR_HANDLE/cardano-flutter-sdk
+repository: https://github.com/YOUR_HANDLE/cardano-flutter-sdk
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_rust_bridge: ^2.0.0
+  ffi: ^2.1.0
+  meta: ^1.10.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        ffiPlugin: true
+      ios:
+        ffiPlugin: true
+      linux:
+        ffiPlugin: true
+      macos:
+        ffiPlugin: true
+      windows:
+        ffiPlugin: true

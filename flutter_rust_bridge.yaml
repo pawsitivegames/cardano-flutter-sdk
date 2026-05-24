@@ -1,0 +1,9 @@
+rust_root: rust
+rust_input: cardano_flutter_rs
+dart_output: dart/lib/src
+dart_format_line_length: 80
+add_mod_to_lib: true
+dart3: true
+dart_enums_style: true
+llvm_compiler_opts:
+  - -fstack-protector-all
