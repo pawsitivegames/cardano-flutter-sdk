@@ -1,0 +1,22 @@
+PODS:
+  - cardano_flutter_rs (0.1.0):
+    - Flutter
+  - Flutter (1.0.0)
+
+DEPENDENCIES:
+  - cardano_flutter_rs (from `.symlinks/plugins/cardano_flutter_rs/ios`)
+  - Flutter (from `Flutter`)
+
+EXTERNAL SOURCES:
+  cardano_flutter_rs:
+    :path: ".symlinks/plugins/cardano_flutter_rs/ios"
+  Flutter:
+    :path: Flutter
+
+SPEC CHECKSUMS:
+  cardano_flutter_rs: 75143cdf447beaf64f7be1a5e8790df70b279feb
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+
+PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e
+
+COCOAPODS: 1.16.2

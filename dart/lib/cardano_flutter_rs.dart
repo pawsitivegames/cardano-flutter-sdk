@@ -3,12 +3,9 @@
 /// See README.md and docs/project-plan.md for usage and architecture.
 library cardano_flutter_rs;
 
-// Bridge-generated FFI bindings (auto-generated, do not edit).
-export 'src/bridge_generated.dart';
-
-// Public exports — wire these up as Phase 1+ ships.
-// export 'src/wallet.dart';
-// export 'src/tx_builder.dart';
-// export 'src/providers/blockfrost.dart';
-// export 'src/models/address.dart';
-// export 'src/models/transaction.dart';
+// FFI bridge and generated bindings
+export 'src/frb_generated.dart';
+export 'src/address.dart';
+export 'src/wallet.dart';
+export 'src/error.dart';
+export 'src/wrappers.dart';

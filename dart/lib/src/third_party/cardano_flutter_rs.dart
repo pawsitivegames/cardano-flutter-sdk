@@ -6,14 +6,5 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// Returns SDK + CSL version strings. Used to confirm the FFI bridge is wired
-/// correctly end-to-end during initial setup.
+/// Returns SDK version string.
 String sdkVersion() => RustLib.instance.api.cardanoFlutterRsSdkVersion();
-
-/// Validates a Bech32-encoded Cardano address (simple check).
-///
-/// First end-to-end test of the FFI bridge. If this works in your example
-/// Flutter app, the bridge is functioning and you can proceed to Phase 1.
-/// Phase 1 will implement full CML-backed validation.
-bool isValidBech32({required String addr}) =>
-    RustLib.instance.api.cardanoFlutterRsIsValidBech32(addr: addr);
