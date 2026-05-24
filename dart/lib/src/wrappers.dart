@@ -1,6 +1,8 @@
 // Convenience wrappers for generated RustLibApi methods.
 // These provide direct access to Rust functions via simpler names.
 
+// ignore_for_file: invalid_use_of_internal_member
+
 import 'frb_generated.dart';
 import 'wallet.dart';
 import 'address.dart';
