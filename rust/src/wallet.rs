@@ -52,11 +52,7 @@ pub fn derive_keys_from_mnemonic_internal(
 }
 
 #[frb(sync)]
-pub fn derive_account_key(
-    account_key: String,
-    role: u32,
-    index: u32,
-) -> Result<String, String> {
+pub fn derive_account_key(account_key: String, role: u32, index: u32) -> Result<String, String> {
     derive_account_key_internal(&account_key, role, index).map_err(|e| e.to_string())
 }
 
@@ -77,7 +73,8 @@ pub fn derive_account_key_internal(
 mod tests {
     use super::*;
 
-    const TEST_MNEMONIC: &str = "test walk nut penalty hip pave soap entry language right filter choice";
+    const TEST_MNEMONIC: &str =
+        "test walk nut penalty hip pave soap entry language right filter choice";
 
     #[test]
     fn test_derive_keys_from_mnemonic() {

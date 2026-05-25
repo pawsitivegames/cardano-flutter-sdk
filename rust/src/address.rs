@@ -14,8 +14,9 @@ pub fn validate_address(address_str: String) -> Result<AddressInfo, String> {
 }
 
 pub fn validate_address_internal(address_str: &str) -> Result<AddressInfo, CardanoError> {
-    let address = csl::Address::from_bech32(address_str)
-        .map_err(|_| CardanoError::InvalidAddress(format!("Invalid bech32 address: {}", address_str)))?;
+    let address = csl::Address::from_bech32(address_str).map_err(|_| {
+        CardanoError::InvalidAddress(format!("Invalid bech32 address: {}", address_str))
+    })?;
 
     let network = match address.network_id() {
         Ok(0) => "testnet",
