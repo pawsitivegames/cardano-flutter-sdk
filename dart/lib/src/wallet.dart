@@ -3,8 +3,43 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
+
+KeyDerivationResult deriveKeysFromMnemonic(
+        {required String mnemonic,
+        required String passphrase,
+        required int accountIndex,
+        required bool isTestnet}) =>
+    RustLib.instance.api.crateWalletDeriveKeysFromMnemonic(
+        mnemonic: mnemonic,
+        passphrase: passphrase,
+        accountIndex: accountIndex,
+        isTestnet: isTestnet);
+
+Future<KeyDerivationResult> deriveKeysFromMnemonicInternal(
+        {required String mnemonic,
+        required String passphrase,
+        required int accountIndex,
+        required bool isTestnet}) =>
+    RustLib.instance.api.crateWalletDeriveKeysFromMnemonicInternal(
+        mnemonic: mnemonic,
+        passphrase: passphrase,
+        accountIndex: accountIndex,
+        isTestnet: isTestnet);
+
+String deriveAccountKey(
+        {required String accountKey, required int role, required int index}) =>
+    RustLib.instance.api.crateWalletDeriveAccountKey(
+        accountKey: accountKey, role: role, index: index);
+
+Future<String> deriveAccountKeyInternal(
+        {required String accountKey, required int role, required int index}) =>
+    RustLib.instance.api.crateWalletDeriveAccountKeyInternal(
+        accountKey: accountKey, role: role, index: index);
 
 class KeyDerivationResult {
   final String accountKey;

@@ -5,7 +5,5 @@ library cardano_flutter_rs;
 
 // FFI bridge and generated bindings
 export 'src/frb_generated.dart';
-export 'src/address.dart';
-export 'src/wallet.dart';
 export 'src/error.dart';
 export 'src/wrappers.dart';

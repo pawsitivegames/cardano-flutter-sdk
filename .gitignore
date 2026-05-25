@@ -21,6 +21,8 @@ pubspec.lock
 # iOS
 **/ios/Pods/
 **/ios/.symlinks/
+# Stale Rust static libs (we ship the .framework instead)
+dart/ios/Libs/*.a
 **/ios/Flutter/App.framework
 **/ios/Flutter/Flutter.framework
 **/ios/Flutter/Flutter.podspec
@@ -56,3 +58,6 @@ pubspec.lock
 .env
 .env.local
 *.secret
+
+# Personal dev tooling
+example/launch_device.sh

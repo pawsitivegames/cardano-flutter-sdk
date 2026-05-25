@@ -7,7 +7,7 @@ description = "Rust FFI wrapper around cardano-multiplatform-lib for the cardano
 repository = "https://github.com/YOUR_HANDLE/cardano-flutter-sdk"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]  # cdylib for Android, staticlib for iOS
+crate-type = ["cdylib"]  # Dynamic library for all platforms (Flutter Rust Bridge compatibility)
 
 [dependencies]
 # Verify latest versions at install time — these are starting points

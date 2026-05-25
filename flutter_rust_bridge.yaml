@@ -1,5 +1,5 @@
 rust_root: rust
-rust_input: cardano_flutter_rs
+rust_input: crate
 dart_output: dart/lib/src
 dart_format_line_length: 80
 add_mod_to_lib: true

@@ -9,19 +9,19 @@ import 'address.dart';
 
 /// Returns the SDK version string.
 Future<String> getSdkVersion() {
-  return Future.value(RustLib.instance.api.cardanoFlutterRsSdkVersion());
+  return Future.value(RustLib.instance.api.crateSdkVersion());
 }
 
 /// Validates a Bech32 address string.
 Future<bool> isValidBech32(String addr) {
   return Future.value(
-      RustLib.instance.api.cardanoFlutterRsAddressIsValidBech32(addr: addr));
+      RustLib.instance.api.crateAddressIsValidBech32(addr: addr));
 }
 
 /// Validates an address and returns detailed info.
 Future<AddressInfo> validateAddress(String address) {
-  return RustLib.instance.api.cardanoFlutterRsAddressValidateAddressInternal(
-      addressStr: address);
+  return RustLib.instance.api
+      .crateAddressValidateAddressInternal(addressStr: address);
 }
 
 /// Derives keys from a BIP39 mnemonic.
@@ -31,7 +31,7 @@ Future<KeyDerivationResult> deriveKeysFromMnemonic({
   required int accountIndex,
   required bool isTestnet,
 }) {
-  return RustLib.instance.api.cardanoFlutterRsWalletDeriveKeysFromMnemonicInternal(
+  return RustLib.instance.api.crateWalletDeriveKeysFromMnemonicInternal(
     mnemonic: mnemonic,
     passphrase: passphrase,
     accountIndex: accountIndex,
@@ -45,7 +45,7 @@ Future<String> deriveAccountKey({
   required int role,
   required int index,
 }) {
-  return Future.value(RustLib.instance.api.cardanoFlutterRsWalletDeriveAccountKey(
+  return Future.value(RustLib.instance.api.crateWalletDeriveAccountKey(
     accountKey: accountKey,
     role: role,
     index: index,

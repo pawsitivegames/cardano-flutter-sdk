@@ -13,12 +13,18 @@ Pod::Spec.new do |s|
 
   s.platform = :ios, '12.0'
 
-  # iOS Rust static library built by flutter_rust_bridge
-  s.vendored_libraries = 'Libs/libcardano_flutter_rs.a'
+  # iOS Rust dynamic framework built by cargo (cdylib)
+  s.vendored_frameworks = 'Libs/cardano_flutter_rs.framework'
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64',
+    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) $(PODS_ROOT)/cardano_flutter_rs',
+  }
+
+  s.user_target_xcconfig = {
+    'RUNPATH_SEARCH_PATHS' => '$(inherited) @executable_path/Frameworks @loader_path/Frameworks',
+    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) @executable_path/Frameworks @loader_path/Frameworks',
   }
 
   s.swift_version = '5.0'
