@@ -2,7 +2,7 @@
 
 A production-grade Flutter SDK for Cardano, built on Emurgo's Cardano Serialization Library (CSL) via Rust FFI.
 
-> **Status:** Phase 1 complete. See [`docs/project-plan.md`](docs/project-plan.md) for the full 8-phase roadmap.
+> **Status:** Phase 1 & 2 complete (v0.2.0). See [`docs/project-plan.md`](docs/project-plan.md) for the full 8-phase roadmap.
 
 ## Why
 
@@ -64,6 +64,21 @@ cardano-flutter-sdk/
 └── flutter_rust_bridge.yaml # FFI codegen config
 ```
 
+## Feature Matrix
+
+| Feature | v0.1.0 | v0.2.0 | v0.3.0+ |
+|---------|--------|--------|---------|
+| Address validation (Bech32) | ✓ | ✓ | ✓ |
+| BIP39 → BIP32 key derivation | ✓ | ✓ | ✓ |
+| Transaction building (CSL) | | ✓ | ✓ |
+| Coin selection (CIP-2 largest-first) | | ✓ | ✓ |
+| Transaction signing (vkey witnesses) | | ✓ | ✓ |
+| Blockfrost provider (testnet) | | ✓ | ✓ |
+| Multi-asset support | | ✓ | ✓ |
+| iOS/Android native (FFI) | ✓ | ✓ | ✓ |
+| Mainnet support | | (planned) | (planned) |
+| Plutus script support | | | (planned) |
+
 ## Phase 1: Core SDK ✓
 
 Completed features:
@@ -73,6 +88,16 @@ Completed features:
 - ✓ Dart bindings auto-generated via flutter_rust_bridge
 - ✓ Example app with three test flows
 - ✓ Tested on iOS simulator
+
+## Phase 2: Transaction Building & Submission ✓
+
+Completed features:
+- ✓ Coin selection (CIP-2 largest-first algorithm)
+- ✓ Transaction building (CSL-based TransactionBuilder)
+- ✓ Transaction signing (vkey witnesses from payment keys)
+- ✓ Blockfrost provider for testnet (fetch UTXOs, protocol parameters, submit)
+- ✓ Example app "Send testnet ADA" screen (end-to-end flow)
+- ✓ Full dartdoc on public APIs
 
 ### Prerequisites
 
@@ -137,6 +162,98 @@ void main() async {
 }
 ```
 
+### Send a testnet transaction
+
+```dart
+import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
+
+Future<void> sendAda() async {
+  // 1. Initialize
+  await RustLib.init();
+  
+  // 2. Setup: keys, provider, protocol params
+  final keys = await deriveKeysFromMnemonic(
+    mnemonic: 'your mnemonic here',
+    passphrase: '',
+    accountIndex: 0,
+    isTestnet: true,
+  );
+  
+  final provider = BlockfrostProvider(
+    projectId: 'your_blockfrost_project_id',
+    network: Network.testnetPreview,
+  );
+  
+  final params = await provider.fetchProtocolParameters();
+  
+  // 3. Fetch UTXOs
+  const myAddress = 'addr_test1q...';
+  final utxos = await provider.fetchUtxos(myAddress);
+  
+  // 4. Select coins for a 1 ADA send
+  final targets = [
+    TxOutput(
+      address: 'addr_test1q...',  // recipient
+      value: Value(coin: BigInt.from(1000000), assets: []),
+    ),
+  ];
+  
+  final coinSel = await selectCoinsForTransaction(
+    availableUtxos: utxos.map((u) => TxInput(
+      txHash: u.txHash,
+      outputIndex: u.outputIndex,
+      address: u.address,
+      value: Value(coin: u.coin, assets: []),
+    )).toList(),
+    targetOutputs: targets,
+    changeAddress: myAddress,
+    protocolParams: ProtocolParams(
+      minFeeA: BigInt.from(params.minFeeA),
+      minFeeB: BigInt.from(params.minFeeB),
+      coinsPerUtxoByte: BigInt.from(params.coinsPerUtxoByte),
+      maxTxSize: params.maxTxSize,
+      poolDeposit: BigInt.from(params.poolDeposit),
+      keyDeposit: BigInt.from(params.keyDeposit),
+      maxValSize: params.maxValueSize,
+    ),
+  );
+  
+  // 5. Build transaction
+  final builtTx = await buildTransaction(
+    inputs: coinSel.selectedInputs,
+    outputs: [...targets, ...coinSel.changeOutputs],
+    changeAddress: myAddress,
+    ttl: null,
+    protocolParams: ProtocolParams(...),
+  );
+  
+  print('Fee: ${builtTx.fee} lovelace');
+  
+  // 6. Sign
+  final signedTx = await signTransaction(
+    txBodyCborHex: builtTx.txBodyCborHex,
+    paymentKeys: [keys.paymentKey],
+  );
+  
+  // 7. Submit
+  final txHash = await provider.submitTransaction(
+    signedTxToBytes(signedTx),
+  );
+  
+  print('Submitted: $txHash');
+}
+```
+
+**Setup:** Set `BLOCKFROST_PROJECT_ID` environment variable before running:
+```bash
+flutter run --dart-define=BLOCKFROST_PROJECT_ID=your_project_id
+```
+
+Get a free testnet API key at [https://blockfrost.io](https://blockfrost.io).
+
+**View transaction:** Open https://preview.cexplorer.io/tx/{txHash}
+
+
 ## Architecture Decisions (Phase 1)
 
 - **Backend:** Cardano Serialization Lib (CSL) v15.0.3. Swappable via Rust feature flags; Pallas v1.0+ planned as long-term replacement.
@@ -144,11 +261,13 @@ void main() async {
 - **Async model:** Sync Rust fns for signing/serialization; tokio only for network I/O (Phase 2+).
 - **Testing:** Unit tests in Dart, integration tests against Cardano testnet (Phase 2).
 
-## Next: Phase 2
+## Next: Phase 3+
 
-- Blockfrost API client for read-only wallet data (UTXOs, balance, history)
-- Provider interface (abstract Blockfrost, Maestro, Koios)
-- Integration tests against Cardano testnet
+- Mainnet support (currently testnet only)
+- Additional providers: Maestro, Koios
+- Hardware wallet support (Ledger via CIP-86)
+- Plutus script support
+- Multi-sig transactions
 
 See [`docs/project-plan.md`](docs/project-plan.md) for full 8-phase roadmap.
 

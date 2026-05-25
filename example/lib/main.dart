@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
+import 'send_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -20,12 +21,17 @@ class _MyAppState extends State<MyApp> {
   bool _isTesting = false;
   bool _libInitialized = false;
   String _initError = '';
+  String? _blockfrostProjectId;
+  String? _myAddress;
+  KeyDerivationResult? _derivedKeys;
 
   @override
   void initState() {
     super.initState();
     // Pre-initialize the Rust library in the background
     _preInitializeLib();
+    // Get Blockfrost project ID from dart-define
+    _blockfrostProjectId = const String.fromEnvironment('BLOCKFROST_PROJECT_ID');
   }
 
   Future<void> _preInitializeLib() async {
@@ -78,21 +84,25 @@ class _MyAppState extends State<MyApp> {
       final isValid = await isValidBech32(testAddr);
       debugPrint('[Cardano SDK] Address valid: $isValid');
 
-      // Test 3: Derive keys from mnemonic
+      // Test 3: Derive keys from mnemonic (testnet for Phase 2 Send demo)
       const testMnemonic =
           'test walk nut penalty hip pave soap entry language right filter choice';
       String keyDerived = 'Failed';
+      KeyDerivationResult? keys;
       try {
         debugPrint('[Cardano SDK] Testing deriveKeysFromMnemonic()...');
-        final keys = await deriveKeysFromMnemonic(
+        keys = await deriveKeysFromMnemonic(
           mnemonic: testMnemonic,
           passphrase: '',
           accountIndex: 0,
-          isTestnet: false,
+          isTestnet: true,
         );
         keyDerived =
-            'Payment Key: ${keys.paymentKey.substring(0, 20)}...\nStake Key: ${keys.stakeKey.substring(0, 20)}...';
+            'Payment Key: ${keys?.paymentKey.substring(0, 20)}...\nStake Key: ${keys?.stakeKey.substring(0, 20)}...';
         debugPrint('[Cardano SDK] Key derivation successful');
+
+        // Store keys for Send screen
+        _derivedKeys = keys;
       } catch (e) {
         keyDerived = 'Error: $e';
         debugPrint('[Cardano SDK] Key derivation failed: $e');
@@ -101,7 +111,7 @@ class _MyAppState extends State<MyApp> {
       setState(() {
         _sdkVersion = version;
         _addressValidation =
-            'Valid: $isValid\nNetwork: Cardano Testnet';
+            'Valid: $isValid\nNetwork: Cardano Testnet Preview';
         _keyDerivation = keyDerived;
         _isTesting = false;
       });
@@ -116,6 +126,50 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  void _navigateToSendScreen() {
+    if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please set BLOCKFROST_PROJECT_ID environment variable or run with --dart-define=BLOCKFROST_PROJECT_ID=your_id',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (_derivedKeys == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please run tests first to derive keys'),
+        ),
+      );
+      return;
+    }
+
+    // For this demo, we'll use a known testnet address
+    // In production, derive from payment key hash
+    const testnetAddress =
+        'addr_test1qzx9hu8j4zh3k1sugsscq69ek5ee2nrw6rasydg4gwyydewjjxtwq2ytjqd8';
+
+    final provider = BlockfrostProvider(
+      projectId: _blockfrostProjectId!,
+      network: Network.testnetPreview,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => SendScreen(
+          provider: provider,
+          myAddress: testnetAddress,
+          paymentKey: _derivedKeys!.paymentKey,
+          stakeKey: _derivedKeys!.stakeKey,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -126,7 +180,7 @@ class _MyAppState extends State<MyApp> {
       ),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Cardano Flutter RS - Phase 1'),
+          title: const Text('Cardano Flutter RS - Phase 1 & 2'),
         ),
         body: SingleChildScrollView(
           child: Center(
@@ -136,13 +190,38 @@ class _MyAppState extends State<MyApp> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'Phase 1: CSL-Backed SDK Test',
+                    'Phase 1 & 2: SDK + Transaction Building',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 20),
+                  if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty)
+                    Card(
+                      color: Colors.orange.shade100,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Warning: BLOCKFROST_PROJECT_ID not set',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Run with: flutter run --dart-define=BLOCKFROST_PROJECT_ID=your_project_id\n\n'
+                              'Get a free testnet API key from https://blockfrost.io',
+                              style: TextStyle(color: Colors.orange),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   if (_initError.isNotEmpty)
                     Card(
                       color: Colors.red.shade100,
@@ -195,9 +274,27 @@ class _MyAppState extends State<MyApp> {
                       ),
                     ),
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _testSDK,
-                    child: const Text('Re-Run Tests'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _testSDK,
+                        child: const Text('Re-Run Tests'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _derivedKeys != null
+                            ? _navigateToSendScreen
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                        ),
+                        child: const Text(
+                          'Send Testnet ADA',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
