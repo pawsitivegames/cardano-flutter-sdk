@@ -7,3 +7,7 @@ library cardano_flutter_rs;
 export 'src/frb_generated.dart';
 export 'src/error.dart';
 export 'src/wrappers.dart';
+
+// Providers
+export 'src/providers/blockfrost.dart';
+export 'src/providers/blockfrost_errors.dart';
