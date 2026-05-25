@@ -350,7 +350,7 @@ mod tests {
         let params = test_protocol_params();
         let tx_body_hex = "00".to_string();
 
-        let fee_1 = estimate_fee(tx_body_hex.clone(), 1, params.clone()).unwrap();
+        let fee_1 = estimate_fee(tx_body_hex.clone(), 1, params).unwrap();
         let fee_2 = estimate_fee(tx_body_hex, 2, params).unwrap();
 
         // More witnesses should cost more

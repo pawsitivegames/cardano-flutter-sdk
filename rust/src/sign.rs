@@ -66,24 +66,12 @@ pub fn sign_tx_internal(
     let mut witnesses = csl::Vkeywitnesses::new();
 
     for key_str in payment_keys_hex {
-        // Try to decode as a regular private key first (for signing)
-        // Fall back to Bip32PrivateKey if needed
-        let priv_key = csl::PrivateKey::from_bech32(&key_str)
-            .or_else(|_| {
-                // If it's a Bip32PrivateKey, convert it by encoding and re-decoding
-                let bip32_key = csl::Bip32PrivateKey::from_bech32(&key_str)
-                    .map_err(|_| CardanoError::InvalidKey("Invalid payment key format".to_string()))?;
-                // Convert Bip32PrivateKey to PrivateKey by getting raw key
-                // Extract the key bytes - Bip32PrivateKey.to_bytes() may give extended key format
-                let raw_bytes = bip32_key.as_bytes();
-                // The last 64 bytes of a Bip32 extended key are the actual Ed25519 extended key
-                if raw_bytes.len() >= 64 {
-                    csl::PrivateKey::from_extended_bytes(&raw_bytes[raw_bytes.len() - 64..])
-                        .map_err(|_| CardanoError::InvalidKey("Failed to extract private key".to_string()))
-                } else {
-                    Err(CardanoError::InvalidKey("Invalid extended key length".to_string()))
-                }
-            })?;
+        // Decode the key - it should be a Bip32PrivateKey in bech32 format
+        let bip32_key = csl::Bip32PrivateKey::from_bech32(&key_str)
+            .map_err(|_| CardanoError::InvalidKey("Invalid payment key format".to_string()))?;
+
+        // Convert to a raw PrivateKey for signing
+        let priv_key = bip32_key.to_raw_key();
 
         // Get the public key for the witness
         let public_key = priv_key.to_public();
