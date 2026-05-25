@@ -14,18 +14,22 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
-Pre-development. No code written yet. Repo is scaffolded only.
+Phase 0 and Phase 1 shipped. Phase 2 (transaction building, signing,
+Blockfrost submission, multi-asset outputs) is in planning — see
+`.claude/goals/phase-2.md` and `.claude/tasks/phase-2-*`.
 
 Decisions made:
 - **Package name:** `cardano_flutter_rs` (pub.dev) + crate name `cardano_flutter_rs` (crates.io)
-- **Primary backend:** CML (Cardano Multiplatform Lib), architected for backend swap
-- **FFI:** flutter_rust_bridge v2.12+
-- **Platform strategy:** Native via Rust FFI; web via JS interop to CML npm (not Rust)
+- **Active backend:** **CSL** (`cardano-serialization-lib` v15.0). The original plan named CML as primary; Phase 1 shipped on CSL instead. A backend swap to CML or Pallas remains a long-term option (trait abstraction not yet introduced — add when a second backend lands). Do not switch mid-phase.
+- **FFI:** flutter_rust_bridge v2.12 (pinned)
+- **iOS binary:** dynamic framework (`dart/ios/Libs/cardano_flutter_rs.framework`), not the static `.a` originally planned
+- **Platform strategy:** Native via Rust FFI; web via JS interop to CML/CSL npm (not Rust)
 - **Independent project, no Catalyst funding** — see `.claude/goals/INDEPENDENT_PROJECT_STRATEGY.md`
 
-When you start a session, the first task is likely one of:
-- **Phase 0:** Set up `flutter_rust_bridge` toolchain, verify Android 16KB page size compat, get hello-world working on iOS+Android+CI
-- **Phase 1:** Add CML dependency, expose first function (e.g., `is_valid_bech32`) end-to-end, build out read-only wallet API surface
+When you start a session, the next task is likely:
+- **Phase 2:** dispatch the agents in `.claude/tasks/phase-2-*` —
+  Research → TX Builder + Coin Selection + Blockfrost Provider (parallel)
+  → Signing → Test & Verification → Example & Docs
 
 ## Tech stack (planned versions; verify against latest at install time)
 
