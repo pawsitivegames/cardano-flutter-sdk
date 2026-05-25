@@ -13,7 +13,7 @@ mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be
 pub mod address;
 pub mod coin_selection;
 pub mod error;
-// pub mod sign;  // Phase 3: signing disabled during Phase 2 development
+pub mod sign;
 pub mod tx;
 pub mod wallet;
 
@@ -22,7 +22,7 @@ use flutter_rust_bridge::frb;
 // Re-export public types for Dart convenience
 pub use address::{is_valid_bech32, validate_address, AddressInfo};
 pub use coin_selection::{largest_first, CoinSelectionResult};
-// pub use sign::{sign_tx, SignedTx};  // Phase 3: signing disabled during Phase 2 development
+pub use sign::{sign_tx, SignedTx};
 pub use tx::{
     build_tx, estimate_fee, min_ada_for_output, BuiltTx, NativeAsset, ProtocolParams, TxInput,
     TxOutput, Value,
