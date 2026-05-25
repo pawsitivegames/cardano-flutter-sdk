@@ -32,7 +32,34 @@ sealed class CardanoError with _$CardanoError implements FrbException {
   const factory CardanoError.invalidKey(
     String field0,
   ) = CardanoError_InvalidKey;
+  const factory CardanoError.invalidCbor(
+    String field0,
+  ) = CardanoError_InvalidCbor;
   const factory CardanoError.cslError(
     String field0,
   ) = CardanoError_CslError;
+  const factory CardanoError.insufficientFunds({
+    required BigInt neededLovelace,
+    required BigInt availableLovelace,
+  }) = CardanoError_InsufficientFunds;
+  const factory CardanoError.insufficientAsset({
+    required String policyId,
+    required String assetName,
+    required BigInt needed,
+    required BigInt available,
+  }) = CardanoError_InsufficientAsset;
+  const factory CardanoError.dustChange({
+    required BigInt residualLovelace,
+    required BigInt minRequired,
+  }) = CardanoError_DustChange;
+  const factory CardanoError.coinSelectionError(
+    String field0,
+  ) = CardanoError_CoinSelectionError;
+  const factory CardanoError.txBuild({
+    required String reason,
+  }) = CardanoError_TxBuild;
+  const factory CardanoError.invalidParameter({
+    required String field,
+    required String reason,
+  }) = CardanoError_InvalidParameter;
 }

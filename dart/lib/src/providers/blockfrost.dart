@@ -240,10 +240,10 @@ class BlockfrostProvider {
           case 'POST':
             response = await _httpClient
                 .post(
-              uri,
-              headers: _getHeaders(contentType),
-              body: body,
-            )
+                  uri,
+                  headers: _getHeaders(contentType),
+                  body: body,
+                )
                 .timeout(const Duration(seconds: 30));
           default:
             throw BlockfrostNetworkError('Unsupported HTTP method: $method');
@@ -270,7 +270,8 @@ class BlockfrostProvider {
           await Future.delayed(Duration(milliseconds: delayMs));
           continue;
         }
-        throw BlockfrostNetworkError('Request timeout after $maxRetries retries');
+        throw BlockfrostNetworkError(
+            'Request timeout after $maxRetries retries');
       } catch (e) {
         throw BlockfrostNetworkError('Network error: $e');
       }
@@ -378,8 +379,7 @@ class BlockfrostProvider {
     return ProtocolParameters(
       minFeeA: json['min_fee_a'] as int,
       minFeeB: json['min_fee_b'] as int,
-      coinsPerUtxoByte:
-          int.parse(json['coins_per_utxo_size'] as String),
+      coinsPerUtxoByte: int.parse(json['coins_per_utxo_size'] as String),
       maxTxSize: json['max_tx_size'] as int,
       maxValueSize: int.parse(json['max_val_size'] as String),
       keyDeposit: int.parse(json['key_deposit'] as String),

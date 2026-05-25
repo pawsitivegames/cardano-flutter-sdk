@@ -14,22 +14,28 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
-Phase 0 and Phase 1 shipped. Phase 2 (transaction building, signing,
-Blockfrost submission, multi-asset outputs) is in planning — see
-`.claude/goals/phase-2.md` and `.claude/tasks/phase-2-*`.
+**Phase 2: Complete** ✅
+
+All transaction pipeline shipped and verified:
+- TX Builder (CSL-backed, inputs/outputs/fees)
+- Coin Selection (CIP-2 largest-first)
+- Blockfrost Provider (HTTP client, testnet + mainnet)
+- Signing (vkey witnesses)
+- Integration Test (live testnet, CI-gated)
+- Verification Doc (docs/PHASE_2_VERIFICATION.md)
 
 Decisions made:
 - **Package name:** `cardano_flutter_rs` (pub.dev) + crate name `cardano_flutter_rs` (crates.io)
-- **Active backend:** **CSL** (`cardano-serialization-lib` v15.0). The original plan named CML as primary; Phase 1 shipped on CSL instead. A backend swap to CML or Pallas remains a long-term option (trait abstraction not yet introduced — add when a second backend lands). Do not switch mid-phase.
+- **Active backend:** **CSL** (`cardano-serialization-lib` v15.0.3) — Phase 1 & 2 shipped on CSL. Backend swap to CML or Pallas remains a long-term option.
 - **FFI:** flutter_rust_bridge v2.12 (pinned)
-- **iOS binary:** dynamic framework (`dart/ios/Libs/cardano_flutter_rs.framework`), not the static `.a` originally planned
-- **Platform strategy:** Native via Rust FFI; web via JS interop to CML/CSL npm (not Rust)
-- **Independent project, no Catalyst funding** — see `.claude/goals/INDEPENDENT_PROJECT_STRATEGY.md`
+- **iOS binary:** dynamic framework (`dart/ios/Libs/cardano_flutter_rs.framework`)
+- **Platform strategy:** Native via Rust FFI; web via JS interop (Phase 3)
+- **Independent project, no Catalyst funding** — self-funded, quality-driven
+- **New env var:** `BLOCKFROST_PROJECT_ID` (for live integration tests in CI)
 
-When you start a session, the next task is likely:
-- **Phase 2:** dispatch the agents in `.claude/tasks/phase-2-*` —
-  Research → TX Builder + Coin Selection + Blockfrost Provider (parallel)
-  → Signing → Test & Verification → Example & Docs
+When you start a session, the next phase is:
+- **Phase 2.5 (planned):** Better confirmation polling, multi-asset coin selection, edge case fixes
+- **Phase 3:** Staking operations, hardware wallets (Ledger/Trezor), CIP-30
 
 ## Tech stack (planned versions; verify against latest at install time)
 

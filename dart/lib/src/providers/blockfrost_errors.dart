@@ -36,8 +36,7 @@ class BlockfrostNotFound extends BlockfrostException {
 class BlockfrostRateLimited extends BlockfrostException {
   final Duration? retryAfter;
 
-  BlockfrostRateLimited(String message, {this.retryAfter})
-      : super(message);
+  BlockfrostRateLimited(String message, {this.retryAfter}) : super(message);
 
   @override
   String toString() {
@@ -55,8 +54,7 @@ class BlockfrostRateLimited extends BlockfrostException {
 class BlockfrostBadRequest extends BlockfrostException {
   final String responseBody;
 
-  BlockfrostBadRequest(String message, this.responseBody)
-      : super(message);
+  BlockfrostBadRequest(String message, this.responseBody) : super(message);
 
   @override
   String toString() => '$message: $responseBody';
