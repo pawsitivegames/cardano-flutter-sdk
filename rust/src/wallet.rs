@@ -7,6 +7,9 @@ pub struct KeyDerivationResult {
     pub account_key: String,
     pub payment_key: String,
     pub stake_key: String,
+    /// Blake2b-224 hash of the payment public key (28 bytes = 56 hex chars).
+    /// Use as `key_hash_hex` argument for `make_pubkey_script`.
+    pub payment_key_hash: String,
 }
 
 #[frb(sync)]
@@ -44,10 +47,14 @@ pub fn derive_keys_from_mnemonic_internal(
     // Stake key: m/1852'/1815'/account'/2/0
     let stake_key = account_key.derive(2).derive(0);
 
+    let payment_pub = payment_key.to_public();
+    let payment_key_hash = hex::encode(payment_pub.to_raw_key().hash().to_bytes());
+
     Ok(KeyDerivationResult {
         account_key: account_key.to_bech32(),
-        payment_key: payment_key.to_public().to_bech32(),
+        payment_key: payment_pub.to_bech32(),
         stake_key: stake_key.to_public().to_bech32(),
+        payment_key_hash,
     })
 }
 
@@ -77,6 +84,23 @@ mod tests {
         "test walk nut penalty hip pave soap entry language right filter choice";
 
     #[test]
+    fn print_payment_key_hash() {
+        // Helper test — run with `cargo test -- --nocapture` to see the hash
+        let mnemonic_obj = bip39::Mnemonic::parse(TEST_MNEMONIC).unwrap();
+        let entropy = mnemonic_obj.to_entropy();
+        let root = csl::Bip32PrivateKey::from_bip39_entropy(&entropy, b"");
+        let pay_prv = root
+            .derive(1852 | 0x8000_0000)
+            .derive(1815 | 0x8000_0000)
+            .derive(0x8000_0000)
+            .derive(0)
+            .derive(0);
+        let hash = pay_prv.to_public().to_raw_key().hash();
+        println!("payment_key_hash: {}", hex::encode(hash.to_bytes()));
+        assert_eq!(hash.to_bytes().len(), 28);
+    }
+
+    #[test]
     fn test_derive_keys_from_mnemonic() {
         let result = derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 0, false);
         assert!(result.is_ok());
@@ -84,6 +108,11 @@ mod tests {
         assert!(!keys.account_key.is_empty());
         assert!(!keys.payment_key.is_empty());
         assert!(!keys.stake_key.is_empty());
+        assert_eq!(keys.payment_key_hash.len(), 56); // 28 bytes hex
+        assert_eq!(
+            keys.payment_key_hash,
+            "9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e"
+        );
     }
 
     #[test]

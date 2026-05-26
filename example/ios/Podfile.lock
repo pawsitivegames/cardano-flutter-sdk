@@ -14,7 +14,7 @@ EXTERNAL SOURCES:
     :path: Flutter
 
 SPEC CHECKSUMS:
-  cardano_flutter_rs: d0b263834c26ce2b15a4b4dfb912929a0f281907
+  cardano_flutter_rs: 15f572c726790d0c9209a386eaef3ad08e240903
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
 
 PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e

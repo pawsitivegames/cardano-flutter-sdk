@@ -18,6 +18,81 @@ pub struct SignedTx {
     pub tx_hash: String,
 }
 
+/// Sign a transaction body and attach optional auxiliary data (metadata).
+///
+/// Use this instead of `sign_tx` when the transaction carries CIP-25/68 metadata
+/// produced by `build_cip25_metadata`.  The `aux_data_cbor_hex` must be the
+/// same value returned by `build_mint_tx.aux_data_cbor_hex`.
+///
+/// # Arguments
+/// * `tx_body_cbor_hex` - Serialised transaction body (CBOR hex)
+/// * `payment_keys_hex` - Payment keys as bech32 strings
+/// * `aux_data_cbor_hex` - Optional auxiliary-data CBOR hex
+///
+/// # Errors
+/// * `InvalidKey` - If a key is malformed
+/// * `InvalidCbor` - If the body or aux data CBOR is malformed
+#[frb(sync)]
+pub fn sign_tx_with_metadata(
+    tx_body_cbor_hex: String,
+    payment_keys_hex: Vec<String>,
+    aux_data_cbor_hex: Option<String>,
+) -> Result<SignedTx, String> {
+    sign_tx_with_metadata_internal(tx_body_cbor_hex, payment_keys_hex, aux_data_cbor_hex)
+        .map_err(|e| e.to_string())
+}
+
+pub fn sign_tx_with_metadata_internal(
+    tx_body_cbor_hex: String,
+    payment_keys_hex: Vec<String>,
+    aux_data_cbor_hex: Option<String>,
+) -> Result<SignedTx, CardanoError> {
+    // Validate all keys before doing any work.
+    for key_str in &payment_keys_hex {
+        csl::Bip32PrivateKey::from_bech32(key_str)
+            .map_err(|_| CardanoError::InvalidKey("Invalid payment key format".to_string()))?;
+    }
+
+    let tx_body_bytes = hex::decode(&tx_body_cbor_hex)
+        .map_err(|_| CardanoError::InvalidCbor("Invalid hex encoding".to_string()))?;
+    let tx_body = csl::TransactionBody::from_bytes(tx_body_bytes)
+        .map_err(|_| CardanoError::InvalidCbor("Invalid transaction body CBOR".to_string()))?;
+
+    let body_bytes = tx_body.to_bytes();
+    let hash_array = compute_blake2b256_hash(&body_bytes);
+    let tx_hash_hex = hex::encode(hash_array);
+
+    let mut witnesses = csl::Vkeywitnesses::new();
+    for key_str in payment_keys_hex {
+        let bip32_key = csl::Bip32PrivateKey::from_bech32(&key_str)
+            .map_err(|_| CardanoError::InvalidKey("Invalid payment key format".to_string()))?;
+        let priv_key = bip32_key.to_raw_key();
+        let public_key = priv_key.to_public();
+        let signature = priv_key.sign(&hash_array);
+        let vkey = csl::Vkey::new(&public_key);
+        witnesses.add(&csl::Vkeywitness::new(&vkey, &signature));
+    }
+    let mut witness_set = csl::TransactionWitnessSet::new();
+    witness_set.set_vkeys(&witnesses);
+
+    let aux_data: Option<csl::AuxiliaryData> = if let Some(ref aux_hex) = aux_data_cbor_hex {
+        let aux_bytes = hex::decode(aux_hex)
+            .map_err(|_| CardanoError::InvalidCbor("Invalid aux data hex".to_string()))?;
+        Some(
+            csl::AuxiliaryData::from_bytes(aux_bytes)
+                .map_err(|_| CardanoError::InvalidCbor("Invalid aux data CBOR".to_string()))?,
+        )
+    } else {
+        None
+    };
+
+    let transaction = csl::Transaction::new(&tx_body, &witness_set, aux_data);
+    Ok(SignedTx {
+        tx_cbor_hex: hex::encode(transaction.to_bytes()),
+        tx_hash: tx_hash_hex,
+    })
+}
+
 /// Sign a transaction body with one or more payment keys.
 ///
 /// Takes a serialized transaction body and a list of payment keys (bech32-encoded ed25519
@@ -135,7 +210,7 @@ mod tests {
         let account_key = root_key
             .derive(1852 | 0x80000000)
             .derive(1815 | 0x80000000)
-            .derive(0 | 0x80000000);
+            .derive(0x80000000);
 
         let payment_key = account_key.derive(0).derive(0);
         payment_key.to_bech32()
@@ -215,7 +290,7 @@ mod tests {
             let account_key = root_key
                 .derive(1852 | 0x80000000)
                 .derive(1815 | 0x80000000)
-                .derive(0 | 0x80000000);
+                .derive(0x80000000);
 
             account_key.derive(0).derive(0).to_bech32()
         };

@@ -49,24 +49,48 @@ All new Phase 2 public APIs documented:
 - [x] README code snippet compiles
 - [x] Flutter analyze shows no errors
 - [x] Dartdoc complete on public APIs
+- [x] **Real-device verification on iPhone 13 (iOS 26.5, 2026-05-25)**
+- [x] **Address validation correct** — canonical testnet address derived from test mnemonic via CIP-1852
+- [x] **Full test suite green:** Rust 30/30 · Dart unit 22/22 · Dart FFI 13/13 · Live Blockfrost 1/1
 
 ## Build Output
 
 ```
+# Simulator (original)
 Building com.cardano.flutter.rs.cardanoFlutterRsExample for simulator (ios)...
 Running Xcode build...
 Xcode build done.                                           14.5s
 ✓ Built build/ios/iphonesimulator/Runner.app
+
+# Real device — iPhone 13, iOS 26.5 (2026-05-25)
+Launching lib/main.dart on Taafa's iPhone 13 in debug mode...
+Running Xcode build... Xcode build done. 6.1s
+flutter: [Cardano SDK] SDK Version: cardano_flutter_rs v0.1.0 (CSL-backed)
+flutter: [Cardano SDK] Address valid: true
+flutter: [Cardano SDK] Key derivation successful
 ```
+
+## Test Addresses
+
+The canonical testnet address used in all tests is derived deterministically from the
+standard test mnemonic (`test walk nut penalty hip pave soap entry language right filter choice`)
+via CIP-1852 path `m/1852'/1815'/0'/0/0`, network ID 0 (testnet):
+
+```
+addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz
+```
+
+This address is CSL-validated in the Rust test suite (`address::tests::derive_canonical_testnet_address`).
 
 ## Summary
 
-Phase 2 is **complete and ready for release (v0.2.0)**:
+Phase 2 is **complete and verified on real hardware (v0.2.0)**:
 
 1. **Example app Send screen** - end-to-end testnet transaction demo
 2. **README documentation** - setup and usage guide with compilable snippet
 3. **Dartdoc coverage** - all public APIs documented with examples
-4. **iOS verification** - builds and runs on iOS simulator
+4. **iOS verification** - confirmed on real iPhone 13 (iOS 26.5), not just simulator
+5. **Full test suite** - Rust + Dart unit + Dart FFI + live Blockfrost API all green
 
 The SDK can now:
 - Derive keys from BIP39 mnemonics (Phase 1)

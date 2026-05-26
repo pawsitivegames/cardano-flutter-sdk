@@ -10,6 +10,38 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These functions are ignored because they are not marked as `pub`: `compute_blake2b256_hash`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
+/// Sign a transaction body and attach optional auxiliary data (metadata).
+///
+/// Use this instead of `sign_tx` when the transaction carries CIP-25/68 metadata
+/// produced by `build_cip25_metadata`.  The `aux_data_cbor_hex` must be the
+/// same value returned by `build_mint_tx.aux_data_cbor_hex`.
+///
+/// # Arguments
+/// * `tx_body_cbor_hex` - Serialised transaction body (CBOR hex)
+/// * `payment_keys_hex` - Payment keys as bech32 strings
+/// * `aux_data_cbor_hex` - Optional auxiliary-data CBOR hex
+///
+/// # Errors
+/// * `InvalidKey` - If a key is malformed
+/// * `InvalidCbor` - If the body or aux data CBOR is malformed
+SignedTx signTxWithMetadata(
+        {required String txBodyCborHex,
+        required List<String> paymentKeysHex,
+        String? auxDataCborHex}) =>
+    RustLib.instance.api.crateSignSignTxWithMetadata(
+        txBodyCborHex: txBodyCborHex,
+        paymentKeysHex: paymentKeysHex,
+        auxDataCborHex: auxDataCborHex);
+
+Future<SignedTx> signTxWithMetadataInternal(
+        {required String txBodyCborHex,
+        required List<String> paymentKeysHex,
+        String? auxDataCborHex}) =>
+    RustLib.instance.api.crateSignSignTxWithMetadataInternal(
+        txBodyCborHex: txBodyCborHex,
+        paymentKeysHex: paymentKeysHex,
+        auxDataCborHex: auxDataCborHex);
+
 /// Sign a transaction body with one or more payment keys.
 ///
 /// Takes a serialized transaction body and a list of payment keys (bech32-encoded ed25519

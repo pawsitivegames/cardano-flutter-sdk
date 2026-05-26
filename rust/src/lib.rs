@@ -8,11 +8,15 @@ mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be
 // this crate's own types for stability.
 //
 // Phase 1: CSL-backed address validation and key derivation.
-// Phase 2+: transaction building and signing.
+// Phase 2: transaction building and signing.
+// Phase 3: native minting, Plutus data, CIP-25/68 metadata.
 
 pub mod address;
 pub mod coin_selection;
 pub mod error;
+pub mod metadata;
+pub mod minting;
+pub mod plutus;
 pub mod sign;
 pub mod tx;
 pub mod wallet;
@@ -22,7 +26,16 @@ use flutter_rust_bridge::frb;
 // Re-export public types for Dart convenience
 pub use address::{is_valid_bech32, validate_address, AddressInfo};
 pub use coin_selection::{largest_first, CoinSelectionResult};
-pub use sign::{sign_tx, SignedTx};
+pub use metadata::{build_cip25_metadata, build_cip68_datum, Cip25Asset, Cip25Policy};
+pub use minting::{
+    build_mint_tx, compute_policy_id, make_pubkey_script, make_timelock_expiry_script,
+    BuiltMintTx, MintAsset, MintSpec,
+};
+pub use plutus::{
+    build_script_tx, plutus_data_bytes, plutus_data_constr, plutus_data_int, plutus_data_list,
+    validate_plutus_data, PlutusInput, PlutusScriptVersion,
+};
+pub use sign::{sign_tx, sign_tx_with_metadata, SignedTx};
 pub use tx::{
     build_tx, estimate_fee, min_ada_for_output, BuiltTx, NativeAsset, ProtocolParams, TxInput,
     TxOutput, Value,

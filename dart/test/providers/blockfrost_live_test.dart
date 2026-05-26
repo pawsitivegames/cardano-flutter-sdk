@@ -19,7 +19,7 @@ void main() {
     } else {
       test('fetchProtocolParameters_live_testnet_preview', () async {
         final provider = BlockfrostProvider(
-          projectId: projectId!,
+          projectId: projectId,
           network: Network.testnetPreview,
         );
 

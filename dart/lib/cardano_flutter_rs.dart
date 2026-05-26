@@ -1,6 +1,6 @@
 /// cardano_flutter_rs — production-grade Cardano SDK for Flutter, powered by Rust + FFI.
 ///
-/// See README.md and docs/project-plan.md for usage and architecture.
+/// See README.md and docs/PLAN.md for usage and architecture.
 library cardano_flutter_rs;
 
 // FFI bridge and generated bindings
@@ -16,6 +16,11 @@ export 'src/address.dart' show AddressInfo;
 export 'src/tx.dart';
 export 'src/coin_selection.dart';
 export 'src/sign.dart';
+
+// Phase 3: Native minting, Plutus data, CIP-25/68 metadata
+export 'src/minting.dart';
+export 'src/plutus.dart';
+export 'src/metadata.dart';
 
 // Providers
 export 'src/providers/blockfrost.dart';

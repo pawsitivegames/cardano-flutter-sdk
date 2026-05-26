@@ -269,7 +269,7 @@ fn estimate_min_ada(params: &ProtocolParams) -> u64 {
     // Pure ADA output serialization is ~57 bytes; 160 is Babbage overhead
     let output_size = 57u64;
     let base_overhead = 160u64;
-    (params.coins_per_utxo_byte as u64).saturating_mul(output_size + base_overhead)
+    params.coins_per_utxo_byte.saturating_mul(output_size + base_overhead)
 }
 
 /// Estimate the transaction fee based on the number of inputs.
@@ -278,7 +278,7 @@ fn estimate_fee_for_inputs(num_inputs: usize, params: &ProtocolParams) -> u64 {
     let base_size = 250u64;
     let per_input_size = 43u64;
     let total_size = base_size + (num_inputs as u64).saturating_mul(per_input_size);
-    (params.min_fee_b as u64).saturating_add((params.min_fee_a as u64).saturating_mul(total_size))
+    params.min_fee_b.saturating_add(params.min_fee_a.saturating_mul(total_size))
 }
 
 #[cfg(test)]
@@ -441,7 +441,7 @@ mod tests {
         let change_addr = "addr_change".to_string();
         let params = make_params();
 
-        let result = largest_first(utxos, targets, change_addr, params.clone()).unwrap();
+        let result = largest_first(utxos, targets, change_addr, params).unwrap();
         // Should pick both inputs to ensure change > min_ada
         assert_eq!(result.selected_inputs.len(), 2);
         // Verify change >= min_ada
@@ -469,7 +469,7 @@ mod tests {
         let targets = vec![output("addr_recv", 2_500_000)];
 
         let result1 =
-            largest_first(utxos1, targets.clone(), change_addr.clone(), params.clone()).unwrap();
+            largest_first(utxos1, targets.clone(), change_addr.clone(), params).unwrap();
         let result2 = largest_first(utxos2, targets, change_addr, params).unwrap();
 
         // Should select the same inputs regardless of input order
@@ -517,7 +517,7 @@ mod tests {
             ];
             let targets = vec![output("addr_recv", 1_500_000)];
 
-            if let Ok(result) = largest_first(utxos, targets, change_addr.clone(), params.clone()) {
+            if let Ok(result) = largest_first(utxos, targets, change_addr.clone(), params) {
                 let inputs_sum: u64 = result.selected_inputs.iter().map(|u| u.value.coin).sum();
                 let outputs_sum: u64 = result.change_outputs.iter().map(|o| o.value.coin).sum();
                 // outputs_sum is change, fee is separate
@@ -574,7 +574,7 @@ mod tests {
                 },
             }];
 
-            if let Ok(result) = largest_first(utxos, targets, change_addr.clone(), params.clone()) {
+            if let Ok(result) = largest_first(utxos, targets, change_addr.clone(), params) {
                 let input_asset_qty: u64 = result
                     .selected_inputs
                     .iter()

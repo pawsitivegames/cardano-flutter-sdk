@@ -39,16 +39,37 @@ pub fn is_valid_bech32(addr: String) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::wallet::derive_keys_from_mnemonic_internal;
 
-    // Valid Cardano testnet address
-    const TESTNET_ADDR: &str = "addr_test1qpegxkqsqsg5s44czuppgjkn4eamvf2dlxw7g2nw7pxjf76w2uld";
+    const TEST_MNEMONIC: &str =
+        "test walk nut penalty hip pave soap entry language right filter choice";
+
+    /// Derives a CSL-valid testnet enterprise address from the standard test mnemonic.
+    /// Run with `cargo test derive_canonical -- --nocapture` to print the address.
+    #[test]
+    fn derive_canonical_testnet_address() {
+        let keys = derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 0, true).unwrap();
+        let pub_key = csl::Bip32PublicKey::from_bech32(&keys.payment_key).unwrap();
+        let payment_cred = csl::Credential::from_keyhash(
+            &pub_key.to_raw_key().hash(),
+        );
+        // Network id 0 = testnet
+        let addr = csl::EnterpriseAddress::new(0, &payment_cred)
+            .to_address()
+            .to_bech32(None)
+            .unwrap();
+        println!("Canonical testnet address: {}", addr);
+        assert!(is_valid_bech32(addr));
+    }
+
+    /// Enterprise address derived from the test mnemonic via CIP-1852 m/1852'/1815'/0'/0/0.
+    /// Verified CSL-valid by derive_canonical_testnet_address above.
+    const TESTNET_ADDR: &str =
+        "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz";
 
     #[test]
     fn test_validate_valid_bech32() {
-        // Test with a properly formatted (but may not be semantically valid) address format
-        let addr = "addr1qw2f2cjnal96nuzl0pn5xysqf24kxyxnxvjd7yq6khvn2wl2uld";
-        // Just test that it doesn't crash; CSL validation may be strict
-        let _ = is_valid_bech32(addr.to_string());
+        assert!(is_valid_bech32(TESTNET_ADDR.to_string()));
     }
 
     #[test]

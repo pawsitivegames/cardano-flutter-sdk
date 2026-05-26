@@ -10,32 +10,40 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 **Why FFI:** Generated from Cardano's official CDDL spec. By wrapping in Rust and exposing via FFI, we get correctness for free and protocol upgrades flow downstream automatically rather than requiring SDK rewrites.
 
-**The plan:** see `docs/project-plan.md` and `.claude/goals/INDEPENDENT_PROJECT_STRATEGY.md`. Critical review of stack choices in `.claude/goals/CRITICAL_REVIEW.md`.
+**The plan:** see `docs/PLAN.md` (single source of truth). Critical review of stack choices in `.claude/goals/CRITICAL_REVIEW.md`.
 
 ## Current state
 
-**Phase 2: Complete** ✅
+**Phase 3: Complete & Verified** ✅ *(2026-05-26)*
 
-All transaction pipeline shipped and verified:
-- TX Builder (CSL-backed, inputs/outputs/fees)
-- Coin Selection (CIP-2 largest-first)
-- Blockfrost Provider (HTTP client, testnet + mainnet)
-- Signing (vkey witnesses)
-- Integration Test (live testnet, CI-gated)
-- Verification Doc (docs/PHASE_2_VERIFICATION.md)
+Native token minting, Plutus data encoding, and CIP-25/68 NFT metadata shipped:
+- Native script policies: `makePubkeyScript`, `makeTimelockExpiryScript`, `computePolicyId`
+- Mint/burn transactions: `buildMintTx`, `signMintTransaction`
+- CIP-25 metadata (label 721): `buildCip25Metadata`
+- CIP-68 datum: `buildCip68Datum`
+- PlutusData helpers: `plutusDataInt/Bytes/Constr/List`, `validatePlutusData`
+- Plutus V2/V3 tx: `buildScriptTx` (collateral, redeemers, script-data-hash)
+- `KeyDerivationResult.paymentKeyHash` (Blake2b-224, 28 bytes)
+- Example app: **NFT Mint screen** (end-to-end CIP-25 mint demo)
+- **Test suite:** Rust 55/55 · Dart 93/93 · clippy clean · flutter analyze clean
+- iOS arm64 device + arm64-sim frameworks updated (2.8 MB each)
+
+**Phase 2 (also complete, 2026-05-25):** TX Builder, Coin Selection, Blockfrost, Signing
+- Real-device verification: iPhone 13, iOS 26.5, all green
 
 Decisions made:
 - **Package name:** `cardano_flutter_rs` (pub.dev) + crate name `cardano_flutter_rs` (crates.io)
-- **Active backend:** **CSL** (`cardano-serialization-lib` v15.0.3) — Phase 1 & 2 shipped on CSL. Backend swap to CML or Pallas remains a long-term option.
+- **Active backend:** **CSL** (`cardano-serialization-lib` v15.0.3) — Phases 1–3 on CSL.
 - **FFI:** flutter_rust_bridge v2.12 (pinned)
 - **iOS binary:** dynamic framework (`dart/ios/Libs/cardano_flutter_rs.framework`)
-- **Platform strategy:** Native via Rust FFI; web via JS interop (Phase 3)
+- **Platform strategy:** Native via Rust FFI; web via JS interop (future)
 - **Independent project, no Catalyst funding** — self-funded, quality-driven
-- **New env var:** `BLOCKFROST_PROJECT_ID` (for live integration tests in CI)
+- **Env var:** `BLOCKFROST_PROJECT_ID` (for live integration tests in CI)
+- **Phase 3 known limit:** `build_script_tx` uses empty Costmdls (CSL v15 hides vasil cost models); Plutus txs fail node validation until resolved.
 
 When you start a session, the next phase is:
 - **Phase 2.5 (planned):** Better confirmation polling, multi-asset coin selection, edge case fixes
-- **Phase 3:** Staking operations, hardware wallets (Ledger/Trezor), CIP-30
+- **Phase 4:** Staking operations, hardware wallets (Ledger/Trezor), CIP-30
 
 ## Tech stack (planned versions; verify against latest at install time)
 
@@ -69,23 +77,31 @@ When you start a session, the next phase is:
 
 ## Build / test / lint commands
 
-These are placeholders until the project is bootstrapped — update with real commands as you go.
-
 ```bash
 # Generate Dart bindings from Rust
 flutter_rust_bridge_codegen generate
 
-# Run Rust tests
+# Run Rust tests (55 tests)
 cd rust && cargo test
 
-# Run Dart tests
+# Run Dart tests (requires macOS framework — see below)
 cd dart && flutter test
 
 # Lint everything
 cd rust && cargo clippy --all-targets -- -D warnings && cd ../dart && flutter analyze
 
-# Run the example app
-cd example && flutter run
+# Deploy to connected iOS device (background-friendly)
+cd example && flutter run -d <device-id>
+```
+
+**One-time macOS setup for `flutter test`:** the widget tests load the Rust FFI bridge.
+Build the debug dylib and install it where Flutter's test runner searches:
+```bash
+cd rust && cargo build --lib
+FLUTTER_FRAMEWORKS="/opt/homebrew/Caskroom/flutter/$(flutter --version | head -1 | awk '{print $2}')/flutter/bin/cache/artifacts/engine/darwin-x64/Frameworks"
+mkdir -p "$FLUTTER_FRAMEWORKS/cardano_flutter_rs.framework"
+cp target/debug/libcardano_flutter_rs.dylib "$FLUTTER_FRAMEWORKS/cardano_flutter_rs.framework/cardano_flutter_rs"
+install_name_tool -id "@rpath/cardano_flutter_rs.framework/cardano_flutter_rs" "$FLUTTER_FRAMEWORKS/cardano_flutter_rs.framework/cardano_flutter_rs"
 ```
 
 ## Important external references

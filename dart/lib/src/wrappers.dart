@@ -10,6 +10,8 @@ import 'address.dart';
 import 'tx.dart';
 import 'coin_selection.dart';
 import 'sign.dart';
+import 'minting.dart';
+import 'metadata.dart';
 
 /// Returns the SDK version string.
 Future<String> getSdkVersion() {
@@ -191,7 +193,109 @@ Uint8List signedTxToBytes(SignedTx signedTx) {
   return Uint8List.fromList(List<int>.from(
     List.generate(
       signedTx.txCborHex.length ~/ 2,
-      (i) => int.parse(signedTx.txCborHex.substring(i * 2, i * 2 + 2), radix: 16),
+      (i) =>
+          int.parse(signedTx.txCborHex.substring(i * 2, i * 2 + 2), radix: 16),
     ),
   ));
+}
+
+// ── Phase 3: Minting + Metadata ─────────────────────────────────────────────
+
+/// Build a CIP-25 NFT minting transaction in one call.
+///
+/// Convenience wrapper that:
+/// 1. Builds CIP-25 metadata CBOR from [nftName], [nftImage], etc.
+/// 2. Calls [buildMintTx] with the metadata attached.
+///
+/// Pass the returned [BuiltMintTx] to [signMintTransaction] to complete signing.
+///
+/// Example:
+/// ```dart
+/// final keys = await deriveKeysFromMnemonic(...);
+/// final params = await provider.fetchProtocolParameters();
+/// final utxos = await provider.fetchUtxos(keys.baseAddress);
+///
+/// final builtMintTx = await buildNftMintTransaction(
+///   inputs: utxos,
+///   changeAddress: keys.baseAddress,
+///   policyScript: makePubkeyScript(keyHashHex: keys.paymentKeyHash),
+///   assetNameHex: hex.encode(utf8.encode('MyNFT')),
+///   nftName: 'My NFT',
+///   nftImage: 'ipfs://QmYourImageHash',
+///   mediaType: 'image/png',
+///   ttl: currentSlot + 1000,
+///   params: params,
+/// );
+/// ```
+Future<BuiltMintTx> buildNftMintTransaction({
+  required List<TxInput> inputs,
+  required List<TxOutput> outputs,
+  required String changeAddress,
+  required String policyScript,
+  required String assetNameHex,
+  required String policyIdHex,
+  required String nftName,
+  required String nftImage,
+  String? mediaType,
+  String? description,
+  BigInt? ttl,
+  required ProtocolParams params,
+}) async {
+  final auxDataHex = buildCip25Metadata(
+    policies: [
+      Cip25Policy(
+        policyIdHex: policyIdHex,
+        assets: [
+          Cip25Asset(
+            assetNameHex: assetNameHex,
+            name: nftName,
+            image: nftImage,
+            mediaType: mediaType,
+            description: description,
+          ),
+        ],
+      ),
+    ],
+  );
+
+  return Future.value(buildMintTx(
+    inputs: inputs,
+    outputs: outputs,
+    changeAddress: changeAddress,
+    mintSpecs: [
+      MintSpec(
+        policyScriptCborHex: policyScript,
+        assets: [MintAsset(assetNameHex: assetNameHex, quantity: 1)],
+      ),
+    ],
+    auxDataCborHex: auxDataHex,
+    ttl: ttl,
+    params: params,
+  ));
+}
+
+/// Sign a minting transaction that carries auxiliary data (CIP-25/68 metadata).
+///
+/// Use instead of [signTransaction] when the transaction was built by
+/// [buildMintTx] with a non-null [BuiltMintTx.auxDataCborHex].
+///
+/// Example:
+/// ```dart
+/// final signedTx = await signMintTransaction(
+///   builtMintTx: builtMintTx,
+///   paymentKeys: [keys.paymentKey],
+/// );
+/// await provider.submitTransaction(signedTxToBytes(signedTx));
+/// ```
+Future<SignedTx> signMintTransaction({
+  required BuiltMintTx builtMintTx,
+  required List<String> paymentKeys,
+}) {
+  return Future.value(
+    RustLib.instance.api.crateSignSignTxWithMetadata(
+      txBodyCborHex: builtMintTx.txBodyCborHex,
+      paymentKeysHex: paymentKeys,
+      auxDataCborHex: builtMintTx.auxDataCborHex,
+    ),
+  );
 }

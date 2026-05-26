@@ -7,25 +7,42 @@ Pod::Spec.new do |s|
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Cardano' => 'dev@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
-  s.public_header_files = 'Classes/**/*.h'
+  s.source_files     = 'Classes/**/*.{h,m}'
   s.dependency 'Flutter'
+  s.platform = :ios, '13.0'
 
-  s.platform = :ios, '12.0'
+  # IMPORTANT: Prevents the ObjC plugin code from producing a competing
+  # cardano_flutter_rs.framework. With use_frameworks! in the Podfile,
+  # every pod normally becomes a dynamic framework — which would create a
+  # cardano_flutter_rs.framework from Classes/*.m that then overwrites
+  # (or is overwritten by) the Rust framework below, leaving the device
+  # with only the 87 KB ObjC shell and no Rust symbols.
+  #
+  # static_framework = true makes CocoaPods link the ObjC code statically
+  # into the host binary instead. The Rust vendored_frameworks below becomes
+  # the sole cardano_flutter_rs.framework embedded in Runner.app/Frameworks/.
+  s.static_framework = true
 
-  # iOS Rust dynamic framework built by cargo (cdylib)
+  # Rust dynamic framework — embedded in Runner.app/Frameworks/ at build time.
+  # The script phase below swaps in the correct device / simulator binary
+  # before Xcode processes the embed step.
   s.vendored_frameworks = 'Libs/cardano_flutter_rs.framework'
 
-  s.pod_target_xcconfig = {
-    'DEFINES_MODULE' => 'YES',
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64',
-    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) $(PODS_ROOT)/cardano_flutter_rs',
-  }
+  # Select the right Rust binary (device vs. simulator) before Xcode embeds
+  # the framework. Without this, whatever binary was last written into
+  # Libs/cardano_flutter_rs.framework gets deployed, regardless of target.
+  s.script_phases = [
+    {
+      :name              => '[Cardano SDK] Copy Rust Dylib',
+      :script            => 'bash "${PODS_TARGET_SRCROOT}/copy_dylib.sh"',
+      :execution_position => :before_compile,
+      :output_files      => [
+        '$(PODS_TARGET_SRCROOT)/Libs/cardano_flutter_rs.framework/cardano_flutter_rs',
+      ],
+      :always_out_of_date => '1',
+    }
+  ]
 
-  s.user_target_xcconfig = {
-    'RUNPATH_SEARCH_PATHS' => '$(inherited) @executable_path/Frameworks @loader_path/Frameworks',
-    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) @executable_path/Frameworks @loader_path/Frameworks',
-  }
-
+  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'
 end

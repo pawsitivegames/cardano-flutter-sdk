@@ -1,7 +1,18 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'send_screen.dart';
+import 'mint_screen.dart';
+
+// Compile-time Flutter version injected via --dart-define (optional).
+// Falls back to a placeholder if not provided.
+const String kFlutterVersion =
+    String.fromEnvironment('FLUTTER_VERSION', defaultValue: 'unknown');
+
+// Increment this every build so the running version is visible on screen.
+const String kBuildLabel = 'build-006 · 2026-05-25 · Phase 3';
 
 void main() {
   runApp(const MyApp());
@@ -28,17 +39,33 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Pre-initialize the Rust library in the background
-    _preInitializeLib();
-    // Get Blockfrost project ID from dart-define
-    _blockfrostProjectId = const String.fromEnvironment('BLOCKFROST_PROJECT_ID');
+    // Get Blockfrost project ID from dart-define, fall back to dev key
+    const envKey = String.fromEnvironment('BLOCKFROST_PROJECT_ID');
+    _blockfrostProjectId = envKey.isNotEmpty
+        ? envKey
+        : 'previewAmnr5VzpgWZkHMg8BibEiC4Vqkcq4G7e'; // TODO: remove before release
+    // Auto-run tests on startup for verification
+    debugPrint('[Cardano SDK] App initialized, running tests automatically...');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _testSDK();
+    });
   }
 
   Future<void> _preInitializeLib() async {
     try {
       debugPrint('[Cardano SDK] Starting pre-initialization...');
       if (!kIsWeb) {
-        await RustLib.init();
+        if (Platform.isIOS) {
+          // Build absolute path: Runner.app/ is the parent of the executable.
+          // CocoaPods embeds the framework at Runner.app/Frameworks/.
+          final bundleDir = File(Platform.resolvedExecutable).parent.path;
+          final libPath = '$bundleDir/Frameworks/cardano_flutter_rs.framework/cardano_flutter_rs';
+          await RustLib.init(
+            externalLibrary: ExternalLibrary.open(libPath),
+          );
+        } else {
+          await RustLib.init();
+        }
         debugPrint('[Cardano SDK] RustLib.init() completed successfully');
         setState(() => _libInitialized = true);
       }
@@ -67,7 +94,18 @@ class _MyAppState extends State<MyApp> {
       // Initialize the FFI bridge if not already done (native only, not web)
       if (!_libInitialized) {
         debugPrint('[Cardano SDK] Running RustLib.init() from test button...');
-        await RustLib.init();
+        if (Platform.isIOS) {
+          final exe = Platform.resolvedExecutable;
+          final bundleDir = File(exe).parent.path;
+          final libPath = '$bundleDir/Frameworks/cardano_flutter_rs.framework/cardano_flutter_rs';
+          final exists = File(libPath).existsSync();
+          setState(() => _sdkVersion = 'DEBUG\nexe=$exe\nexists=$exists');
+          await RustLib.init(
+            externalLibrary: ExternalLibrary.open(libPath),
+          );
+        } else {
+          await RustLib.init();
+        }
         setState(() => _libInitialized = true);
         debugPrint('[Cardano SDK] RustLib.init() completed successfully');
       }
@@ -78,8 +116,9 @@ class _MyAppState extends State<MyApp> {
       debugPrint('[Cardano SDK] SDK Version: $version');
 
       // Test 2: Validate a Bech32 address
-      final testAddr =
-          'addr1qw2f2cjnal96nuzl0pn5xysqf24kxyxnxvjd7yq6khvn2wl2uld';
+      // Enterprise address derived from the test mnemonic (CIP-1852 m/1852'/1815'/0'/0/0, testnet)
+      const testAddr =
+          'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
       debugPrint('[Cardano SDK] Testing isValidBech32()...');
       final isValid = await isValidBech32(testAddr);
       debugPrint('[Cardano SDK] Address valid: $isValid');
@@ -124,6 +163,44 @@ class _MyAppState extends State<MyApp> {
         _isTesting = false;
       });
     }
+  }
+
+  void _navigateToMintScreen() {
+    if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please set BLOCKFROST_PROJECT_ID to use the Mint screen'),
+        ),
+      );
+      return;
+    }
+
+    if (_derivedKeys == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please run tests first to derive keys')),
+      );
+      return;
+    }
+
+    const testnetAddress =
+        'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
+
+    final provider = BlockfrostProvider(
+      projectId: _blockfrostProjectId!,
+      network: Network.testnetPreview,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => MintScreen(
+          provider: provider,
+          myAddress: testnetAddress,
+          paymentKey: _derivedKeys!.paymentKey,
+          paymentKeyHash: _derivedKeys!.paymentKeyHash,
+        ),
+      ),
+    );
   }
 
   void _navigateToSendScreen() {
@@ -180,7 +257,25 @@ class _MyAppState extends State<MyApp> {
       ),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Cardano Flutter RS - Phase 1 & 2'),
+          title: const Text('Cardano Flutter RS'),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(20),
+            child: Container(
+              color: Colors.blue.shade800,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: const Text(
+                kBuildLabel,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
         ),
         body: SingleChildScrollView(
           child: Center(
@@ -189,8 +284,10 @@ class _MyAppState extends State<MyApp> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  _VersionBanner(sdkVersion: _sdkVersion),
+                  const SizedBox(height: 12),
                   const Text(
-                    'Phase 1 & 2: SDK + Transaction Building',
+                    'Phase 1–3: SDK + TX + Minting',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -281,16 +378,36 @@ class _MyAppState extends State<MyApp> {
                         onPressed: _testSDK,
                         child: const Text('Re-Run Tests'),
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
                         onPressed: _derivedKeys != null
                             ? _navigateToSendScreen
                             : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                         ),
-                        child: const Text(
-                          'Send Testnet ADA',
+                        icon: const Icon(Icons.send, color: Colors.white, size: 16),
+                        label: const Text(
+                          'Send ADA',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: _derivedKeys != null
+                            ? _navigateToMintScreen
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple,
+                        ),
+                        icon: const Icon(Icons.token, color: Colors.white, size: 16),
+                        label: const Text(
+                          'Mint NFT',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
@@ -304,4 +421,96 @@ class _MyAppState extends State<MyApp> {
       ),
     );
   }
+}
+
+class _VersionBanner extends StatelessWidget {
+  final String sdkVersion;
+  const _VersionBanner({required this.sdkVersion});
+
+  @override
+  Widget build(BuildContext context) {
+    final dartVer = kIsWeb ? 'web' : Platform.version.split(' ').first;
+    final osVer = kIsWeb ? 'web' : Platform.operatingSystemVersion;
+    final mode = kReleaseMode
+        ? 'RELEASE'
+        : kProfileMode
+            ? 'PROFILE'
+            : 'DEBUG';
+
+    final rows = <_InfoRow>[
+      _InfoRow('Build', kBuildLabel),
+      _InfoRow('Mode', mode),
+      _InfoRow('Dart', dartVer),
+      _InfoRow('OS', osVer),
+      if (!sdkVersion.startsWith('Ready') &&
+          !sdkVersion.startsWith('Error') &&
+          !sdkVersion.startsWith('DEBUG'))
+        _InfoRow('Rust SDK', sdkVersion),
+    ];
+
+    return Card(
+      color: Colors.indigo.shade50,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.indigo.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.info_outline, size: 14, color: Colors.indigo.shade700),
+              const SizedBox(width: 4),
+              Text(
+                'Build Info',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.indigo.shade800,
+                ),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            ...rows.map((r) => Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 64,
+                        child: Text(
+                          '${r.label}:',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.indigo.shade600,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          r.value,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow {
+  final String label;
+  final String value;
+  const _InfoRow(this.label, this.value);
 }

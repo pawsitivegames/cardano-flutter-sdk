@@ -46,15 +46,23 @@ class KeyDerivationResult {
   final String paymentKey;
   final String stakeKey;
 
+  /// Blake2b-224 hash of the payment public key (28 bytes = 56 hex chars).
+  /// Use as `key_hash_hex` argument for `make_pubkey_script`.
+  final String paymentKeyHash;
+
   const KeyDerivationResult({
     required this.accountKey,
     required this.paymentKey,
     required this.stakeKey,
+    required this.paymentKeyHash,
   });
 
   @override
   int get hashCode =>
-      accountKey.hashCode ^ paymentKey.hashCode ^ stakeKey.hashCode;
+      accountKey.hashCode ^
+      paymentKey.hashCode ^
+      stakeKey.hashCode ^
+      paymentKeyHash.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -63,5 +71,6 @@ class KeyDerivationResult {
           runtimeType == other.runtimeType &&
           accountKey == other.accountKey &&
           paymentKey == other.paymentKey &&
-          stakeKey == other.stakeKey;
+          stakeKey == other.stakeKey &&
+          paymentKeyHash == other.paymentKeyHash;
 }

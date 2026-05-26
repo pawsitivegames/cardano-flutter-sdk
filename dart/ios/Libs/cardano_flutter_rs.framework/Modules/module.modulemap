@@ -1,0 +1,4 @@
+framework module cardano_flutter_rs {
+  header "cardano_flutter_rs.h"
+  export *
+}

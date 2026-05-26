@@ -56,17 +56,17 @@ pub struct BuiltTx {
 }
 
 /// Map CSL JsError to CardanoError.
-fn map_csl_error(e: csl::JsError) -> CardanoError {
+pub(crate) fn map_csl_error(e: csl::JsError) -> CardanoError {
     CardanoError::CslError(format!("{:?}", e))
 }
 
 /// Map CSL DeserializeError to CardanoError.
-fn map_deserialize_error(e: csl::DeserializeError) -> CardanoError {
+pub(crate) fn map_deserialize_error(e: csl::DeserializeError) -> CardanoError {
     CardanoError::CslError(format!("{:?}", e))
 }
 
 /// Parse a hex string into bytes, or return an error.
-fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, CardanoError> {
+pub(crate) fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, CardanoError> {
     hex::decode(hex).map_err(|e| CardanoError::InvalidParameter {
         field: "hex_string".to_string(),
         reason: format!("Failed to decode hex: {}", e),
@@ -74,7 +74,7 @@ fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, CardanoError> {
 }
 
 /// Convert a TxInput into a CSL TransactionInput and its Value.
-fn input_to_csl(input: &TxInput) -> Result<(csl::TransactionInput, csl::Value), CardanoError> {
+pub(crate) fn input_to_csl(input: &TxInput) -> Result<(csl::TransactionInput, csl::Value), CardanoError> {
     let tx_hash_bytes = hex_to_bytes(&input.tx_hash)?;
     let tx_hash = csl::TransactionHash::from_bytes(tx_hash_bytes).map_err(map_deserialize_error)?;
     let tx_input = csl::TransactionInput::new(&tx_hash, input.output_index);
@@ -84,7 +84,7 @@ fn input_to_csl(input: &TxInput) -> Result<(csl::TransactionInput, csl::Value), 
 }
 
 /// Convert a Value into a CSL Value.
-fn value_to_csl(value: &Value) -> Result<csl::Value, CardanoError> {
+pub(crate) fn value_to_csl(value: &Value) -> Result<csl::Value, CardanoError> {
     if value.assets.is_empty() {
         // Pure ADA
         Ok(csl::Value::new(&csl::BigNum::from(value.coin)))
@@ -117,7 +117,7 @@ fn value_to_csl(value: &Value) -> Result<csl::Value, CardanoError> {
 }
 
 /// Convert a TxOutput into a CSL TransactionOutput.
-fn output_to_csl(output: &TxOutput) -> Result<csl::TransactionOutput, CardanoError> {
+pub(crate) fn output_to_csl(output: &TxOutput) -> Result<csl::TransactionOutput, CardanoError> {
     let address = csl::Address::from_bech32(&output.address)
         .map_err(|_| CardanoError::InvalidAddress("Invalid output address bech32".to_string()))?;
 
@@ -280,9 +280,9 @@ pub fn min_ada_for_output(output: TxOutput, coins_per_utxo_byte: u64) -> Result<
     let needed = csl::min_ada_for_output(&csl_output, &data_cost).map_err(map_csl_error)?;
 
     // Convert BigNum to u64 via string parsing
-    Ok(needed.to_str().parse().map_err(|_| CardanoError::TxBuild {
+    needed.to_str().parse().map_err(|_| CardanoError::TxBuild {
         reason: "Failed to convert min_ada BigNum to u64".to_string(),
-    })?)
+    })
 }
 
 /// Estimate the fee for a transaction body.

@@ -28,11 +28,11 @@ void main() {
 
   group('Address Validation', () {
     test('validates bech32 format', () async {
-      // Valid Cardano address
+      // Enterprise address derived from the test mnemonic (CIP-1852 m/1852'/1815'/0'/0/0, testnet)
       const validAddr =
-          'addr1qw2f2cjnal96nuzl0pn5xysqf24kxyxnxvjd7yq6khvn2wl2uld';
+          'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
       final isValid = await isValidBech32(validAddr);
-      expect(isValid, isA<bool>());
+      expect(isValid, isTrue);
     });
 
     test('rejects malformed addresses', () async {
@@ -46,12 +46,13 @@ void main() {
       expect(isValid, isFalse);
     });
 
-    test('validateAddress returns AddressInfo', () async {
+    test('validateAddress returns AddressInfo with correct network', () async {
       const testAddr =
-          'addr1qw2f2cjnal96nuzl0pn5xysqf24kxyxnxvjd7yq6khvn2wl2uld';
+          'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
       final info = await validateAddress(testAddr);
       expect(info, isA<AddressInfo>());
-      expect(info.address, isNotEmpty);
+      expect(info.address, equals(testAddr));
+      expect(info.network, equals('testnet'));
     });
   });
 
@@ -108,6 +109,20 @@ void main() {
       // Different accounts should derive different keys
       expect(account0.accountKey, isNotEmpty);
       expect(account1.accountKey, isNotEmpty);
+    });
+
+    test('paymentKeyHash is 56-char hex (28 bytes)', () async {
+      final keys = await deriveKeysFromMnemonic(
+        mnemonic: testMnemonic,
+        passphrase: emptyPassphrase,
+        accountIndex: validAccountIndex,
+        isTestnet: false,
+      );
+      expect(keys.paymentKeyHash.length, equals(56));
+      expect(
+        RegExp(r'^[0-9a-f]+$').hasMatch(keys.paymentKeyHash),
+        isTrue,
+      );
     });
 
     test('rejects invalid mnemonic', () async {
@@ -168,7 +183,7 @@ void main() {
       expect(version1, equals(version2));
 
       const testAddr =
-          'addr1qw2f2cjnal96nuzl0pn5xysqf24kxyxnxvjd7yq6khvn2wl2uld';
+          'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
       final validation = await isValidBech32(testAddr);
       expect(validation, isA<bool>());
     });

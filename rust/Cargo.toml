@@ -7,7 +7,7 @@ description = "Rust FFI wrapper around cardano-multiplatform-lib for the cardano
 repository = "https://github.com/YOUR_HANDLE/cardano-flutter-sdk"
 
 [lib]
-crate-type = ["cdylib"]  # Dynamic library for all platforms (Flutter Rust Bridge compatibility)
+crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 # Verify latest versions at install time — these are starting points
@@ -29,3 +29,6 @@ network = ["tokio"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros", "test-util"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(frb_expand)'] }
