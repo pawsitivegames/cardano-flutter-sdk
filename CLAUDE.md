@@ -39,7 +39,7 @@ Decisions made:
 - **Platform strategy:** Native via Rust FFI; web via JS interop (future)
 - **Independent project, no Catalyst funding** — self-funded, quality-driven
 - **Env var:** `BLOCKFROST_PROJECT_ID` (for live integration tests in CI)
-- **Phase 3 known limit:** `build_script_tx` uses empty Costmdls (CSL v15 hides vasil cost models); Plutus txs fail node validation until resolved.
+- **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
 
 When you start a session, the next phase is:
 - **Phase 2.5 (planned):** Better confirmation polling, multi-asset coin selection, edge case fixes
