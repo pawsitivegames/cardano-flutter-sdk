@@ -101,6 +101,7 @@ Completed features:
 
 ### Prerequisites
 
+- **Git LFS** — the prebuilt iOS binaries in `dart/ios/Libs/` are stored via [Git LFS](https://git-lfs.com). Install it **before cloning** (`brew install git-lfs && git lfs install`), or a plain clone will leave you with small pointer files instead of the real `.dylib`/framework binaries.
 - **Rust 1.70+** (stable, edition 2021)
 - **Flutter 3.19.0+** with Dart 3.3.0+
 - **iOS:** Xcode 15.0+ (for simulator testing)
@@ -109,9 +110,14 @@ Completed features:
 ### Build & Run
 
 ```bash
+# 0. (one-time) Install Git LFS so the iOS binaries download as real files
+brew install git-lfs   # or: apt install git-lfs
+git lfs install
+
 # 1. Clone and cd into the project
-git clone https://github.com/YOUR_HANDLE/cardano-flutter-sdk.git
+git clone https://github.com/pawsitivegames/cardano-flutter-sdk.git
 cd cardano-flutter-sdk
+# Already cloned without LFS? Run: git lfs pull
 
 # 2. Install Flutter dependencies
 cd dart && flutter pub get && cd ..
