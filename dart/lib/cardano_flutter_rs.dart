@@ -31,6 +31,11 @@ export 'src/staking.dart' show BuiltStakingTx;
 // Only export SignedMessage type; the functions are wrapped in wrappers.dart
 export 'src/message.dart' show SignedMessage;
 
+// Phase 4.3: CIP-30 dApp connector
+// Raw serialization/signing primitives + the high-level Cip30Wallet class.
+export 'src/cip30.dart';
+export 'src/cip30/cip30_wallet.dart';
+
 // Providers
 export 'src/providers/blockfrost.dart';
 export 'src/providers/blockfrost_errors.dart';

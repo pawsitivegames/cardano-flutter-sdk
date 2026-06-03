@@ -14,6 +14,26 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
+**Phase 4.3: Complete & Verified** ✅ *(2026-06-02)*
+
+CIP-30 dApp connector shipped:
+- Rust `cip30` module (CSL-backed serialization + CIP-8/COSE signing):
+  - `computeBaseAddress`, `addressToHex` (CIP-30 hex address encoding)
+  - `valueToCborHex`, `utxoToCborHex` (CBOR `Value` / `TransactionUnspentOutput`)
+  - `sumValues` (multi-asset balance folding via CSL)
+  - `cip30SignTx` (returns `transaction_witness_set` hex)
+  - `cip30SignData` / `cip30VerifyData` (real `COSE_Sign1` + `COSE_Key`, RFC 9052)
+- Dart `Cip30Wallet` class (`fromMnemonic`) implementing the CIP-30 surface:
+  `getNetworkId`, `getUtxos`, `getBalance`, `getChangeAddress`,
+  `getUsedAddresses`, `getUnusedAddresses`, `getRewardAddresses`, `signTx`,
+  `signData`, `submitTx`
+- Example app: **CIP-30 screen** (live method explorer + signData/verify demo)
+- **Test suite:** Rust 90/90 · Dart 119/119 (+ live testnet CIP-30 check) · clippy clean · analyze clean
+- iOS device + simulator dylibs rebuilt with CIP-30 (3.1 MB each) → v0.6.0
+- **Note:** COSE signatures are internally round-trip verified and follow
+  CIP-8/RFC 9052, but not yet cross-checked against a third-party wallet
+  (Lace/Eternl). Do that before relying on signData interop in production.
+
 **Phase 3: Complete & Verified** ✅ *(2026-05-26)*
 
 Native token minting, Plutus data encoding, and CIP-25/68 NFT metadata shipped:
@@ -52,8 +72,9 @@ Decisions made:
 - **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
 
 When you start a session, the next phase is:
-- **Phase 4.1:** Staking operations (register stake key, delegate, withdraw rewards, deregister) → v0.4.0
-- Then: 4.2 Message Signing (CIP-8) → 4.3 CIP-30 → 4.4 CIP-45/WalletConnect → 4.5 Hardware Wallets → v1.0.0
+- **Phase 4.4:** CIP-45 WalletConnect v2 + deep linking (iOS/Android wallet handoff) → v0.7.0
+- Then: 4.5 Hardware Wallets (Ledger/Trezor) → v1.0.0
+- Done: 4.1 Staking (v0.4.0) · 4.2 Message Signing CIP-8 (v0.5.0) · 4.3 CIP-30 (v0.6.0)
 
 ## Tech stack (planned versions; verify against latest at install time)
 

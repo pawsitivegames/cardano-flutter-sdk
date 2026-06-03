@@ -37,7 +37,8 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 2.5 — Production hardening | ✅ **Complete 2026-05-25** | v0.3.1 |
 | 4.1 — Staking operations | ✅ **Verified 2026-05-26** | v0.4.0 |
 | 4.2 — Message signing (CIP-8) | ✅ **Complete 2026-05-26** | v0.5.0 |
-| 4.3+ | Planned | — |
+| 4.3 — CIP-30 dApp connector | ✅ **Verified 2026-06-02** | v0.6.0 |
+| 4.4+ | Planned | — |
 
 **Phase 2 verification (2026-05-25):**
 - Rust 30/30 · Dart unit 22/22 · Dart FFI 13/13 · Live Blockfrost 1/1
@@ -64,6 +65,16 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 - Blake2b-256 hashing + Ed25519 signatures + CBOR encoding
 - Example app: Message screen with sign/verify UI for dApp auth
 - Build label: build-008 · Phase 4.2
+
+**Phase 4.3 verification (2026-06-02):**
+- Rust 90/90 (13 new cip30 tests) · Dart 119/119 (17 new cip30 tests) · clippy clean · analyze clean
+- Live testnet check: `Cip30Wallet` getNetworkId/getUtxos/getBalance against Blockfrost preview ✅
+- New Rust module: `cip30` (CSL serialization + CIP-8/COSE_Sign1 data signing)
+- New Dart class: `Cip30Wallet.fromMnemonic` — full CIP-30 method surface
+- Example app: CIP-30 screen (method explorer + signData/verify)
+- iOS device + simulator dylibs rebuilt (3.1 MB); example builds for simulator
+- Caveat: COSE signatures round-trip-verify internally and follow CIP-8/RFC 9052,
+  but interop with third-party wallets (Lace/Eternl) is not yet cross-verified.
 
 **Phase 2.5 verification (2026-05-25):**
 - Rust 56/56 · Dart 102/102 · 1 live test skipped · clippy clean · flutter analyze clean
@@ -137,17 +148,21 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 
 ---
 
-### Phase 4.3 — CIP-30 dApp Connector → v0.6.0
+### Phase 4.3 — CIP-30 dApp Connector → v0.6.0 ✅
 *Dependency: Phase 4.2 complete.*
 
 **Deliverables:**
-- Full CIP-30 wallet API: `getNetworkId`, `getUtxos`, `getBalance`, `signTx`, `signData`, `submitTx`, `getChangeAddress`, `getRewardAddresses`, `getUsedAddresses`, `getUnusedAddresses`
-- In-app wallet interface (Flutter app acts as CIP-30 wallet backend)
-- Example: Flutter dApp connecting to the SDK wallet
+- Full CIP-30 wallet API: `getNetworkId`, `getUtxos`, `getBalance`, `signTx`, `signData`, `submitTx`, `getChangeAddress`, `getRewardAddresses`, `getUsedAddresses`, `getUnusedAddresses` ✅
+- In-app wallet interface (`Cip30Wallet` — Flutter app acts as CIP-30 wallet backend) ✅
+- Example: CIP-30 screen exercising every method + signData/verify ✅
 
 **Verification:**
-- All CIP-30 methods implemented and spec-compliant
-- Example dApp can fetch UTXOs, sign a tx, and submit — end-to-end
+- All CIP-30 methods implemented; outputs are spec-shaped (hex addresses, CBOR
+  `Value`/`TransactionUnspentOutput`, `transaction_witness_set`, COSE `DataSignature`) ✅
+- Rust 90/90 · Dart 119/119 · live testnet getUtxos/getBalance ✅
+- signData is real CIP-8 `COSE_Sign1` + `COSE_Key` (RFC 9052), internally verified ✅
+- ⚠️ Remaining for full closure: cross-verify signData against a third-party
+  wallet, and a live end-to-end signTx → submit on testnet from the example app.
 
 ---
 

@@ -7,6 +7,7 @@ import 'send_screen.dart';
 import 'mint_screen.dart';
 import 'stake_screen.dart';
 import 'message_screen.dart';
+import 'cip30_screen.dart';
 
 // Compile-time Flutter version injected via --dart-define (optional).
 // Falls back to a placeholder if not provided.
@@ -275,6 +276,36 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  void _navigateToCip30Screen() {
+    if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please set BLOCKFROST_PROJECT_ID environment variable or run with --dart-define=BLOCKFROST_PROJECT_ID=your_id',
+          ),
+        ),
+      );
+      return;
+    }
+
+    const testMnemonic =
+        'test walk nut penalty hip pave soap entry language right filter choice';
+
+    final provider = BlockfrostProvider(
+      projectId: _blockfrostProjectId!,
+      network: Network.testnetPreview,
+    );
+
+    _navigatorKey.currentState!.push(
+      MaterialPageRoute(
+        builder: (ctx) => Cip30Screen(
+          provider: provider,
+          mnemonic: testMnemonic,
+        ),
+      ),
+    );
+  }
+
   void _navigateToSendScreen() {
     if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -514,6 +545,21 @@ class _MyAppState extends State<MyApp> {
                             color: Colors.white, size: 16),
                         label: const Text(
                           'Sign Message',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: _libInitialized
+                            ? _navigateToCip30Screen
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                        ),
+                        icon: const Icon(Icons.hub,
+                            color: Colors.white, size: 16),
+                        label: const Text(
+                          'CIP-30',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
