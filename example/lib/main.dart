@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'package:app_links/app_links.dart';
 import 'send_screen.dart';
 import 'mint_screen.dart';
 import 'stake_screen.dart';
 import 'message_screen.dart';
 import 'cip30_screen.dart';
+import 'cip45_screen.dart';
 
 // Compile-time Flutter version injected via --dart-define (optional).
 // Falls back to a placeholder if not provided.
@@ -41,6 +43,8 @@ class _MyAppState extends State<MyApp> {
   String? _myAddress;
   KeyDerivationResult? _derivedKeys;
 
+  final AppLinks _appLinks = AppLinks();
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +58,19 @@ class _MyAppState extends State<MyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _testSDK();
     });
+    _initDeepLinks();
+  }
+
+  /// Listen for `web+cardano://connect/...` deep links (CIP-45) and route them
+  /// to the CIP-45 wallet screen.
+  void _initDeepLinks() {
+    if (kIsWeb) return;
+    _appLinks.uriLinkStream.listen((uri) {
+      final s = uri.toString();
+      if (s.startsWith('${Cip45ConnectionUri.scheme}://')) {
+        _navigateToCip45Screen(initialUri: s);
+      }
+    }, onError: (_) {});
   }
 
   Future<void> _preInitializeLib() async {
@@ -301,6 +318,38 @@ class _MyAppState extends State<MyApp> {
         builder: (ctx) => Cip30Screen(
           provider: provider,
           mnemonic: testMnemonic,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToCip45Screen({String? initialUri}) {
+    final projectId = _blockfrostProjectId;
+    if (projectId == null || projectId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please set BLOCKFROST_PROJECT_ID environment variable or run with --dart-define=BLOCKFROST_PROJECT_ID=your_id',
+          ),
+        ),
+      );
+      return;
+    }
+
+    const testMnemonic =
+        'test walk nut penalty hip pave soap entry language right filter choice';
+
+    final provider = BlockfrostProvider(
+      projectId: projectId,
+      network: Network.testnetPreview,
+    );
+
+    _navigatorKey.currentState!.push(
+      MaterialPageRoute(
+        builder: (ctx) => Cip45Screen(
+          provider: provider,
+          mnemonic: testMnemonic,
+          initialUri: initialUri,
         ),
       ),
     );
@@ -560,6 +609,20 @@ class _MyAppState extends State<MyApp> {
                             color: Colors.white, size: 16),
                         label: const Text(
                           'CIP-30',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed:
+                            _libInitialized ? () => _navigateToCip45Screen() : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                        ),
+                        icon: const Icon(Icons.cable,
+                            color: Colors.white, size: 16),
+                        label: const Text(
+                          'CIP-45',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),

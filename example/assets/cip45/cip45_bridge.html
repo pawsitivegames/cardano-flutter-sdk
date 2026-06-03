@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CIP-45 bridge</title>
+  <script src="bugout.min.js"></script>
+</head>
+<body>
+<script>
+  // This page runs inside a headless WebView in the Flutter wallet app. It hosts
+  // the CIP-45 reference transport (bugout: WebTorrent discovery + WebRTC) and
+  // bridges RPC calls to/from Dart via flutter_inappwebview handlers.
+  //
+  // Dart -> JS:  startBugout(identifier, name, version, methods)
+  // JS  -> Dart: callHandler('log', level, msg)
+  //              callHandler('status', state)
+  //              callHandler('rpc', method, params) -> Promise<result>
+
+  var bugout = null;
+
+  function log(level, msg) {
+    try { window.flutter_inappwebview.callHandler('log', level, '' + msg); } catch (e) {}
+  }
+  function status(s) {
+    try { window.flutter_inappwebview.callHandler('status', s); } catch (e) {}
+  }
+
+  // The wallet is a bugout *client* that connects to the dApp's identifier
+  // (its bugout address). It registers the CIP-30 methods so the dApp can call
+  // them, and announces its API once connected.
+  window.startBugout = function (identifier, name, version, methods) {
+    try {
+      bugout = new Bugout(identifier, {
+        announce: [
+          'wss://tracker.openwebtorrent.com',
+          'wss://tracker.files.fm:7073/announce',
+          'wss://tracker.btorrent.xyz',
+          'wss://tracker.webtorrent.dev'
+        ]
+      });
+
+      bugout.on('connections', function (c) { log('info', c + ' peer(s)'); });
+
+      bugout.on('server', function () {
+        log('info', 'connected to dApp ' + identifier.slice(0, 12) + '…');
+        // Announce our API to the dApp (CIP-45 handshake).
+        bugout.rpc(identifier, 'api', {
+          api: { version: version, name: name, methods: methods }
+        });
+        status('connected');
+      });
+
+      // Register each CIP-30 method; bridge the call into Dart and reply.
+      methods.forEach(function (m) {
+        bugout.register(m, function (address, args, callback) {
+          log('info', 'rpc <- ' + m);
+          var params = (args && args.params) ? args.params : [];
+          window.flutter_inappwebview.callHandler('rpc', m, params)
+            .then(function (result) { callback(result); })
+            .catch(function (err) { callback({ error: '' + err }); });
+        });
+      });
+
+      status('announcing');
+      log('info', 'bugout started; waiting for dApp…');
+    } catch (e) {
+      log('error', e);
+      status('error: ' + e);
+    }
+  };
+
+  status('ready');
+</script>
+</body>
+</html>

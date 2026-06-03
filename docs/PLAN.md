@@ -183,10 +183,17 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 - Example: CIP-45 card (connection URI + simulated dApp RPC call) ✅
 - Dart 15 new tests; analyze clean ✅
 
-**Deferred (needs a real transport + device testing — see `docs/cip45-transport.md`):**
-- WebTorrent/WebRTC transport implementation (e.g. `bugout`/`flutter_webrtc`)
-- iOS/Android deep-link registration for `web+cardano://`
-- Two-device verification: dApp QR → wallet scan → connect → RPC round-trip
+**Reference transport implemented (example app):**
+- `BugoutCip45Transport` — hosts `bugout.min.js` (WebTorrent+WebRTC) in a headless
+  WebView (`flutter_inappwebview`) and bridges RPC to `Cip45WalletHandler` ✅
+- CIP-45 wallet screen (paste/deep-link a URI → connect → serve CIP-30 calls) ✅
+- Reference dApp page `example/assets/cip45/dapp.html` (URI + QR + method buttons) ✅
+- iOS `web+cardano://` deep link (Info.plist + `app_links`) ✅
+- Builds for iOS simulator; deps confined to the example (core stays lean) ✅
+
+**Pending (needs live two-peer run on a device — see `docs/cip45-testing.md`):**
+- dApp page ↔ wallet connect over public trackers, RPC round-trip, signData/signTx
+- Android intent-filter + Android device run (iOS prioritized first)
 
 ---
 

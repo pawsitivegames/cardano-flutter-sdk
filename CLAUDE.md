@@ -14,19 +14,21 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
-**Phase 4.4: CIP-45 core done** 🟡 *(2026-06-02)* — transport deferred
+**Phase 4.4: CIP-45 implemented** 🟡 *(2026-06-02)* — awaiting live 2-peer verify
 
-Transport-agnostic CIP-45 protocol core (pure Dart, fully unit-tested):
-- `Cip45ConnectionUri` — CIP-13 `web+cardano://connect/v1?identifier=…` build/parse
-- `Cip45WalletHandler` — routes inbound RPC (CIP-30 method names) to `Cip30Wallet`,
-  plus the API-announcement payload for the handshake
-- `Cip45Transport` — interface for a pluggable WebTorrent/WebRTC backend
-- Example: CIP-45 card on the CIP-30 screen (connection URI + simulated RPC)
-- **Tests:** Dart +15 (cip45) · analyze clean. No Rust change (no dylib rebuild).
+Protocol core (package, unit-tested) + reference transport (example):
+- Core: `Cip45ConnectionUri` (CIP-13 `web+cardano://` build/parse),
+  `Cip45WalletHandler` (routes inbound RPC → `Cip30Wallet` + API announcement),
+  `Cip45Transport` interface. Dart +15 cip45 tests.
+- Transport (example): `BugoutCip45Transport` — hosts `bugout.min.js`
+  (WebTorrent+WebRTC) in a headless WebView (`flutter_inappwebview`), bridges RPC.
+- Example: **CIP-45 screen** (paste/deep-link a connection URI → connect → serve
+  CIP-30 calls) + reference dApp page `example/assets/cip45/dapp.html`.
+- iOS `web+cardano://` deep link (Info.plist + `app_links`) → opens CIP-45 screen.
+- Builds for iOS simulator; **deps added to example only** (core stays lean).
 - **Spec note:** CIP-45 is WebTorrent+WebRTC (not WalletConnect — common myth).
-- **Deferred** (needs real transport + 2-device testing): WebTorrent/WebRTC
-  transport, iOS/Android `web+cardano://` deep links, end-to-end pairing.
-  See `docs/cip45-transport.md`.
+- **Pending:** live 2-peer run (dApp page + wallet on device) — user-tested next.
+  Guide: `docs/cip45-testing.md`. Transport notes: `docs/cip45-transport.md`.
 
 **Phase 4.3: Complete & Verified** ✅ *(2026-06-02)*
 

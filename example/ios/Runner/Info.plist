@@ -45,5 +45,18 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- CIP-45: register the web+cardano:// scheme so dApp connection links
+	     open this wallet (handled via app_links → Cip45Screen). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.cardano.flutter.rs.cip45</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>web+cardano</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

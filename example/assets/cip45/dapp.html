@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CIP-45 reference dApp</title>
+  <script src="bugout.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #222; }
+    h1 { font-size: 20px; } h2 { font-size: 15px; margin-top: 24px; }
+    code, .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; word-break: break-all; }
+    #uri { background:#f4f4f8; padding:10px; border-radius:8px; }
+    button { margin:4px 6px 4px 0; padding:8px 12px; border:0; border-radius:6px; background:#5b34c4; color:#fff; font-size:13px; cursor:pointer; }
+    button:disabled { background:#bbb; cursor:default; }
+    #log { background:#0d1117; color:#c9d1d9; padding:12px; border-radius:8px; font-family: ui-monospace, monospace; font-size:12px; white-space:pre-wrap; min-height:120px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; }
+    .ok { background:#1f883d; color:#fff; } .wait { background:#bf8700; color:#fff; }
+  </style>
+</head>
+<body>
+  <h1>CIP-45 reference dApp</h1>
+  <p>Status: <span id="status" class="pill wait">starting…</span></p>
+
+  <h2>1. Connection URI (CIP-13)</h2>
+  <p>Scan the QR or paste this URI into the wallet app's CIP-45 screen:</p>
+  <p id="uri" class="mono">…</p>
+  <canvas id="qr"></canvas>
+
+  <h2>2. Call wallet methods</h2>
+  <div id="methods"><em>Waiting for the wallet to connect and announce its API…</em></div>
+
+  <h2>Log</h2>
+  <div id="log"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const log = (m) => { $('log').textContent = '› ' + m + '\n' + $('log').textContent; };
+  const setStatus = (t, cls) => { const s = $('status'); s.textContent = t; s.className = 'pill ' + (cls||'wait'); };
+
+  const TRACKERS = [
+    'wss://tracker.openwebtorrent.com',
+    'wss://tracker.files.fm:7073/announce',
+    'wss://tracker.btorrent.xyz',
+    'wss://tracker.webtorrent.dev'
+  ];
+
+  // dApp acts as the bugout *server*: it owns the identifier the wallet connects to.
+  const bugout = new Bugout({ seed: localStorage['cip45-dapp-seed'], announce: TRACKERS });
+  localStorage['cip45-dapp-seed'] = bugout.seed;
+
+  const identifier = bugout.address();
+  const uri = 'web+cardano://connect/v1?identifier=' + identifier;
+  $('uri').textContent = uri;
+  QRCode.toCanvas($('qr'), uri, { width: 220 }, (e) => { if (e) log('QR error: ' + e); });
+  log('dApp identifier: ' + identifier);
+  setStatus('waiting for wallet…', 'wait');
+
+  let walletAddress = null;
+  let walletApi = null;
+
+  bugout.on('connections', (c) => log(c + ' peer(s) connected'));
+
+  // The wallet announces its API here (CIP-45 handshake).
+  bugout.register('api', (address, args, callback) => {
+    walletAddress = address;
+    walletApi = (args && args.api) ? args.api : { methods: [] };
+    log('wallet connected: ' + (walletApi.name || '?') + ' v' + (walletApi.version || '?'));
+    setStatus('wallet connected', 'ok');
+    renderMethods();
+    callback({ ok: true });
+  });
+
+  function call(method, params) {
+    if (!walletAddress) { log('no wallet connected'); return; }
+    log('→ ' + method + '(' + JSON.stringify(params) + ')');
+    bugout.rpc(walletAddress, method, { params: params }, (result) => {
+      log('← ' + method + ': ' + JSON.stringify(result));
+    });
+  }
+
+  function renderMethods() {
+    const box = $('methods');
+    box.innerHTML = '';
+    (walletApi.methods || []).forEach((m) => {
+      const b = document.createElement('button');
+      b.textContent = m;
+      b.onclick = () => {
+        if (m === 'signData') {
+          const addr = prompt('address hex (leave blank to let the wallet use its base address)') || '';
+          const payload = prompt('payload hex (e.g. ' + toHex('hello') + ')') || toHex('hello');
+          call('signData', [addr || null, payload].filter((x) => x !== null));
+        } else if (m === 'signTx') {
+          const tx = prompt('unsigned tx CBOR hex'); if (tx) call('signTx', [tx, false]);
+        } else if (m === 'submitTx') {
+          const tx = prompt('signed tx CBOR hex'); if (tx) call('submitTx', [tx]);
+        } else {
+          call(m, []);
+        }
+      };
+      box.appendChild(b);
+    });
+  }
+
+  function toHex(s) {
+    return Array.from(new TextEncoder().encode(s)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+</script>
+</body>
+</html>
