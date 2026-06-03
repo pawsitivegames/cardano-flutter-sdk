@@ -29,8 +29,8 @@ use flutter_rust_bridge::frb;
 // Re-export public types for Dart convenience
 pub use address::{is_valid_bech32, validate_address, AddressInfo};
 pub use cip30::{
-    address_to_hex, cip30_sign_data, cip30_sign_tx, cip30_verify_data, compute_base_address,
-    sum_values, utxo_to_cbor_hex, value_to_cbor_hex, DataSignature,
+    address_to_hex, cip30_assemble_tx, cip30_sign_data, cip30_sign_tx, cip30_verify_data,
+    compute_base_address, sum_values, utxo_to_cbor_hex, value_to_cbor_hex, DataSignature,
 };
 pub use coin_selection::{largest_first, CoinSelectionResult};
 pub use message::{sign_message, verify_message, SignedMessage};

@@ -178,7 +178,8 @@ class Cip30Wallet {
   ///
   /// [addressHex] defaults to the wallet's base address. The payment key signs
   /// for the base address; the stake key signs for the reward address.
-  Future<DataSignature> signData(String payloadHex, {String? addressHex}) async {
+  Future<DataSignature> signData(String payloadHex,
+      {String? addressHex}) async {
     final addr = addressHex ?? addressToHex(addressBech32: baseAddress);
     final rewardHex = addressToHex(addressBech32: rewardAddress);
     final signingKey =

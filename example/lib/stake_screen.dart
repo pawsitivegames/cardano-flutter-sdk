@@ -58,15 +58,6 @@ class _StakeScreenState extends State<StakeScreen> {
     super.dispose();
   }
 
-  ProtocolParams _toProtocolParams(ProtocolParameters p) => ProtocolParams(
-        minFeeA: BigInt.from(p.minFeeA),
-        minFeeB: BigInt.from(p.minFeeB),
-        coinsPerUtxoByte: BigInt.from(p.coinsPerUtxoByte),
-        maxTxSize: p.maxTxSize,
-        poolDeposit: BigInt.from(p.poolDeposit),
-        keyDeposit: BigInt.from(p.keyDeposit),
-        maxValSize: p.maxValueSize,
-      );
 
   Future<void> _loadAccountInfo() async {
     setState(() {
@@ -122,7 +113,7 @@ class _StakeScreenState extends State<StakeScreen> {
 
       setState(() => _statusMessage = 'Fetching protocol parameters...');
       final rawParams = await widget.provider.fetchProtocolParameters();
-      final params = _toProtocolParams(rawParams);
+      final params = rawParams.toProtocolParams();
       final inputs = utxosToTxInputs(utxos);
 
       setState(() => _statusMessage = 'Building $actionLabel transaction...');

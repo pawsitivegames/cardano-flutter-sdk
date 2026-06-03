@@ -27,12 +27,22 @@ CIP-30 dApp connector shipped:
   `getNetworkId`, `getUtxos`, `getBalance`, `getChangeAddress`,
   `getUsedAddresses`, `getUnusedAddresses`, `getRewardAddresses`, `signTx`,
   `signData`, `submitTx`
+  - `cip30SignData` / `cip30VerifyData` now built on Emurgo's
+    `cardano-message-signing` (the reference COSE lib Lace/Eternl use via WASM),
+    so output is interop-correct by construction
+  - `cip30AssembleTx` (dApp-side: combine body + witness set into a submittable tx)
+- Dart `Cip30Wallet` class (`fromMnemonic`) implementing the CIP-30 surface:
+  `getNetworkId`, `getUtxos`, `getBalance`, `getChangeAddress`,
+  `getUsedAddresses`, `getUnusedAddresses`, `getRewardAddresses`, `signTx`,
+  `signData`, `submitTx`
+- `ProtocolParameters.toProtocolParams()` extension (de-dups example screens)
 - Example app: **CIP-30 screen** (live method explorer + signData/verify demo)
-- **Test suite:** Rust 90/90 · Dart 119/119 (+ live testnet CIP-30 check) · clippy clean · analyze clean
-- iOS device + simulator dylibs rebuilt with CIP-30 (3.1 MB each) → v0.6.0
-- **Note:** COSE signatures are internally round-trip verified and follow
-  CIP-8/RFC 9052, but not yet cross-checked against a third-party wallet
-  (Lace/Eternl). Do that before relying on signData interop in production.
+- **Test suite:** Rust 91/91 · Dart 119/119 · clippy clean · analyze clean
+- **Live testnet verified:** end-to-end CIP-30 `signTx → assemble → submit`
+  confirmed on-chain (preview tx `01cc6d66…e11277`); getUtxos/getBalance live
+- iOS device + simulator dylibs rebuilt (3.2 MB each) → v0.6.0
+- Caveat closed: COSE built on the reference library + interop-shaped test.
+  Still nice-to-have: a real cross-wallet (Lace/Eternl) signData handshake.
 
 **Phase 3: Complete & Verified** ✅ *(2026-05-26)*
 

@@ -12,6 +12,9 @@ crate-type = ["staticlib", "cdylib"]
 [dependencies]
 # Verify latest versions at install time — these are starting points
 cardano-serialization-lib = "15.0"
+# Emurgo's reference COSE/CIP-8 lib (the exact one Lace/Eternl use via WASM).
+# Used so CIP-30 signData output is interop-correct by construction.
+cardano-message-signing = "1.0"
 flutter_rust_bridge = "=2.12.0"
 anyhow = "1.0"
 thiserror = "1.0"

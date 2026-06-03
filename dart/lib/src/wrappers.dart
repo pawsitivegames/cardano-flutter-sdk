@@ -21,6 +21,27 @@ Future<String> getSdkVersion() {
   return Future.value(RustLib.instance.api.crateSdkVersion());
 }
 
+/// Converts a Blockfrost [ProtocolParameters] into the Rust [ProtocolParams]
+/// used by the transaction builders.
+///
+/// Example:
+/// ```dart
+/// final raw = await provider.fetchProtocolParameters();
+/// final params = raw.toProtocolParams();
+/// ```
+extension ProtocolParametersConvert on ProtocolParameters {
+  /// Map this Blockfrost result to the FFI [ProtocolParams] struct.
+  ProtocolParams toProtocolParams() => ProtocolParams(
+        minFeeA: BigInt.from(minFeeA),
+        minFeeB: BigInt.from(minFeeB),
+        coinsPerUtxoByte: BigInt.from(coinsPerUtxoByte),
+        maxTxSize: maxTxSize,
+        poolDeposit: BigInt.from(poolDeposit),
+        keyDeposit: BigInt.from(keyDeposit),
+        maxValSize: maxValueSize,
+      );
+}
+
 /// Validates a Bech32 address string.
 Future<bool> isValidBech32(String addr) {
   return Future.value(

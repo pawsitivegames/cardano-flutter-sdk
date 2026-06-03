@@ -8,8 +8,80 @@ void main() {
   final projectId = Platform.environment['BLOCKFROST_PROJECT_ID'];
   final isLiveTest = projectId != null && projectId.isNotEmpty;
 
+  // Submitting spends real testnet ADA, so it is gated behind its own flag and
+  // only runs when explicitly requested (CIP30_LIVE_SUBMIT=1).
+  final doSubmit = Platform.environment['CIP30_LIVE_SUBMIT'] == '1';
+
   setUpAll(() async {
     await RustLib.init();
+  });
+
+  group('Cip30Wallet end-to-end submit', () {
+    if (!isLiveTest || !doSubmit) {
+      test(
+        'cip30_signTx_submit_live_testnet',
+        skip: 'Set BLOCKFROST_PROJECT_ID and CIP30_LIVE_SUBMIT=1 to run (spends ADA)',
+        () async {},
+      );
+    } else {
+      test('cip30_signTx_submit_live_testnet', () async {
+        const mnemonic =
+            'test walk nut penalty hip pave soap entry language right filter choice';
+        final provider = BlockfrostProvider(
+          projectId: projectId,
+          network: Network.testnetPreview,
+        );
+        final wallet = await Cip30Wallet.fromMnemonic(
+          mnemonic: mnemonic,
+          provider: provider,
+        );
+
+        // 1. dApp builds a tx body (send 2 ADA back to the wallet).
+        final params = (await provider.fetchProtocolParameters()).toProtocolParams();
+        final utxos = utxosToTxInputs(await provider.fetchUtxos(wallet.baseAddress));
+        expect(utxos, isNotEmpty, reason: 'wallet must be funded for this test');
+
+        final targets = [
+          TxOutput(
+            address: wallet.baseAddress,
+            value: Value(coin: BigInt.from(2000000), assets: []),
+          ),
+        ];
+        final selection = await selectCoinsForTransaction(
+          availableUtxos: utxos,
+          targetOutputs: targets,
+          changeAddress: wallet.baseAddress,
+          protocolParams: params,
+        );
+        final built = await buildTransaction(
+          inputs: selection.selectedInputs,
+          outputs: [...targets, ...selection.changeOutputs],
+          changeAddress: wallet.baseAddress,
+          protocolParams: params,
+        );
+
+        // 2. dApp assembles an unsigned tx (empty witness set).
+        final unsignedTx = cip30AssembleTx(
+          txBodyCborHex: built.txBodyCborHex,
+          witnessSetCborHex: 'a0',
+        );
+
+        // 3. Wallet signs via CIP-30 → transaction_witness_set.
+        final witnessSet = await wallet.signTx(unsignedTx);
+        expect(witnessSet, isNotEmpty);
+
+        // 4. dApp assembles the final tx and submits.
+        final signedTx = cip30AssembleTx(
+          txBodyCborHex: built.txBodyCborHex,
+          witnessSetCborHex: witnessSet,
+        );
+        final txHash = await wallet.submitTx(signedTx);
+
+        expect(txHash.length, 64);
+        // ignore: avoid_print
+        print('CIP-30 submitted tx: $txHash');
+      }, timeout: const Timeout(Duration(minutes: 2)));
+    }
   });
 
   group('Cip30Wallet live tests', () {

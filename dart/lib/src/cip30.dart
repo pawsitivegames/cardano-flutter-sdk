@@ -8,7 +8,7 @@ import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'tx.dart';
 
-// These functions are ignored because they are not marked as `pub`: `blake2b_256`, `cose_key`, `csl_value_to_value`, `protected_header`, `sig_structure`
+// These functions are ignored because they are not marked as `pub`: `address_label`, `blake2b_256`, `csl_value_to_value`, `map_cms_err`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
 /// Compute a bech32 base address from payment and stake key hashes.
@@ -67,7 +67,33 @@ String cip30SignTx(
     RustLib.instance.api.crateCip30Cip30SignTx(
         txCborHex: txCborHex, signingKeysBech32: signingKeysBech32);
 
+/// Assemble a full transaction CBOR from a body, a witness set, and optional
+/// auxiliary data.
+///
+/// This is the dApp-side counterpart to [`cip30_sign_tx`]: the dApp builds the
+/// body, the wallet returns a `transaction_witness_set`, and this combines them
+/// into a submittable transaction. To build an *unsigned* transaction to hand to
+/// `signTx`, pass an empty witness set (`"a0"`).
+///
+/// # Arguments
+/// - `tx_body_cbor_hex`: transaction body CBOR hex
+/// - `witness_set_cbor_hex`: `transaction_witness_set` CBOR hex
+/// - `aux_data_cbor_hex`: optional auxiliary-data CBOR hex
+String cip30AssembleTx(
+        {required String txBodyCborHex,
+        required String witnessSetCborHex,
+        String? auxDataCborHex}) =>
+    RustLib.instance.api.crateCip30Cip30AssembleTx(
+        txBodyCborHex: txBodyCborHex,
+        witnessSetCborHex: witnessSetCborHex,
+        auxDataCborHex: auxDataCborHex);
+
 /// Sign arbitrary data per CIP-30 `signData` (CIP-8 `COSE_Sign1`).
+///
+/// Produces a `COSE_Sign1` whose protected headers carry `alg = EdDSA` and the
+/// signer `address`, with `hashed = false`, plus a matching `COSE_Key` — the
+/// exact shape produced by browser wallets, since both are built with Emurgo's
+/// `cardano-message-signing` reference library.
 ///
 /// # Arguments
 /// - `address_hex`: hex of the raw signer address bytes (see [`address_to_hex`])
@@ -87,8 +113,9 @@ DataSignature cip30SignData(
 
 /// Verify a CIP-30 `DataSignature`.
 ///
-/// Reconstructs the `Sig_structure` from the embedded protected header and
-/// payload and checks the Ed25519 signature against the `COSE_Key`'s public key.
+/// Parses the `COSE_Sign1` with the reference library, reconstructs the
+/// `Sig_structure`, and verifies the Ed25519 signature against the public key
+/// embedded in the `COSE_Key`.
 ///
 /// # Arguments
 /// - `data_signature`: the [`DataSignature`] to verify

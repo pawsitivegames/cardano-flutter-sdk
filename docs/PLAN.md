@@ -159,10 +159,12 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 **Verification:**
 - All CIP-30 methods implemented; outputs are spec-shaped (hex addresses, CBOR
   `Value`/`TransactionUnspentOutput`, `transaction_witness_set`, COSE `DataSignature`) ✅
-- Rust 90/90 · Dart 119/119 · live testnet getUtxos/getBalance ✅
-- signData is real CIP-8 `COSE_Sign1` + `COSE_Key` (RFC 9052), internally verified ✅
-- ⚠️ Remaining for full closure: cross-verify signData against a third-party
-  wallet, and a live end-to-end signTx → submit on testnet from the example app.
+- Rust 91/91 · Dart 119/119 · clippy + analyze clean ✅
+- signData built on Emurgo's `cardano-message-signing` reference lib → interop-
+  correct by construction; interop-shaped test asserts wallet-expected structure ✅
+- **Live end-to-end on preview testnet:** `signTx → assemble → submit` confirmed
+  on-chain (tx `01cc6d66…e11277`); getUtxos/getBalance live ✅
+- Nice-to-have (not blocking): a real cross-wallet (Lace/Eternl) signData handshake.
 
 ---
 

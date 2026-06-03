@@ -55,16 +55,6 @@ class _SendScreenState extends State<SendScreen> {
     });
   }
 
-  ProtocolParams _toProtocolParams(ProtocolParameters p) => ProtocolParams(
-        minFeeA: BigInt.from(p.minFeeA),
-        minFeeB: BigInt.from(p.minFeeB),
-        coinsPerUtxoByte: BigInt.from(p.coinsPerUtxoByte),
-        maxTxSize: p.maxTxSize,
-        poolDeposit: BigInt.from(p.poolDeposit),
-        keyDeposit: BigInt.from(p.keyDeposit),
-        maxValSize: p.maxValueSize,
-      );
-
   /// Build target outputs from the form fields.
   List<TxOutput> _buildTargetOutputs(String recipient, BigInt amountLovelace) {
     final assets = <NativeAsset>[];
@@ -129,7 +119,7 @@ class _SendScreenState extends State<SendScreen> {
       final amountAda = double.parse(amountText);
       final amountLovelace = BigInt.from((amountAda * 1000000).toInt());
       final targetOutputs = _buildTargetOutputs(recipient, amountLovelace);
-      final protocolParams = _toProtocolParams(params);
+      final protocolParams = params.toProtocolParams();
 
       // Phase 2.5: use utxosToTxInputs to preserve multi-asset holdings
       final txInputs = utxosToTxInputs(utxos);
@@ -255,7 +245,7 @@ class _SendScreenState extends State<SendScreen> {
       final amountAda = double.parse(amountText);
       final amountLovelace = BigInt.from((amountAda * 1000000).toInt());
       final targetOutputs = _buildTargetOutputs(recipient, amountLovelace);
-      final protocolParams = _toProtocolParams(params);
+      final protocolParams = params.toProtocolParams();
 
       // Phase 2.5: preserve multi-asset holdings in UTXO conversion
       final txInputs = utxosToTxInputs(utxos);

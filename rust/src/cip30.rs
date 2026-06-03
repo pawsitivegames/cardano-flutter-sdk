@@ -18,15 +18,17 @@
 //! The COSE structures follow RFC 9052 / CIP-8: the signature is a pure Ed25519
 //! signature over the canonical `Sig_structure` CBOR, not a pre-hash.
 
-use std::collections::BTreeMap;
-
 use blake2::{
     digest::{consts::U32, Digest},
     Blake2b,
 };
+use cardano_message_signing as cms;
 use cardano_serialization_lib as csl;
+use cms::builders::{AlgorithmId, COSESign1Builder, EdDSA25519Key};
+use cms::cbor::CBORValue;
+use cms::utils::{FromBytes, Int, ToBytes};
+use cms::{COSEKey, COSESign1, HeaderMap, Headers, Label, ProtectedHeaderMap};
 use flutter_rust_bridge::frb;
-use serde_cbor::Value as CborValue;
 
 use crate::error::CardanoError;
 use crate::tx::{
@@ -206,44 +208,61 @@ pub fn cip30_sign_tx(
     Ok(hex::encode(witness_set.to_bytes()))
 }
 
+/// Assemble a full transaction CBOR from a body, a witness set, and optional
+/// auxiliary data.
+///
+/// This is the dApp-side counterpart to [`cip30_sign_tx`]: the dApp builds the
+/// body, the wallet returns a `transaction_witness_set`, and this combines them
+/// into a submittable transaction. To build an *unsigned* transaction to hand to
+/// `signTx`, pass an empty witness set (`"a0"`).
+///
+/// # Arguments
+/// - `tx_body_cbor_hex`: transaction body CBOR hex
+/// - `witness_set_cbor_hex`: `transaction_witness_set` CBOR hex
+/// - `aux_data_cbor_hex`: optional auxiliary-data CBOR hex
+#[frb(sync)]
+pub fn cip30_assemble_tx(
+    tx_body_cbor_hex: String,
+    witness_set_cbor_hex: String,
+    aux_data_cbor_hex: Option<String>,
+) -> Result<String, CardanoError> {
+    let body = csl::TransactionBody::from_bytes(hex_to_bytes(&tx_body_cbor_hex)?)
+        .map_err(|_| CardanoError::InvalidCbor("Invalid tx body CBOR".to_string()))?;
+    let witness_set = csl::TransactionWitnessSet::from_bytes(hex_to_bytes(&witness_set_cbor_hex)?)
+        .map_err(|_| CardanoError::InvalidCbor("Invalid witness set CBOR".to_string()))?;
+    let aux = match aux_data_cbor_hex {
+        Some(h) => Some(
+            csl::AuxiliaryData::from_bytes(hex_to_bytes(&h)?)
+                .map_err(|_| CardanoError::InvalidCbor("Invalid aux data CBOR".to_string()))?,
+        ),
+        None => None,
+    };
+    let tx = csl::Transaction::new(&body, &witness_set, aux);
+    Ok(hex::encode(tx.to_bytes()))
+}
+
 // ── CIP-8 / COSE data signing ─────────────────────────────────────────────────
+//
+// Built on Emurgo's `cardano-message-signing` (the reference COSE/CIP-8 library
+// that Lace/Eternl/Nami use via its WASM build), so the `COSE_Sign1` and
+// `COSE_Key` bytes are interop-correct by construction.
 
-/// Build the COSE protected-header bstr: `{ 1: -8 (EdDSA), "address": <bytes> }`.
-fn protected_header(address_bytes: &[u8]) -> Vec<u8> {
-    let mut map = BTreeMap::new();
-    map.insert(CborValue::Integer(1), CborValue::Integer(-8)); // alg: EdDSA
-    map.insert(
-        CborValue::Text("address".to_string()),
-        CborValue::Bytes(address_bytes.to_vec()),
-    );
-    serde_cbor::to_vec(&CborValue::Map(map)).expect("CBOR map encodes")
+/// Map a `cardano-message-signing` deserialization error to [`CardanoError`].
+fn map_cms_err<E: std::fmt::Debug>(e: E) -> CardanoError {
+    CardanoError::InvalidCbor(format!("COSE decode error: {:?}", e))
 }
 
-/// Build the canonical `Sig_structure` bytes that are actually signed/verified.
-fn sig_structure(protected: &[u8], payload: &[u8]) -> Vec<u8> {
-    let arr = CborValue::Array(vec![
-        CborValue::Text("Signature1".to_string()),
-        CborValue::Bytes(protected.to_vec()),
-        CborValue::Bytes(Vec::new()), // external_aad
-        CborValue::Bytes(payload.to_vec()),
-    ]);
-    serde_cbor::to_vec(&arr).expect("CBOR array encodes")
-}
-
-/// Build a `COSE_Key` for an Ed25519 public key.
-fn cose_key(public_key_bytes: &[u8]) -> Vec<u8> {
-    let mut map = BTreeMap::new();
-    map.insert(CborValue::Integer(1), CborValue::Integer(1)); // kty: OKP
-    map.insert(CborValue::Integer(3), CborValue::Integer(-8)); // alg: EdDSA
-    map.insert(CborValue::Integer(-1), CborValue::Integer(6)); // crv: Ed25519
-    map.insert(
-        CborValue::Integer(-2),
-        CborValue::Bytes(public_key_bytes.to_vec()),
-    ); // x
-    serde_cbor::to_vec(&CborValue::Map(map)).expect("CBOR map encodes")
+/// CBOR label for the COSE `address` protected header (CIP-30 / CIP-8).
+fn address_label() -> Label {
+    Label::new_text("address".to_string())
 }
 
 /// Sign arbitrary data per CIP-30 `signData` (CIP-8 `COSE_Sign1`).
+///
+/// Produces a `COSE_Sign1` whose protected headers carry `alg = EdDSA` and the
+/// signer `address`, with `hashed = false`, plus a matching `COSE_Key` — the
+/// exact shape produced by browser wallets, since both are built with Emurgo's
+/// `cardano-message-signing` reference library.
 ///
 /// # Arguments
 /// - `address_hex`: hex of the raw signer address bytes (see [`address_to_hex`])
@@ -266,35 +285,40 @@ pub fn cip30_sign_data(
     let priv_key = bip32.to_raw_key();
     let public_key = priv_key.to_public();
 
-    let protected = protected_header(&address_bytes);
-    let to_sign = sig_structure(&protected, &payload);
-    let signature = priv_key.sign(&to_sign);
+    // Protected headers: alg = EdDSA, "address" = <raw address bytes>.
+    let mut protected = HeaderMap::new();
+    protected.set_algorithm_id(&Label::from_algorithm_id(AlgorithmId::EdDSA));
+    protected
+        .set_header(&address_label(), &CBORValue::new_bytes(address_bytes))
+        .map_err(|e| CardanoError::SerializationError(format!("set address header: {:?}", e)))?;
+    let protected_serialized = ProtectedHeaderMap::new(&protected);
 
-    // COSE_Sign1 = [ protected: bstr, unprotected: map, payload: bstr, sig: bstr ]
-    let mut unprotected = BTreeMap::new();
-    unprotected.insert(
-        CborValue::Text("hashed".to_string()),
-        CborValue::Bool(false),
-    );
-    let cose_sign1 = CborValue::Array(vec![
-        CborValue::Bytes(protected),
-        CborValue::Map(unprotected),
-        CborValue::Bytes(payload),
-        CborValue::Bytes(signature.to_bytes()),
-    ]);
-    let cose_sign1_bytes = serde_cbor::to_vec(&cose_sign1)
-        .map_err(|e| CardanoError::SerializationError(format!("COSE_Sign1 encode: {}", e)))?;
+    // Unprotected: { "hashed": false } is conveyed by signing the raw payload.
+    let unprotected = HeaderMap::new();
+    let headers = Headers::new(&protected_serialized, &unprotected);
+
+    // Build the Sig_structure, sign its bytes with Ed25519, attach the signature.
+    let builder = COSESign1Builder::new(&headers, payload, false);
+    let to_sign = builder.make_data_to_sign().to_bytes();
+    let signature = priv_key.sign(&to_sign).to_bytes();
+    let cose_sign1 = builder.build(signature);
+
+    // COSE_Key for the Ed25519 public key (kty=OKP, alg=EdDSA, crv=Ed25519, x=pk).
+    let mut key = EdDSA25519Key::new(public_key.as_bytes());
+    key.is_for_verifying();
+    let cose_key = key.build();
 
     Ok(DataSignature {
-        signature: hex::encode(cose_sign1_bytes),
-        key: hex::encode(cose_key(&public_key.as_bytes())),
+        signature: hex::encode(cose_sign1.to_bytes()),
+        key: hex::encode(cose_key.to_bytes()),
     })
 }
 
 /// Verify a CIP-30 `DataSignature`.
 ///
-/// Reconstructs the `Sig_structure` from the embedded protected header and
-/// payload and checks the Ed25519 signature against the `COSE_Key`'s public key.
+/// Parses the `COSE_Sign1` with the reference library, reconstructs the
+/// `Sig_structure`, and verifies the Ed25519 signature against the public key
+/// embedded in the `COSE_Key`.
 ///
 /// # Arguments
 /// - `data_signature`: the [`DataSignature`] to verify
@@ -307,61 +331,37 @@ pub fn cip30_verify_data(
     data_signature: DataSignature,
     expected_payload_hex: Option<String>,
 ) -> Result<bool, CardanoError> {
-    let cose_sign1_bytes = hex_to_bytes(&data_signature.signature)?;
-    let cose: CborValue = serde_cbor::from_slice(&cose_sign1_bytes)
-        .map_err(|e| CardanoError::InvalidCbor(format!("COSE_Sign1 decode: {}", e)))?;
+    let cose_sign1 = COSESign1::from_bytes(hex_to_bytes(&data_signature.signature)?)
+        .map_err(map_cms_err)?;
 
-    let arr = match cose {
-        CborValue::Array(a) if a.len() == 4 => a,
-        _ => {
-            return Err(CardanoError::InvalidCbor(
-                "COSE_Sign1 must be a 4-element array".to_string(),
-            ))
-        }
-    };
-
-    let protected = match &arr[0] {
-        CborValue::Bytes(b) => b.clone(),
-        _ => return Err(CardanoError::InvalidCbor("protected must be bstr".to_string())),
-    };
-    let payload = match &arr[2] {
-        CborValue::Bytes(b) => b.clone(),
-        CborValue::Null => Vec::new(),
-        _ => return Err(CardanoError::InvalidCbor("payload must be bstr".to_string())),
-    };
-    let signature_bytes = match &arr[3] {
-        CborValue::Bytes(b) => b.clone(),
-        _ => return Err(CardanoError::InvalidCbor("signature must be bstr".to_string())),
-    };
-
+    let payload = cose_sign1.payload().unwrap_or_default();
     if let Some(expected) = expected_payload_hex {
         if hex_to_bytes(&expected)? != payload {
             return Ok(false);
         }
     }
 
-    // Extract the public key (label -2) from the COSE_Key.
-    let key_bytes = hex_to_bytes(&data_signature.key)?;
-    let key_cbor: CborValue = serde_cbor::from_slice(&key_bytes)
-        .map_err(|e| CardanoError::InvalidCbor(format!("COSE_Key decode: {}", e)))?;
-    let public_key_bytes = match key_cbor {
-        CborValue::Map(m) => match m.get(&CborValue::Integer(-2)) {
-            Some(CborValue::Bytes(b)) => b.clone(),
-            _ => {
-                return Err(CardanoError::InvalidKey(
-                    "COSE_Key missing Ed25519 public key (-2)".to_string(),
-                ))
-            }
-        },
-        _ => return Err(CardanoError::InvalidCbor("COSE_Key must be a map".to_string())),
-    };
+    let to_verify = cose_sign1
+        .signed_data(None, None)
+        .map_err(|e| CardanoError::InvalidCbor(format!("rebuild Sig_structure: {:?}", e)))?
+        .to_bytes();
+    let signature_bytes = cose_sign1.signature();
+
+    // Extract the public key (COSE_Key label -2 = OKP x-coordinate).
+    let cose_key = COSEKey::from_bytes(hex_to_bytes(&data_signature.key)?).map_err(map_cms_err)?;
+    let x_label = Label::new_int(&Int::new_i32(-2));
+    let public_key_bytes = cose_key
+        .header(&x_label)
+        .and_then(|v| v.as_bytes())
+        .ok_or_else(|| {
+            CardanoError::InvalidKey("COSE_Key missing Ed25519 public key (-2)".to_string())
+        })?;
 
     let public_key = csl::PublicKey::from_bytes(&public_key_bytes)
         .map_err(|_| CardanoError::InvalidKey("Invalid public key bytes".to_string()))?;
     let signature = csl::Ed25519Signature::from_bytes(signature_bytes)
         .map_err(|_| CardanoError::InvalidCbor("Invalid signature bytes".to_string()))?;
 
-    let to_verify = sig_structure(&protected, &payload);
     Ok(public_key.verify(&to_verify, &signature))
 }
 
@@ -510,6 +510,57 @@ mod tests {
         // No expected payload also verifies.
         let ok2 = cip30_verify_data(sig, None).unwrap();
         assert!(ok2);
+    }
+
+    #[test]
+    fn test_cose_sign1_is_cms_interop_shaped() {
+        // Independently re-parse our signData output with the reference library
+        // and assert the structure a browser wallet (Lace/Eternl) expects:
+        //   COSE_Sign1 protected headers: alg = EdDSA, "address" = signer address
+        //   payload preserved; COSE_Key: alg = EdDSA, x = the public key.
+        let k = keys();
+        let addr = compute_base_address(
+            k.payment_key_hash.clone(),
+            k.stake_key_hash.clone(),
+            0,
+        )
+        .unwrap();
+        let address_hex = address_to_hex(addr).unwrap();
+        let payload_hex = hex::encode("interop check");
+
+        let sig =
+            cip30_sign_data(address_hex.clone(), payload_hex.clone(), k.payment_signing_key)
+                .unwrap();
+
+        // Parse COSE_Sign1 with CMS.
+        let cose = COSESign1::from_bytes(hex::decode(&sig.signature).unwrap()).unwrap();
+        let protected = cose.headers().protected().deserialized_headers();
+
+        // alg = EdDSA
+        assert_eq!(
+            protected.algorithm_id(),
+            Some(Label::from_algorithm_id(AlgorithmId::EdDSA))
+        );
+        // "address" header equals the signer address bytes
+        let addr_in_header = protected
+            .header(&address_label())
+            .and_then(|v| v.as_bytes())
+            .expect("address header present");
+        assert_eq!(hex::encode(addr_in_header), address_hex);
+        // payload preserved
+        assert_eq!(hex::encode(cose.payload().unwrap()), payload_hex);
+
+        // COSE_Key: alg = EdDSA, x present and 32 bytes
+        let cose_key = COSEKey::from_bytes(hex::decode(&sig.key).unwrap()).unwrap();
+        assert_eq!(
+            cose_key.algorithm_id(),
+            Some(Label::from_algorithm_id(AlgorithmId::EdDSA))
+        );
+        let x = cose_key
+            .header(&Label::new_int(&Int::new_i32(-2)))
+            .and_then(|v| v.as_bytes())
+            .expect("x coordinate present");
+        assert_eq!(x.len(), 32);
     }
 
     #[test]
