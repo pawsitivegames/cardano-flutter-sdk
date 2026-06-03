@@ -57,7 +57,12 @@
           log('info', 'rpc <- ' + m);
           var params = (args && args.params) ? args.params : [];
           window.flutter_inappwebview.callHandler('rpc', m, params)
-            .then(function (result) { callback(result); })
+            .then(function (env) {
+              // Dart returns an envelope {ok, result|error} so primitive
+              // results (e.g. getNetworkId -> 0) survive the bridge.
+              if (env && env.ok) { callback(env.result); }
+              else { callback({ error: (env && env.error) || 'no response' }); }
+            })
             .catch(function (err) { callback({ error: '' + err }); });
         });
       });

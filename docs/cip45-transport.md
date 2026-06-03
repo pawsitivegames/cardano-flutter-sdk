@@ -60,3 +60,47 @@ So a dApp link/QR opens the wallet:
 > Note: the roadmap originally labeled 4.4 "WalletConnect v2". CIP-45 proper is
 > WebTorrent/WebRTC; WalletConnect is a separate (non-CIP-45) option. The core
 > here (URI + RPC handler) is reusable under either transport.
+
+## 4. Vendored `bugout.min.js` patch (falsy RPC responses)
+
+⚠️ **`example/assets/cip45/bugout.min.js` is patched — do not blindly re-download it.**
+
+Upstream bugout silently **drops any falsy RPC response value** (`0`, `false`,
+`""`). Its response handler guards on truthiness:
+
+```js
+bugout.callbacks[nonce] && responsestringstruct ? (…callback(responsestringstruct)…) : debug("dropped")
+```
+
+`getNetworkId` returns `0` for testnet, which JSON-parses to `0` → `cb && 0` is
+falsy → the caller's callback never fires. Discovered during live testing: the
+wallet logged `← getNetworkId done` (it replied) but the dApp never received it.
+
+**The patch** changes the truthiness guard to a null check so legitimate falsy
+values pass (only `null`/`undefined`, e.g. malformed JSON, are dropped):
+
+```diff
+- bugout.callbacks[nonce]&&responsestringstruct?(
++ bugout.callbacks[nonce]&&null!=responsestringstruct?(
+```
+
+The dropping side is the **caller** (the peer holding the pending callback), so
+the dApp's copy must be patched; the wallet bridge loads the same file. If you
+ever refresh `bugout.min.js` from upstream, re-apply with:
+
+```bash
+cd example/assets/cip45
+python3 - <<'PY'
+p='bugout.min.js'; s=open(p,encoding='utf-8',errors='surrogateescape').read()
+old='bugout.callbacks[nonce]&&responsestringstruct?('
+new='bugout.callbacks[nonce]&&null!=responsestringstruct?('
+assert s.count(old)==1, s.count(old)
+open(p,'w',encoding='utf-8',errors='surrogateescape').write(s.replace(old,new))
+print('patched')
+PY
+```
+
+Also note: the wallet-side bridge wraps each handler result in an envelope
+(`{ok, result}` in `cip45_transport.dart`, unwrapped in `cip45_bridge.html`) so
+primitive results survive the Dart↔WebView (`flutter_inappwebview`) hop, which
+also mangles bare primitives. Both fixes are needed for `getNetworkId` to work.

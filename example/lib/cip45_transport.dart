@@ -86,11 +86,15 @@ class BugoutCip45Transport implements Cip45Transport {
                 ? List<dynamic>.from(args[1] as List)
                 : <dynamic>[];
             final handler = _handler;
-            if (handler == null) return {'error': 'no handler registered'};
+            if (handler == null) {
+              return {'ok': false, 'error': 'no handler registered'};
+            }
             try {
-              return await handler(method, params);
+              // Envelope the result so primitive returns (e.g. getNetworkId's
+              // int 0) survive the Dart->JS round-trip; the bridge unwraps it.
+              return {'ok': true, 'result': await handler(method, params)};
             } catch (e) {
-              return {'error': '$e'};
+              return {'ok': false, 'error': '$e'};
             }
           },
         );
