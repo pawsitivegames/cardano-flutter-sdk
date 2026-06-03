@@ -4,6 +4,16 @@ This walks through a live two-peer CIP-45 test: the **reference dApp** (a web pa
 and the **wallet** (the example Flutter app), connected peer-to-peer over bugout
 (WebTorrent discovery + WebRTC), with no central server.
 
+> ✅ **Verified 2026-06-02** — iPhone 13 (iOS 26.5) ↔ desktop Chrome dApp on
+> Cardano **preview**. Full handshake (`wallet connected: cardano_flutter_rs`)
+> plus live CIP-30 RPC: `getBalance` (real multi-asset value), `getUtxos` (real
+> UTXOs), and `signData` (valid `COSE_Sign1` + `COSE_Key`) all round-tripped over
+> WebTorrent/WebRTC. Two fixes landed during the run: the example home-screen
+> button rows now use `Wrap` (the CIP-30/45 buttons were clipped off-screen in a
+> `Row`), and the `signData` handler now accepts `[payload]` as well as
+> `[address, payload]` (blank address → wallet's own base address), matching how
+> real CIP-30 dApps call it.
+
 ## What's implemented
 
 - **Core (package, tested):** `Cip45ConnectionUri`, `Cip45WalletHandler`, `Cip45Transport`.

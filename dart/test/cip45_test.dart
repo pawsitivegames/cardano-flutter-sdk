@@ -171,10 +171,44 @@ void main() {
       );
     });
 
-    test('throws Cip45InvalidParams when signData missing params', () async {
+    test('dispatches signData with payload-only params (address omitted)',
+        () async {
+      final h = await handler();
+      final payloadHex = utf8
+          .encode('CIP-45 login')
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+
+      // CIP-30 dApps may call signData([payload]) and let the wallet use its
+      // own base address. This must succeed and verify.
+      final res = await h.handleRequest('signData', [payloadHex]);
+      final map = res as Map;
+      final sig = DataSignature(
+        signature: map['signature'] as String,
+        key: map['key'] as String,
+      );
+      expect(
+        cip30VerifyData(dataSignature: sig, expectedPayloadHex: payloadHex),
+        isTrue,
+      );
+    });
+
+    test('dispatches signData with null address + payload', () async {
+      final h = await handler();
+      final payloadHex = utf8
+          .encode('null-addr')
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+      final res = await h.handleRequest('signData', [null, payloadHex]);
+      final map = res as Map;
+      expect(map['signature'], isA<String>());
+      expect(map['key'], isA<String>());
+    });
+
+    test('throws Cip45InvalidParams when signData has no params', () async {
       final h = await handler();
       expect(
-        () => h.handleRequest('signData', ['only-one-arg']),
+        () => h.handleRequest('signData', []),
         throwsA(isA<Cip45InvalidParams>()),
       );
     });

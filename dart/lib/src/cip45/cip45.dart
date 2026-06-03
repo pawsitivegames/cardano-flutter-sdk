@@ -193,7 +193,8 @@ class Cip45WalletHandler {
   ///
   /// [params] are positional, matching the CIP-30 method signatures:
   /// - `signTx`: `[txCborHex, partialSign?]`
-  /// - `signData`: `[addressHex, payloadHex]`
+  /// - `signData`: `[addressHex, payloadHex]` or `[payloadHex]`
+  ///   (address omitted/empty → wallet signs with its base address)
   /// - `submitTx`: `[signedTxCborHex]`
   /// - all `get*` methods take no params.
   ///
@@ -227,8 +228,18 @@ class Cip45WalletHandler {
             params.length > 1 ? (params[1] as bool? ?? false) : false;
         return wallet.signTx(tx, partialSign: partialSign);
       case 'signData':
-        final addr = _stringParam(params, 0, 'addressHex');
-        final payload = _stringParam(params, 1, 'payloadHex');
+        // CIP-30 is `signData(address, payload)`. Accept either
+        // `[address, payload]` or `[payload]` — when the address is omitted
+        // (or null/empty) the wallet signs with its own base address.
+        final String payload;
+        String? addr;
+        if (params.length >= 2) {
+          addr = params[0] is String ? params[0] as String : null;
+          if (addr != null && addr.isEmpty) addr = null;
+          payload = _stringParam(params, 1, 'payloadHex');
+        } else {
+          payload = _stringParam(params, 0, 'payloadHex');
+        }
         final sig = await wallet.signData(payload, addressHex: addr);
         return {'signature': sig.signature, 'key': sig.key};
       case 'submitTx':

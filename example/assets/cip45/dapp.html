@@ -38,6 +38,15 @@
   const log = (m) => { $('log').textContent = '› ' + m + '\n' + $('log').textContent; };
   const setStatus = (t, cls) => { const s = $('status'); s.textContent = t; s.className = 'pill ' + (cls||'wait'); };
 
+  // Surface any uncaught error directly on the page (so we don't need the console).
+  window.addEventListener('error', (e) => {
+    setStatus('JS error', 'wait');
+    log('ERROR: ' + (e.message || e.error) + (e.error && e.error.stack ? '\n' + e.error.stack : ''));
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    log('PROMISE REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+
   const TRACKERS = [
     'wss://tracker.openwebtorrent.com',
     'wss://tracker.files.fm:7073/announce',
@@ -45,14 +54,28 @@
     'wss://tracker.webtorrent.dev'
   ];
 
+  log('Bugout=' + (typeof Bugout) + '  QRCode=' + (typeof QRCode));
+
   // dApp acts as the bugout *server*: it owns the identifier the wallet connects to.
-  const bugout = new Bugout({ seed: localStorage['cip45-dapp-seed'], announce: TRACKERS });
-  localStorage['cip45-dapp-seed'] = bugout.seed;
+  let bugout;
+  try {
+    bugout = new Bugout({ seed: localStorage['cip45-dapp-seed'], announce: TRACKERS });
+    localStorage['cip45-dapp-seed'] = bugout.seed;
+  } catch (err) {
+    setStatus('Bugout init failed', 'wait');
+    log('BUGOUT INIT ERROR: ' + (err && err.message ? err.message : err) + (err && err.stack ? '\n' + err.stack : ''));
+    throw err;
+  }
 
   const identifier = bugout.address();
   const uri = 'web+cardano://connect/v1?identifier=' + identifier;
   $('uri').textContent = uri;
-  QRCode.toCanvas($('qr'), uri, { width: 220 }, (e) => { if (e) log('QR error: ' + e); });
+  if (typeof QRCode !== 'undefined') {
+    try { QRCode.toCanvas($('qr'), uri, { width: 220 }, (e) => { if (e) log('QR error: ' + e); }); }
+    catch (e) { log('QR error: ' + e); }
+  } else {
+    log('QR lib unavailable (CDN blocked) — paste the URI above into the wallet instead.');
+  }
   log('dApp identifier: ' + identifier);
   setStatus('waiting for wallet…', 'wait');
 

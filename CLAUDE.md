@@ -14,7 +14,7 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
-**Phase 4.4: CIP-45 implemented** 🟡 *(2026-06-02)* — awaiting live 2-peer verify
+**Phase 4.4: CIP-45 Complete & Live-Verified** ✅ *(2026-06-02)*
 
 Protocol core (package, unit-tested) + reference transport (example):
 - Core: `Cip45ConnectionUri` (CIP-13 `web+cardano://` build/parse),
@@ -27,7 +27,13 @@ Protocol core (package, unit-tested) + reference transport (example):
 - iOS `web+cardano://` deep link (Info.plist + `app_links`) → opens CIP-45 screen.
 - Builds for iOS simulator; **deps added to example only** (core stays lean).
 - **Spec note:** CIP-45 is WebTorrent+WebRTC (not WalletConnect — common myth).
-- **Pending:** live 2-peer run (dApp page + wallet on device) — user-tested next.
+- **Live-verified (iPhone 13 ↔ desktop browser dApp, preview):** full handshake +
+  CIP-30 RPC over WebTorrent/WebRTC — `getBalance` (real multi-asset), `getUtxos`
+  (real UTXOs), `signData` (valid `COSE_Sign1`+`COSE_Key`) all round-tripped.
+- **Session fixes:** home-screen button rows → `Wrap` (CIP-30/45 were clipped
+  off-screen); `signData` handler accepts `[payload]` or `[address, payload]`
+  (blank address → wallet's base address) per CIP-30; `dapp.html` made QR optional
+  + on-page error surfacing. Dart +3 cip45 param tests (17 total).
   Guide: `docs/cip45-testing.md`. Transport notes: `docs/cip45-transport.md`.
 
 **Phase 4.3: Complete & Verified** ✅ *(2026-06-02)*
@@ -98,11 +104,11 @@ Decisions made:
 - **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
 
 When you start a session, the next phase is:
-- **Phase 4.4 (finish):** wire a CIP-45 WebTorrent/WebRTC transport + `web+cardano://`
-  deep links, then 2-device verify (core already shipped; see `docs/cip45-transport.md`) → v0.7.0
-- Then: 4.5 Hardware Wallets (Ledger/Trezor) → v1.0.0
+- **Phase 4.5 Hardware Wallets (Ledger/Trezor) → v1.0.0**
+- Optional CIP-45 follow-ups: Android intent-filter + Android-device verify;
+  in-wallet QR scanning; a `flutter_webrtc`-native transport as a bugout fallback.
 - Done: 4.1 Staking (v0.4.0) · 4.2 Message Signing CIP-8 (v0.5.0) · 4.3 CIP-30 (v0.6.0)
-  · 4.4 CIP-45 protocol core
+  · 4.4 CIP-45 (v0.7.0, live-verified on iOS)
 
 ## Tech stack (planned versions; verify against latest at install time)
 

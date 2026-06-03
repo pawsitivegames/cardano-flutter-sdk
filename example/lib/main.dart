@@ -532,8 +532,10 @@ class _MyAppState extends State<MyApp> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 12,
                     children: [
                       ElevatedButton.icon(
                         onPressed: _derivedKeys != null
@@ -565,8 +567,10 @@ class _MyAppState extends State<MyApp> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 12,
                     children: [
                       ElevatedButton.icon(
                         onPressed: _derivedKeys != null
