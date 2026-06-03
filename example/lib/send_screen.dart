@@ -1,18 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
 
-/// Phase 2 example: Send testnet ADA and native assets.
+/// Phase 2 / 2.5 example: Send testnet ADA and native assets.
+///
+/// Phase 2.5 additions:
+/// - Correct multi-asset UTXO conversion (uses [utxoToTxInput])
+/// - TX confirmation polling after submit
+/// - Network mismatch warning (testnet address vs mainnet provider)
 class SendScreen extends StatefulWidget {
   final BlockfrostProvider provider;
   final String myAddress;
-  final String paymentKey;
+  /// Payment signing key (xprv bech32) — used for signing only, not displayed.
+  final String paymentSigningKey;
   final String stakeKey;
 
   const SendScreen({
     Key? key,
     required this.provider,
     required this.myAddress,
-    required this.paymentKey,
+    required this.paymentSigningKey,
     required this.stakeKey,
   }) : super(key: key);
 
@@ -30,76 +38,102 @@ class _SendScreenState extends State<SendScreen> {
   String? _feeEstimate;
   bool _isLoading = false;
   String? _errorMessage;
-  String? _successMessage;
+  String? _statusMessage;
   String? _txHash;
   String? _blockExplorerUrl;
+  bool _confirmed = false;
+
+  bool get _isMainnet => widget.provider.network == Network.mainnet;
 
   void _clearMessages() {
     setState(() {
       _errorMessage = null;
-      _successMessage = null;
+      _statusMessage = null;
       _txHash = null;
       _blockExplorerUrl = null;
+      _confirmed = false;
     });
+  }
+
+  ProtocolParams _toProtocolParams(ProtocolParameters p) => ProtocolParams(
+        minFeeA: BigInt.from(p.minFeeA),
+        minFeeB: BigInt.from(p.minFeeB),
+        coinsPerUtxoByte: BigInt.from(p.coinsPerUtxoByte),
+        maxTxSize: p.maxTxSize,
+        poolDeposit: BigInt.from(p.poolDeposit),
+        keyDeposit: BigInt.from(p.keyDeposit),
+        maxValSize: p.maxValueSize,
+      );
+
+  /// Build target outputs from the form fields.
+  List<TxOutput> _buildTargetOutputs(String recipient, BigInt amountLovelace) {
+    final assets = <NativeAsset>[];
+    final policyId = _policyIdController.text.trim();
+    final assetName = _assetNameController.text.trim();
+    final assetQtyText = _assetQuantityController.text.trim();
+
+    if (policyId.isNotEmpty && assetName.isNotEmpty && assetQtyText.isNotEmpty) {
+      final qty = BigInt.tryParse(assetQtyText);
+      if (qty != null && qty > BigInt.zero) {
+        assets.add(NativeAsset(
+          policyId: policyId,
+          assetName: assetName,
+          quantity: qty,
+        ));
+      }
+    }
+
+    return [
+      TxOutput(
+        address: recipient,
+        value: Value(coin: amountLovelace, assets: assets),
+      ),
+    ];
   }
 
   Future<void> _previewFee() async {
     _clearMessages();
-    if (_recipientController.text.isEmpty || _amountController.text.isEmpty) {
+    final recipient = _recipientController.text.trim();
+    final amountText = _amountController.text.trim();
+
+    if (recipient.isEmpty || amountText.isEmpty) {
       setState(() => _errorMessage = 'Please enter recipient and amount');
+      return;
+    }
+
+    // Network mismatch check — fast path, no UTXO fetch needed
+    final bool recipientIsTestnet = recipient.startsWith('addr_test') ||
+        recipient.startsWith('stake_test');
+    final bool mismatch = _isMainnet == recipientIsTestnet;
+    if (mismatch) {
+      final providerNet = _isMainnet ? 'mainnet' : 'testnet';
+      final addrNet = recipientIsTestnet ? 'testnet' : 'mainnet';
+      setState(() => _errorMessage =
+          'Network mismatch: provider is $providerNet but recipient address is $addrNet.');
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // Fetch UTXOs
       final utxos = await widget.provider.fetchUtxos(widget.myAddress);
       if (utxos.isEmpty) {
         setState(() {
-          _errorMessage = 'No UTXOs available. Send some ADA to your address.';
+          _errorMessage = 'No UTXOs available. Send some ADA to your address first.';
           _isLoading = false;
         });
         return;
       }
 
-      // Fetch protocol parameters
       final params = await widget.provider.fetchProtocolParameters();
-
-      // Convert amount from ADA to lovelace
-      final amountAda = double.parse(_amountController.text);
+      final amountAda = double.parse(amountText);
       final amountLovelace = BigInt.from((amountAda * 1000000).toInt());
+      final targetOutputs = _buildTargetOutputs(recipient, amountLovelace);
+      final protocolParams = _toProtocolParams(params);
 
-      // Create target outputs
-      final targetOutputs = [
-        TxOutput(
-          address: _recipientController.text,
-          value: Value(coin: amountLovelace, assets: []),
-        ),
-      ];
+      // Phase 2.5: use utxosToTxInputs to preserve multi-asset holdings
+      final txInputs = utxosToTxInputs(utxos);
 
-      // Convert protocol parameters
-      final protocolParams = ProtocolParams(
-        minFeeA: BigInt.from(params.minFeeA),
-        minFeeB: BigInt.from(params.minFeeB),
-        coinsPerUtxoByte: BigInt.from(params.coinsPerUtxoByte),
-        maxTxSize: params.maxTxSize,
-        poolDeposit: BigInt.from(params.poolDeposit),
-        keyDeposit: BigInt.from(params.keyDeposit),
-        maxValSize: params.maxValueSize,
-      );
-
-      // Convert Blockfrost UTXOs to TxInputs
-      final txInputs = utxos
-          .map((u) => TxInput(
-                txHash: u.txHash,
-                outputIndex: u.outputIndex,
-                address: widget.myAddress,
-                value: Value(coin: u.coin, assets: []),
-              ))
-          .toList();
-
-      // Perform coin selection
       final coinSelection = await selectCoinsForTransaction(
         availableUtxos: txInputs,
         targetOutputs: targetOutputs,
@@ -107,15 +141,9 @@ class _SendScreenState extends State<SendScreen> {
         protocolParams: protocolParams,
       );
 
-      // Build transaction
-      final allOutputs = [
-        ...targetOutputs,
-        ...coinSelection.changeOutputs,
-      ];
-
       final builtTx = await buildTransaction(
         inputs: coinSelection.selectedInputs,
-        outputs: allOutputs,
+        outputs: [...targetOutputs, ...coinSelection.changeOutputs],
         changeAddress: widget.myAddress,
         ttl: null,
         protocolParams: protocolParams,
@@ -127,7 +155,7 @@ class _SendScreenState extends State<SendScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error calculating fee: $e';
+        _errorMessage = _friendlyError(e);
         _isLoading = false;
       });
     }
@@ -135,10 +163,25 @@ class _SendScreenState extends State<SendScreen> {
 
   Future<void> _sendTransaction() async {
     _clearMessages();
-    if (_recipientController.text.isEmpty ||
-        _amountController.text.isEmpty ||
-        _feeEstimate == null) {
-      setState(() => _errorMessage = 'Please preview fee first');
+    final recipient = _recipientController.text.trim();
+    final amountText = _amountController.text.trim();
+
+    if (recipient.isEmpty || amountText.isEmpty || _feeEstimate == null) {
+      setState(() => _errorMessage = 'Please preview the fee first');
+      return;
+    }
+
+    // Phase 2.5: network mismatch safety gate
+    final bool recipientIsTestnet = recipient.startsWith('addr_test') ||
+        recipient.startsWith('stake_test');
+    final bool mismatch = _isMainnet == recipientIsTestnet;
+    if (mismatch) {
+      final providerNet = _isMainnet ? 'mainnet' : 'testnet';
+      final addrNet = recipientIsTestnet ? 'testnet' : 'mainnet';
+      setState(() {
+        _errorMessage =
+            'Network mismatch: provider is $providerNet but recipient address is $addrNet.';
+      });
       return;
     }
 
@@ -150,15 +193,24 @@ class _SendScreenState extends State<SendScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Recipient: ${_recipientController.text}'),
+            Text('Recipient: $recipient'),
             const SizedBox(height: 8),
-            Text('Amount: ${_amountController.text} ADA'),
+            Text('Amount: $amountText ADA'),
             const SizedBox(height: 8),
             Text('Fee: $_feeEstimate'),
+            if (_policyIdController.text.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Asset: ${_assetQuantityController.text} × ${_assetNameController.text}'),
+            ],
             const SizedBox(height: 16),
-            const Text(
-              'This is a TESTNET transaction only. Never use real funds!',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            Text(
+              _isMainnet
+                  ? '⚠️ MAINNET — real funds will be spent!'
+                  : 'TESTNET ONLY — no real funds at risk.',
+              style: TextStyle(
+                color: _isMainnet ? Colors.red : Colors.orange,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -169,7 +221,13 @@ class _SendScreenState extends State<SendScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Confirm'),
+            style: _isMainnet
+                ? ElevatedButton.styleFrom(backgroundColor: Colors.red)
+                : null,
+            child: Text(
+              _isMainnet ? 'Send (MAINNET)' : 'Confirm',
+              style: _isMainnet ? const TextStyle(color: Colors.white) : null,
+            ),
           ),
         ],
       ),
@@ -177,56 +235,31 @@ class _SendScreenState extends State<SendScreen> {
 
     if (confirmed != true) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'Building transaction…';
+    });
 
     try {
-      // Fetch UTXOs again (fresh)
       final utxos = await widget.provider.fetchUtxos(widget.myAddress);
       if (utxos.isEmpty) {
         setState(() {
           _errorMessage = 'No UTXOs available';
           _isLoading = false;
+          _statusMessage = null;
         });
         return;
       }
 
-      // Fetch protocol parameters
       final params = await widget.provider.fetchProtocolParameters();
-
-      // Convert amount from ADA to lovelace
-      final amountAda = double.parse(_amountController.text);
+      final amountAda = double.parse(amountText);
       final amountLovelace = BigInt.from((amountAda * 1000000).toInt());
+      final targetOutputs = _buildTargetOutputs(recipient, amountLovelace);
+      final protocolParams = _toProtocolParams(params);
 
-      // Create target outputs
-      final targetOutputs = [
-        TxOutput(
-          address: _recipientController.text,
-          value: Value(coin: amountLovelace, assets: []),
-        ),
-      ];
+      // Phase 2.5: preserve multi-asset holdings in UTXO conversion
+      final txInputs = utxosToTxInputs(utxos);
 
-      // Convert protocol parameters
-      final protocolParams = ProtocolParams(
-        minFeeA: BigInt.from(params.minFeeA),
-        minFeeB: BigInt.from(params.minFeeB),
-        coinsPerUtxoByte: BigInt.from(params.coinsPerUtxoByte),
-        maxTxSize: params.maxTxSize,
-        poolDeposit: BigInt.from(params.poolDeposit),
-        keyDeposit: BigInt.from(params.keyDeposit),
-        maxValSize: params.maxValueSize,
-      );
-
-      // Convert Blockfrost UTXOs to TxInputs
-      final txInputs = utxos
-          .map((u) => TxInput(
-                txHash: u.txHash,
-                outputIndex: u.outputIndex,
-                address: widget.myAddress,
-                value: Value(coin: u.coin, assets: []),
-              ))
-          .toList();
-
-      // Perform coin selection
       final coinSelection = await selectCoinsForTransaction(
         availableUtxos: txInputs,
         targetOutputs: targetOutputs,
@@ -234,73 +267,113 @@ class _SendScreenState extends State<SendScreen> {
         protocolParams: protocolParams,
       );
 
-      // Build transaction
-      final allOutputs = [
-        ...targetOutputs,
-        ...coinSelection.changeOutputs,
-      ];
-
       final builtTx = await buildTransaction(
         inputs: coinSelection.selectedInputs,
-        outputs: allOutputs,
+        outputs: [...targetOutputs, ...coinSelection.changeOutputs],
         changeAddress: widget.myAddress,
         ttl: null,
         protocolParams: protocolParams,
       );
 
-      // Sign transaction
       final signedTx = await signTransaction(
         txBodyCborHex: builtTx.txBodyCborHex,
-        paymentKeys: [widget.paymentKey],
+        paymentKeys: [widget.paymentSigningKey],
       );
 
-      // Submit transaction
+      setState(() => _statusMessage = 'Submitting transaction…');
       final txBytes = signedTxToBytes(signedTx);
       final submittedHash = await widget.provider.submitTransaction(txBytes);
 
+      final explorerBase = _isMainnet
+          ? 'https://cexplorer.io/tx'
+          : 'https://preview.cexplorer.io/tx';
+
       setState(() {
         _txHash = submittedHash;
-        _blockExplorerUrl =
-            'https://preview.cexplorer.io/tx/$submittedHash';
-        _successMessage = 'Transaction submitted successfully!';
-        _isLoading = false;
+        _blockExplorerUrl = '$explorerBase/$submittedHash';
+        _statusMessage = 'Submitted! Waiting for confirmation…';
       });
+
+      // Phase 2.5: poll for confirmation
+      try {
+        final status = await widget.provider.pollTransactionConfirmation(
+          submittedHash,
+          pollInterval: const Duration(seconds: 10),
+          timeout: const Duration(minutes: 5),
+        );
+        setState(() {
+          _statusMessage = status.blockHeight != null
+              ? 'Confirmed in block ${status.blockHeight}!'
+              : 'Confirmed!';
+          _confirmed = true;
+          _isLoading = false;
+        });
+      } on TimeoutException {
+        setState(() {
+          _statusMessage =
+              'Transaction submitted. Confirmation pending — check the explorer.';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error submitting transaction: $e';
+        _errorMessage = _friendlyError(e);
         _isLoading = false;
+        _statusMessage = null;
       });
     }
   }
 
+  String _friendlyError(Object e) {
+    final s = e.toString();
+    if (s.contains('InsufficientFunds')) {
+      return 'Insufficient funds. Check your wallet balance.';
+    }
+    if (s.contains('DustChange')) {
+      return 'Coin selection failed: change amount is below the minimum ADA '
+          'required for a UTXO. Try sending a different amount or consolidate UTXOs.';
+    }
+    if (s.contains('InsufficientAsset')) {
+      return 'Insufficient token balance for the requested transfer.';
+    }
+    return 'Error: $s';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final networkLabel = _isMainnet ? 'MAINNET' : 'TESTNET';
+    final networkColor = _isMainnet ? Colors.red : Colors.orange;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Send Testnet ADA - Phase 2'),
+        title: Text('Send ADA — Phase 2.5 ($networkLabel)'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Warning banner
+            // Network banner
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.shade100,
+                color: networkColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red),
+                border: Border.all(color: networkColor),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.warning, color: Colors.red),
-                  SizedBox(width: 12),
+                  Icon(
+                    _isMainnet ? Icons.warning : Icons.science,
+                    color: networkColor,
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'TESTNET ONLY\n'
-                      'Do not use with real funds',
+                      _isMainnet
+                          ? 'MAINNET — real funds\nDouble-check all addresses'
+                          : 'TESTNET ONLY\nDo not use with real funds',
                       style: TextStyle(
-                        color: Colors.red,
+                        color: networkColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -315,11 +388,8 @@ class _SendScreenState extends State<SendScreen> {
               controller: _recipientController,
               decoration: InputDecoration(
                 labelText: 'Recipient Address (bech32)',
-                hintText: 'addr_test1q...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                errorText: _errorMessage,
+                hintText: _isMainnet ? 'addr1q…' : 'addr_test1q…',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
               minLines: 2,
               maxLines: 3,
@@ -332,15 +402,45 @@ class _SendScreenState extends State<SendScreen> {
               decoration: InputDecoration(
                 labelText: 'Amount (ADA)',
                 hintText: '1.5',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 suffix: const Text('ADA'),
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
+
+            // Optional native asset
+            ExpansionTile(
+              title: const Text('Send native token (optional)'),
+              children: [
+                TextField(
+                  controller: _policyIdController,
+                  decoration: InputDecoration(
+                    labelText: 'Policy ID (hex, 56 chars)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _assetNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Asset name (hex)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _assetQuantityController,
+                  decoration: InputDecoration(
+                    labelText: 'Quantity',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+            const SizedBox(height: 16),
 
             // Fee preview
             if (_feeEstimate != null)
@@ -359,10 +459,10 @@ class _SendScreenState extends State<SendScreen> {
                   ],
                 ),
               ),
-            const SizedBox(height: 24),
 
             // Error message
-            if (_errorMessage != null)
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -383,14 +483,18 @@ class _SendScreenState extends State<SendScreen> {
                   ],
                 ),
               ),
+            ],
 
-            // Success message
-            if (_successMessage != null)
+            // Status / success message
+            if (_statusMessage != null) ...[
+              const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  border: Border.all(color: Colors.green),
+                  color: _confirmed ? Colors.green.shade50 : Colors.blue.shade50,
+                  border: Border.all(
+                    color: _confirmed ? Colors.green : Colors.blue,
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -398,37 +502,45 @@ class _SendScreenState extends State<SendScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.green),
+                        _confirmed
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
                         const SizedBox(width: 12),
-                        Text(
-                          _successMessage!,
-                          style: const TextStyle(color: Colors.green),
+                        Expanded(
+                          child: Text(
+                            _statusMessage!,
+                            style: TextStyle(
+                              color: _confirmed ? Colors.green.shade800 : Colors.blue.shade800,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    if (_txHash != null)
+                    if (_txHash != null) ...[
+                      const SizedBox(height: 8),
                       SelectableText(
-                        'TX Hash: $_txHash',
+                        'TX: $_txHash',
                         style: const TextStyle(
                           fontSize: 10,
                           fontFamily: 'monospace',
                         ),
                       ),
-                    const SizedBox(height: 8),
-                    if (_blockExplorerUrl != null)
+                    ],
+                    if (_blockExplorerUrl != null) ...[
+                      const SizedBox(height: 4),
                       GestureDetector(
                         onTap: () {
-                          // In a real app, use url_launcher package
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                'Open in block explorer: $_blockExplorerUrl',
-                              ),
+                              content: Text('Open in explorer: $_blockExplorerUrl'),
                             ),
                           );
                         },
-                        child: Text(
+                        child: const Text(
                           'View on cexplorer',
                           style: TextStyle(
                             color: Colors.blue,
@@ -436,13 +548,14 @@ class _SendScreenState extends State<SendScreen> {
                           ),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
+            ],
 
-            if (_successMessage == null) ...[
+            if (_statusMessage == null || _errorMessage != null) ...[
               const SizedBox(height: 24),
-              // Buttons
               Row(
                 children: [
                   Expanded(
@@ -452,9 +565,7 @@ class _SendScreenState extends State<SendScreen> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Text('Preview Fee'),
                     ),
@@ -466,11 +577,11 @@ class _SendScreenState extends State<SendScreen> {
                           ? null
                           : _sendTransaction,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
+                        backgroundColor: _isMainnet ? Colors.red : Colors.green,
                       ),
-                      child: const Text(
-                        'Send',
-                        style: TextStyle(color: Colors.white),
+                      child: Text(
+                        _isMainnet ? 'Send (MAINNET)' : 'Send',
+                        style: const TextStyle(color: Colors.white),
                       ),
                     ),
                   ),

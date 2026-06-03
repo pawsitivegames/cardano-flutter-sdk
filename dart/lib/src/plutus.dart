@@ -8,6 +8,8 @@ import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'tx.dart';
 
+// These functions are ignored because they are not marked as `pub`: `build_conway_cost_models`
+
 /// Encode an integer as `PlutusData` CBOR hex.
 ///
 /// Handles the full `i64` range; large integers (> i32 range) are encoded as

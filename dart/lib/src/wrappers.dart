@@ -10,8 +10,11 @@ import 'address.dart';
 import 'tx.dart';
 import 'coin_selection.dart';
 import 'sign.dart';
+import 'message.dart';
 import 'minting.dart';
 import 'metadata.dart';
+import 'staking.dart';
+import 'providers/blockfrost.dart';
 
 /// Returns the SDK version string.
 Future<String> getSdkVersion() {
@@ -72,6 +75,42 @@ Future<String> deriveAccountKey({
     index: index,
   ));
 }
+
+/// Converts a Blockfrost [Utxo] to a [TxInput] for coin selection.
+///
+/// Preserves all native token holdings from the UTXO. This is the correct
+/// way to convert UTXOs — using a manual mapping that drops assets will cause
+/// multi-asset coin selection to silently fail.
+///
+/// Example:
+/// ```dart
+/// final utxos = await provider.fetchUtxos(myAddress);
+/// final inputs = utxos.map(utxoToTxInput).toList();
+/// ```
+TxInput utxoToTxInput(Utxo utxo) {
+  final assets = <NativeAsset>[];
+  utxo.assets.forEach((policyId, assetMap) {
+    assetMap.forEach((assetName, qty) {
+      assets.add(NativeAsset(
+        policyId: policyId,
+        assetName: assetName,
+        quantity: qty,
+      ));
+    });
+  });
+  return TxInput(
+    txHash: utxo.txHash,
+    outputIndex: utxo.outputIndex,
+    address: utxo.address,
+    value: Value(coin: utxo.coin, assets: assets),
+  );
+}
+
+/// Converts a list of Blockfrost [Utxo]s to [TxInput]s for coin selection.
+///
+/// Convenience wrapper around [utxoToTxInput].
+List<TxInput> utxosToTxInputs(List<Utxo> utxos) =>
+    utxos.map(utxoToTxInput).toList();
 
 /// Performs coin selection using CIP-2 largest-first algorithm.
 ///
@@ -274,6 +313,142 @@ Future<BuiltMintTx> buildNftMintTransaction({
   ));
 }
 
+// ── Phase 4.1: Staking ──────────────────────────────────────────────────────
+
+/// Compute the bech32 stake (reward) address for a stake key hash.
+///
+/// Example:
+/// ```dart
+/// final keys = await deriveKeysFromMnemonic(...);
+/// final stakeAddr = computeStakeAddress(
+///   stakeKeyHashHex: keys.stakeKeyHash,
+///   isTestnet: true,
+/// );
+/// // "stake_test1u..."
+/// ```
+String computeStakeAddress({
+  required String stakeKeyHashHex,
+  required bool isTestnet,
+}) {
+  return RustLib.instance.api.crateStakingComputeStakeAddress(
+    stakeKeyHashHex: stakeKeyHashHex,
+    isTestnet: isTestnet,
+  );
+}
+
+/// Build a stake key registration transaction.
+///
+/// [params] must be a [ProtocolParams] from [fetchProtocolParameters].
+Future<BuiltStakingTx> buildStakeRegistrationTx({
+  required String stakeKeyHashHex,
+  required List<TxInput> inputs,
+  required String changeAddress,
+  required int networkId,
+  BigInt? ttl,
+  required ProtocolParams params,
+}) {
+  return Future.value(
+    RustLib.instance.api.crateStakingBuildStakeRegistrationTx(
+      stakeKeyHashHex: stakeKeyHashHex,
+      inputs: inputs,
+      changeAddress: changeAddress,
+      networkId: networkId,
+      ttl: ttl,
+      params: params,
+    ),
+  );
+}
+
+/// Build a stake delegation transaction.
+///
+/// The stake key must already be registered before calling this.
+Future<BuiltStakingTx> buildDelegationTx({
+  required String stakeKeyHashHex,
+  required String poolKeyhashHex,
+  required List<TxInput> inputs,
+  required String changeAddress,
+  required int networkId,
+  BigInt? ttl,
+  required ProtocolParams params,
+}) {
+  return Future.value(
+    RustLib.instance.api.crateStakingBuildDelegationTx(
+      stakeKeyHashHex: stakeKeyHashHex,
+      poolKeyhashHex: poolKeyhashHex,
+      inputs: inputs,
+      changeAddress: changeAddress,
+      networkId: networkId,
+      ttl: ttl,
+      params: params,
+    ),
+  );
+}
+
+/// Build a reward withdrawal transaction.
+///
+/// [rewardAmount] must match the exact on-chain withdrawable balance.
+Future<BuiltStakingTx> buildRewardWithdrawalTx({
+  required String stakeKeyHashHex,
+  required BigInt rewardAmount,
+  required List<TxInput> inputs,
+  required String changeAddress,
+  required int networkId,
+  BigInt? ttl,
+  required ProtocolParams params,
+}) {
+  return Future.value(
+    RustLib.instance.api.crateStakingBuildRewardWithdrawalTx(
+      stakeKeyHashHex: stakeKeyHashHex,
+      rewardAmount: rewardAmount,
+      inputs: inputs,
+      changeAddress: changeAddress,
+      networkId: networkId,
+      ttl: ttl,
+      params: params,
+    ),
+  );
+}
+
+/// Build a stake key deregistration transaction.
+///
+/// Returns the key deposit to the change address.
+Future<BuiltStakingTx> buildStakeDeregistrationTx({
+  required String stakeKeyHashHex,
+  required List<TxInput> inputs,
+  required String changeAddress,
+  required int networkId,
+  BigInt? ttl,
+  required ProtocolParams params,
+}) {
+  return Future.value(
+    RustLib.instance.api.crateStakingBuildStakeDeregistrationTx(
+      stakeKeyHashHex: stakeKeyHashHex,
+      inputs: inputs,
+      changeAddress: changeAddress,
+      networkId: networkId,
+      ttl: ttl,
+      params: params,
+    ),
+  );
+}
+
+/// Sign a staking transaction with both payment and stake keys.
+///
+/// Staking certificates and withdrawals require the stake key witness.
+/// Regular inputs require the payment key witness.
+Future<SignedTx> signStakingTransaction({
+  required String txBodyCborHex,
+  required String paymentSigningKey,
+  required String stakeSigningKey,
+}) {
+  return Future.value(
+    RustLib.instance.api.crateSignSignTxInternal(
+      txBodyCborHex: txBodyCborHex,
+      paymentKeysHex: [paymentSigningKey, stakeSigningKey],
+    ),
+  );
+}
+
 /// Sign a minting transaction that carries auxiliary data (CIP-25/68 metadata).
 ///
 /// Use instead of [signTransaction] when the transaction was built by
@@ -296,6 +471,68 @@ Future<SignedTx> signMintTransaction({
       txBodyCborHex: builtMintTx.txBodyCborHex,
       paymentKeysHex: paymentKeys,
       auxDataCborHex: builtMintTx.auxDataCborHex,
+    ),
+  );
+}
+
+// ── Phase 4.2: Message Signing (CIP-8) ──────────────────────────────────────
+
+/// Sign an arbitrary message with a payment or stake key (CIP-8).
+///
+/// Creates a COSE Sign1 signed message that can be verified independently.
+/// Use for authentication, proof-of-key ownership, or dApp login flows.
+///
+/// Example:
+/// ```dart
+/// final keys = await deriveKeysFromMnemonic(...);
+/// final messageHex = hex.encode(utf8.encode('I own this wallet'));
+///
+/// final signedMsg = await signMessage(
+///   message: messageHex,
+///   signingKey: keys.paymentSigningKey,
+///   address: keys.baseAddress,
+/// );
+/// print('Signature: ${signedMsg.publicKeyHex}');
+/// ```
+Future<SignedMessage> signMessage({
+  required String message,
+  required String signingKey,
+  String? address,
+}) {
+  return Future.value(
+    RustLib.instance.api.crateMessageSignMessage(
+      message: message,
+      signingKeyBech32: signingKey,
+      address: address,
+    ),
+  );
+}
+
+/// Verify a CIP-8 signed message.
+///
+/// Checks that the signature is valid for the public key in the message.
+/// Optionally verifies that the message came from an expected address.
+///
+/// Returns true if the signature is valid, false otherwise.
+///
+/// Example:
+/// ```dart
+/// final isValid = await verifyMessage(
+///   signedMessage: signedMsg,
+///   expectedAddress: keys.baseAddress,
+/// );
+/// if (isValid) {
+///   print('Message is authentic!');
+/// }
+/// ```
+Future<bool> verifyMessage({
+  required SignedMessage signedMessage,
+  String? expectedAddress,
+}) {
+  return Future.value(
+    RustLib.instance.api.crateMessageVerifyMessage(
+      signedMessage: signedMessage,
+      expectedAddress: expectedAddress,
     ),
   );
 }

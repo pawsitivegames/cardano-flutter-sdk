@@ -5,6 +5,8 @@ import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'send_screen.dart';
 import 'mint_screen.dart';
+import 'stake_screen.dart';
+import 'message_screen.dart';
 
 // Compile-time Flutter version injected via --dart-define (optional).
 // Falls back to a placeholder if not provided.
@@ -12,7 +14,7 @@ const String kFlutterVersion =
     String.fromEnvironment('FLUTTER_VERSION', defaultValue: 'unknown');
 
 // Increment this every build so the running version is visible on screen.
-const String kBuildLabel = 'build-006 · 2026-05-25 · Phase 3';
+const String kBuildLabel = 'build-008 · Phase 4.2';
 
 void main() {
   runApp(const MyApp());
@@ -26,6 +28,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   String _sdkVersion = 'Ready to test';
   String _addressValidation = 'Not tested yet';
   String _keyDerivation = 'Not tested yet';
@@ -190,14 +194,82 @@ class _MyAppState extends State<MyApp> {
       network: Network.testnetPreview,
     );
 
-    Navigator.push(
-      context,
+    _navigatorKey.currentState!.push(
       MaterialPageRoute(
         builder: (ctx) => MintScreen(
           provider: provider,
           myAddress: testnetAddress,
-          paymentKey: _derivedKeys!.paymentKey,
+          paymentSigningKey: _derivedKeys!.paymentSigningKey,
           paymentKeyHash: _derivedKeys!.paymentKeyHash,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToStakeScreen() {
+    if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please set BLOCKFROST_PROJECT_ID to use the Stake screen',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (_derivedKeys == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please run tests first to derive keys')),
+      );
+      return;
+    }
+
+    const testnetAddress =
+        'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
+
+    final provider = BlockfrostProvider(
+      projectId: _blockfrostProjectId!,
+      network: Network.testnetPreview,
+    );
+
+    // Compute the bech32 stake address from the stake key hash
+    final stakeAddress = computeStakeAddress(
+      stakeKeyHashHex: _derivedKeys!.stakeKeyHash,
+      isTestnet: true,
+    );
+
+    _navigatorKey.currentState!.push(
+      MaterialPageRoute(
+        builder: (ctx) => StakeScreen(
+          provider: provider,
+          myAddress: testnetAddress,
+          stakeAddress: stakeAddress,
+          paymentSigningKey: _derivedKeys!.paymentSigningKey,
+          stakeSigningKey: _derivedKeys!.stakeSigningKey,
+          stakeKeyHashHex: _derivedKeys!.stakeKeyHash,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToMessageScreen() {
+    if (_derivedKeys == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please run tests first to derive keys')),
+      );
+      return;
+    }
+
+    const testnetAddress =
+        'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
+
+    _navigatorKey.currentState!.push(
+      MaterialPageRoute(
+        builder: (ctx) => MessageScreen(
+          myAddress: testnetAddress,
+          paymentSigningKey: _derivedKeys!.paymentSigningKey,
+          stakeSigningKey: _derivedKeys!.stakeSigningKey,
         ),
       ),
     );
@@ -224,23 +296,21 @@ class _MyAppState extends State<MyApp> {
       return;
     }
 
-    // For this demo, we'll use a known testnet address
-    // In production, derive from payment key hash
+    // Canonical test address: CIP-1852 m/1852'/1815'/0'/0/0 from test mnemonic, testnet
     const testnetAddress =
-        'addr_test1qzx9hu8j4zh3k1sugsscq69ek5ee2nrw6rasydg4gwyydewjjxtwq2ytjqd8';
+        'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
 
     final provider = BlockfrostProvider(
       projectId: _blockfrostProjectId!,
       network: Network.testnetPreview,
     );
 
-    Navigator.push(
-      context,
+    _navigatorKey.currentState!.push(
       MaterialPageRoute(
         builder: (ctx) => SendScreen(
           provider: provider,
           myAddress: testnetAddress,
-          paymentKey: _derivedKeys!.paymentKey,
+          paymentSigningKey: _derivedKeys!.paymentSigningKey,
           stakeKey: _derivedKeys!.stakeKey,
         ),
       ),
@@ -250,6 +320,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Cardano Flutter RS Demo',
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -287,7 +358,7 @@ class _MyAppState extends State<MyApp> {
                   _VersionBanner(sdkVersion: _sdkVersion),
                   const SizedBox(height: 12),
                   const Text(
-                    'Phase 1–3: SDK + TX + Minting',
+                    'Phase 1–4: SDK + TX + Minting + Staking + Messages',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -408,6 +479,41 @@ class _MyAppState extends State<MyApp> {
                         icon: const Icon(Icons.token, color: Colors.white, size: 16),
                         label: const Text(
                           'Mint NFT',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _derivedKeys != null
+                            ? _navigateToStakeScreen
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                        ),
+                        icon: const Icon(Icons.account_balance,
+                            color: Colors.white, size: 16),
+                        label: const Text(
+                          'Stake ADA',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: _derivedKeys != null
+                            ? _navigateToMessageScreen
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                        ),
+                        icon: const Icon(Icons.security,
+                            color: Colors.white, size: 16),
+                        label: const Text(
+                          'Sign Message',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),

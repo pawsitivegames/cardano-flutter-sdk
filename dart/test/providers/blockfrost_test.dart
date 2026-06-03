@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -452,6 +453,131 @@ void main() {
         } on BlockfrostRateLimited catch (e) {
           expect(e.retryAfter, equals(Duration(seconds: 60)));
         }
+      });
+    });
+
+    group('fetchTransactionStatus', () {
+      const txHash =
+          'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+
+      test('returns confirmed=true with blockHeight when TX is on-chain', () async {
+        final body = jsonEncode({
+          'hash': txHash,
+          'block': 'blockxyz',
+          'block_height': 8500000,
+          'block_time': 1700000000,
+          'index': 0,
+          'output_amount': [],
+          'fees': '172000',
+        });
+
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async => http.Response(body, 200));
+
+        final status = await provider.fetchTransactionStatus(txHash);
+
+        expect(status.hash, equals(txHash));
+        expect(status.confirmed, isTrue);
+        expect(status.blockHeight, equals(8500000));
+      });
+
+      test('returns confirmed=false when TX is not yet in a block (404)', () async {
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async => http.Response('', 404));
+
+        final status = await provider.fetchTransactionStatus(txHash);
+
+        expect(status.hash, equals(txHash));
+        expect(status.confirmed, isFalse);
+        expect(status.blockHeight, isNull);
+      });
+
+      test('hits the correct /txs/{hash} endpoint', () async {
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async => http.Response('', 404));
+
+        await provider.fetchTransactionStatus(txHash);
+
+        verify(mockClient.get(
+          Uri.parse(
+              'https://cardano-preview.blockfrost.io/api/v0/txs/$txHash'),
+          headers: anyNamed('headers'),
+        )).called(1);
+      });
+    });
+
+    group('pollTransactionConfirmation', () {
+      const txHash =
+          'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+
+      test('returns immediately when TX is already confirmed', () async {
+        final body = jsonEncode({
+          'hash': txHash,
+          'block_height': 42,
+          'block': 'b',
+          'block_time': 1,
+          'index': 0,
+          'output_amount': [],
+          'fees': '0',
+        });
+
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async => http.Response(body, 200));
+
+        final status = await provider.pollTransactionConfirmation(
+          txHash,
+          pollInterval: const Duration(milliseconds: 10),
+          timeout: const Duration(seconds: 5),
+        );
+
+        expect(status.confirmed, isTrue);
+        expect(status.blockHeight, equals(42));
+      });
+
+      test('polls until TX is confirmed after initial pending', () async {
+        int callCount = 0;
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async {
+          callCount++;
+          if (callCount < 3) {
+            return http.Response('', 404); // pending
+          }
+          return http.Response(
+            jsonEncode({
+              'hash': txHash,
+              'block_height': 99,
+              'block': 'b',
+              'block_time': 1,
+              'index': 0,
+              'output_amount': [],
+              'fees': '0',
+            }),
+            200,
+          );
+        });
+
+        final status = await provider.pollTransactionConfirmation(
+          txHash,
+          pollInterval: const Duration(milliseconds: 10),
+          timeout: const Duration(seconds: 5),
+        );
+
+        expect(status.confirmed, isTrue);
+        expect(callCount, equals(3));
+      });
+
+      test('throws TimeoutException when TX never confirms', () async {
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async => http.Response('', 404));
+
+        expect(
+          () => provider.pollTransactionConfirmation(
+            txHash,
+            pollInterval: const Duration(milliseconds: 10),
+            timeout: const Duration(milliseconds: 50),
+          ),
+          throwsA(isA<TimeoutException>()),
+        );
       });
     });
 

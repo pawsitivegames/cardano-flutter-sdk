@@ -28,6 +28,16 @@ Native token minting, Plutus data encoding, and CIP-25/68 NFT metadata shipped:
 - **Test suite:** Rust 55/55 · Dart 93/93 · clippy clean · flutter analyze clean
 - iOS arm64 device + arm64-sim frameworks updated (2.8 MB each)
 
+**Phase 2.5 (complete, 2026-05-25):** Production hardening
+- Rust 56/56 · Dart 102/102 · clippy clean · flutter analyze clean
+- Bug fix: multi-asset change output coin=0 (ledger-invalid) → now carries min-ADA
+- Bug fix: `SendScreen` dropped native tokens from UTXOs; fixed with `utxoToTxInput`
+- Fee estimation now includes vkey witness overhead + per-output size
+- TX confirmation polling: `pollTransactionConfirmation()` with configurable interval/timeout
+- `utxoToTxInput` / `utxosToTxInputs` helpers in wrappers.dart
+- Network mismatch safety gate (testnet addr + mainnet provider → hard error)
+- Mainnet-aware `SendScreen`: MAINNET banner, red buttons, mainnet explorer link
+
 **Phase 2 (also complete, 2026-05-25):** TX Builder, Coin Selection, Blockfrost, Signing
 - Real-device verification: iPhone 13, iOS 26.5, all green
 
@@ -42,8 +52,8 @@ Decisions made:
 - **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
 
 When you start a session, the next phase is:
-- **Phase 2.5 (planned):** Better confirmation polling, multi-asset coin selection, edge case fixes
-- **Phase 4:** Staking operations, hardware wallets (Ledger/Trezor), CIP-30
+- **Phase 4.1:** Staking operations (register stake key, delegate, withdraw rewards, deregister) → v0.4.0
+- Then: 4.2 Message Signing (CIP-8) → 4.3 CIP-30 → 4.4 CIP-45/WalletConnect → 4.5 Hardware Wallets → v1.0.0
 
 ## Tech stack (planned versions; verify against latest at install time)
 

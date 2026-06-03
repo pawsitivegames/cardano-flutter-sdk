@@ -155,6 +155,66 @@ void main() {
     });
   });
 
+  group('utxoToTxInput', () {
+    test('converts ADA-only UTXO correctly', () {
+      final utxo = Utxo(
+        txHash: 'abc123',
+        outputIndex: 0,
+        address: 'addr_test1q...',
+        coin: BigInt.from(2000000),
+        assets: {},
+      );
+      final input = utxoToTxInput(utxo);
+      expect(input.txHash, equals('abc123'));
+      expect(input.outputIndex, equals(0));
+      expect(input.value.coin, equals(BigInt.from(2000000)));
+      expect(input.value.assets, isEmpty);
+    });
+
+    test('preserves native tokens in multi-asset UTXO', () {
+      const policyId = '29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418';
+      const assetName = '4d59544b4e'; // MYTKN hex
+      final utxo = Utxo(
+        txHash: 'def456',
+        outputIndex: 1,
+        address: 'addr_test1q...',
+        coin: BigInt.from(1500000),
+        assets: {
+          policyId: {assetName: BigInt.from(100)},
+        },
+      );
+      final input = utxoToTxInput(utxo);
+      expect(input.value.coin, equals(BigInt.from(1500000)));
+      expect(input.value.assets, hasLength(1));
+      expect(input.value.assets.first.policyId, equals(policyId));
+      expect(input.value.assets.first.assetName, equals(assetName));
+      expect(input.value.assets.first.quantity, equals(BigInt.from(100)));
+    });
+
+    test('utxosToTxInputs converts list of UTXOs', () {
+      final utxos = [
+        Utxo(
+          txHash: 'aaa',
+          outputIndex: 0,
+          address: 'addr_test1q...',
+          coin: BigInt.from(5000000),
+          assets: {},
+        ),
+        Utxo(
+          txHash: 'bbb',
+          outputIndex: 0,
+          address: 'addr_test1q...',
+          coin: BigInt.from(3000000),
+          assets: {},
+        ),
+      ];
+      final inputs = utxosToTxInputs(utxos);
+      expect(inputs, hasLength(2));
+      expect(inputs[0].txHash, equals('aaa'));
+      expect(inputs[1].txHash, equals('bbb'));
+    });
+  });
+
   group('Integration Tests', () {
     test('full key derivation and address workflow', () async {
       const mnemonic =

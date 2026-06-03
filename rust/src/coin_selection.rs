@@ -91,8 +91,11 @@ pub fn largest_first(
     let target_coin: u64 = target_outputs.iter().map(|o| o.value.coin).sum();
     let target_assets = aggregate_assets(&target_outputs);
 
-    // Min ADA for change output (estimate: ~1 ADA for Babbage)
+    // Min ADA for a pure-ADA change output (~0.97 ADA on mainnet/preview)
     let min_ada_for_change = estimate_min_ada(&params);
+
+    // Estimate total output count: target outputs + up to 2 change outputs (ADA + multi-asset)
+    let est_num_outputs = target_outputs.len() + 2;
 
     // Sort UTXOs: descending by coin, with deterministic tiebreak on (tx_hash, output_index).
     let mut sorted_utxos = available_utxos;
@@ -124,7 +127,7 @@ pub fn largest_first(
         }
 
         // Estimate fee for current selection
-        let tentative_fee = estimate_fee_for_inputs(selected.len() + 1, &params);
+        let tentative_fee = estimate_fee_for_inputs(selected.len() + 1, est_num_outputs, &params);
         let needed_coin = target_coin + tentative_fee + min_ada_for_change;
 
         // Check if we have enough coin and all required assets
@@ -147,7 +150,7 @@ pub fn largest_first(
     }
 
     // Final validation: do we have enough?
-    let final_fee = estimate_fee_for_inputs(selected.len(), &params);
+    let final_fee = estimate_fee_for_inputs(selected.len(), est_num_outputs, &params);
     if accumulated_coin < target_coin + final_fee + min_ada_for_change {
         // Check if it's an asset shortage or coin shortage
         for (key, needed_qty) in &target_assets {
@@ -183,7 +186,7 @@ pub fn largest_first(
             }
             selected.push(utxo.clone());
             accumulated_coin += utxo.value.coin;
-            let new_fee = estimate_fee_for_inputs(selected.len(), &params);
+            let new_fee = estimate_fee_for_inputs(selected.len(), est_num_outputs, &params);
             let new_change = accumulated_coin - target_coin - new_fee;
             if new_change >= min_ada_for_change {
                 added = true;
@@ -200,23 +203,10 @@ pub fn largest_first(
     }
 
     // Recompute final fee and change with final input count
-    let final_fee = estimate_fee_for_inputs(selected.len(), &params);
+    let final_fee = estimate_fee_for_inputs(selected.len(), est_num_outputs, &params);
     let change_coin = accumulated_coin - target_coin - final_fee;
 
-    // Build change outputs
-    let mut change_outputs = Vec::new();
-    if change_coin > 0 {
-        // Pure ADA change
-        change_outputs.push(TxOutput {
-            address: change_address.clone(),
-            value: Value {
-                coin: change_coin,
-                assets: vec![],
-            },
-        });
-    }
-
-    // Multi-asset change (if any assets were accumulated)
+    // Multi-asset change (excess assets that weren't sent to recipients)
     let change_assets: Vec<NativeAsset> = accumulated_assets
         .into_iter()
         .map(|((policy_id, asset_name), qty)| {
@@ -233,14 +223,64 @@ pub fn largest_first(
         .filter(|a| a.quantity > 0)
         .collect();
 
-    if !change_assets.is_empty() {
-        change_outputs.push(TxOutput {
-            address: change_address,
-            value: Value {
-                coin: 0,
-                assets: change_assets,
-            },
-        });
+    // Build change outputs
+    let mut change_outputs = Vec::new();
+
+    if change_assets.is_empty() {
+        // Pure ADA change only
+        if change_coin > 0 {
+            change_outputs.push(TxOutput {
+                address: change_address.clone(),
+                value: Value {
+                    coin: change_coin,
+                    assets: vec![],
+                },
+            });
+        }
+    } else {
+        // Multi-asset change: the output MUST carry min-ADA per protocol rules.
+        // We deduct it from the pure-ADA change. If pure-ADA change is below
+        // min_ada_pure after deduction, absorb it into the multi-asset output instead
+        // of creating a dust pure-ADA output.
+        //
+        // Limitation: if change_coin < min_ada_multi, the TX will be rejected by the
+        // ledger. Users must consolidate UTXOs to resolve this.
+        let min_ada_multi = estimate_min_ada_for_multi_asset_output(change_assets.len(), &params);
+
+        if change_coin < min_ada_multi {
+            return Err(CardanoError::DustChange {
+                residual_lovelace: change_coin,
+                min_required: min_ada_multi,
+            });
+        }
+
+        let pure_ada_remainder = change_coin - min_ada_multi;
+        if pure_ada_remainder >= min_ada_for_change {
+            // Enough for two separate change outputs
+            change_outputs.push(TxOutput {
+                address: change_address.clone(),
+                value: Value {
+                    coin: pure_ada_remainder,
+                    assets: vec![],
+                },
+            });
+            change_outputs.push(TxOutput {
+                address: change_address.clone(),
+                value: Value {
+                    coin: min_ada_multi,
+                    assets: change_assets,
+                },
+            });
+        } else {
+            // Pure-ADA remainder is dust; absorb all change_coin into the multi-asset output
+            change_outputs.push(TxOutput {
+                address: change_address.clone(),
+                value: Value {
+                    coin: change_coin,
+                    assets: change_assets,
+                },
+            });
+        }
     }
 
     Ok(CoinSelectionResult {
@@ -262,7 +302,7 @@ fn aggregate_assets(outputs: &[TxOutput]) -> HashMap<(String, String), u64> {
     map
 }
 
-/// Estimate the minimum ADA needed for a change output.
+/// Estimate the minimum ADA needed for a pure-ADA change output.
 /// Uses Babbage formula: coins_per_utxo_byte * (output_cbor_size + 160)
 /// For a pure-ADA output, this is roughly 0.97-1.0 ADA.
 fn estimate_min_ada(params: &ProtocolParams) -> u64 {
@@ -272,12 +312,30 @@ fn estimate_min_ada(params: &ProtocolParams) -> u64 {
     params.coins_per_utxo_byte.saturating_mul(output_size + base_overhead)
 }
 
-/// Estimate the transaction fee based on the number of inputs.
-/// Uses a placeholder body size (250 bytes) + per-input CBOR (~43 bytes).
-fn estimate_fee_for_inputs(num_inputs: usize, params: &ProtocolParams) -> u64 {
+/// Estimate the minimum ADA needed for a multi-asset output.
+/// Conservative estimate based on number of distinct assets.
+/// Formula: coins_per_utxo_byte * (output_size + 160)
+/// where output_size includes policy map overhead and per-asset CBOR.
+fn estimate_min_ada_for_multi_asset_output(num_assets: usize, params: &ProtocolParams) -> u64 {
+    // 57B base + 50B policy map overhead + 28B policy id + 10B per (name, qty) pair
+    let output_size = 57u64 + 50 + 28 + (num_assets as u64).saturating_mul(10);
+    params.coins_per_utxo_byte.saturating_mul(output_size + 160)
+}
+
+/// Estimate the transaction fee based on the number of inputs and outputs.
+///
+/// Accounts for:
+/// - Base transaction body (~250B)
+/// - Per-input CBOR (~43B) + vkey witness (~100B)
+/// - Per-output CBOR (~65B conservative)
+fn estimate_fee_for_inputs(num_inputs: usize, num_outputs: usize, params: &ProtocolParams) -> u64 {
     let base_size = 250u64;
     let per_input_size = 43u64;
-    let total_size = base_size + (num_inputs as u64).saturating_mul(per_input_size);
+    let per_witness_size = 100u64; // vkey witness: 32B pk + 64B sig + overhead
+    let per_output_size = 65u64;
+    let total_size = base_size
+        + (num_inputs as u64).saturating_mul(per_input_size + per_witness_size)
+        + (num_outputs as u64).saturating_mul(per_output_size);
     params.min_fee_b.saturating_add(params.min_fee_a.saturating_mul(total_size))
 }
 
@@ -532,6 +590,80 @@ mod tests {
                 );
             }
         }
+    }
+
+    // Test 7: Multi-asset change output carries min-ADA (not coin=0)
+    #[test]
+    fn multi_asset_change_output_has_min_ada() {
+        let params = make_params();
+        let policy = "29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418".to_string();
+        let asset_name = "MYTKN".to_string();
+
+        // UTXO with 5 ADA and 200 tokens — send 100 tokens, keep 100 as change
+        let utxo_with_asset = TxInput {
+            tx_hash: "aaa".to_string(),
+            output_index: 0,
+            address: "addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqq4mj7m3hn8wxssdcn0y3fy".to_string(),
+            value: Value {
+                coin: 5_000_000,
+                assets: vec![NativeAsset {
+                    policy_id: policy.clone(),
+                    asset_name: asset_name.clone(),
+                    quantity: 200,
+                }],
+            },
+        };
+
+        let target = TxOutput {
+            address: "addr_recv".to_string(),
+            value: Value {
+                coin: 1_500_000,
+                assets: vec![NativeAsset {
+                    policy_id: policy.clone(),
+                    asset_name: asset_name.clone(),
+                    quantity: 100,
+                }],
+            },
+        };
+
+        let result =
+            largest_first(vec![utxo_with_asset], vec![target], "addr_change".to_string(), params)
+                .unwrap();
+
+        // Find the multi-asset change output
+        let multi_output = result
+            .change_outputs
+            .iter()
+            .find(|o| !o.value.assets.is_empty())
+            .expect("should have a multi-asset change output");
+
+        // Must carry non-zero ADA (min-ADA per protocol)
+        assert!(
+            multi_output.value.coin > 0,
+            "multi-asset change output must have non-zero coin, got {}",
+            multi_output.value.coin
+        );
+        assert!(
+            multi_output.value.coin >= estimate_min_ada_for_multi_asset_output(1, &make_params()),
+            "multi-asset change coin {} below min-ADA {}",
+            multi_output.value.coin,
+            estimate_min_ada_for_multi_asset_output(1, &make_params())
+        );
+
+        // Asset conservation: 200 total − 100 sent = 100 in change
+        let change_asset_qty: u64 = result
+            .change_outputs
+            .iter()
+            .flat_map(|o| &o.value.assets)
+            .filter(|a| a.policy_id == policy && a.asset_name == asset_name)
+            .map(|a| a.quantity)
+            .sum();
+        assert_eq!(change_asset_qty, 100);
+
+        // Coin conservation: inputs == change + fee + target
+        let inputs_sum: u64 = result.selected_inputs.iter().map(|u| u.value.coin).sum();
+        let change_sum: u64 = result.change_outputs.iter().map(|o| o.value.coin).sum();
+        assert_eq!(inputs_sum, change_sum + result.fee + 1_500_000);
     }
 
     // Property test 2: No asset lost

@@ -9,6 +9,29 @@ import 'blockfrost_errors.dart';
 /// Network selection for Blockfrost API.
 enum Network { testnetPreview, mainnet }
 
+/// Status of a submitted transaction as reported by Blockfrost.
+class TransactionStatus {
+  /// Transaction hash (64 hex chars).
+  final String hash;
+
+  /// Whether the transaction has been included in a block.
+  final bool confirmed;
+
+  /// Block height at which the transaction was confirmed, if available.
+  final int? blockHeight;
+
+  TransactionStatus({
+    required this.hash,
+    required this.confirmed,
+    this.blockHeight,
+  });
+
+  @override
+  String toString() =>
+      'TransactionStatus(hash: ${hash.substring(0, 8)}…, confirmed: $confirmed'
+      '${blockHeight != null ? ', block: $blockHeight' : ''})';
+}
+
 extension _NetworkExt on Network {
   /// Returns the base URL for the Blockfrost API.
   String get baseUrl {
@@ -89,6 +112,75 @@ class ProtocolParameters {
   String toString() =>
       'ProtocolParameters(minFeeA: $minFeeA, minFeeB: $minFeeB, '
       'coinsPerUtxoByte: $coinsPerUtxoByte, maxTxSize: $maxTxSize)';
+}
+
+/// Information about a stake account (reward address).
+class AccountInfo {
+  /// Bech32 stake address.
+  final String stakeAddress;
+
+  /// Whether the stake key is currently registered on-chain.
+  final bool isRegistered;
+
+  /// Total controlled stake in lovelace (delegated + rewards).
+  final BigInt controlledStake;
+
+  /// Lifetime rewards sum in lovelace.
+  final BigInt rewardsSum;
+
+  /// Withdrawable rewards in lovelace (available for withdrawal right now).
+  final BigInt withdrawableReward;
+
+  /// Bech32 pool ID of the currently delegated pool, or null if not delegated.
+  final String? poolId;
+
+  const AccountInfo({
+    required this.stakeAddress,
+    required this.isRegistered,
+    required this.controlledStake,
+    required this.rewardsSum,
+    required this.withdrawableReward,
+    this.poolId,
+  });
+
+  @override
+  String toString() =>
+      'AccountInfo(stake: $stakeAddress, registered: $isRegistered, '
+      'withdrawable: $withdrawableReward, pool: $poolId)';
+}
+
+/// Information about a stake pool.
+class PoolInfo {
+  /// Bech32 pool ID.
+  final String poolId;
+
+  /// Ticker symbol (e.g. "TICKER").
+  final String? ticker;
+
+  /// Human-readable pool name.
+  final String? name;
+
+  /// Fixed cost in lovelace (as a string to avoid precision loss).
+  final String? fixedCost;
+
+  /// Pool margin as a fraction 0.0–1.0.
+  final double? margin;
+
+  /// Pool saturation level 0.0–1.0 (>1 = oversaturated).
+  final double? saturation;
+
+  const PoolInfo({
+    required this.poolId,
+    this.ticker,
+    this.name,
+    this.fixedCost,
+    this.margin,
+    this.saturation,
+  });
+
+  @override
+  String toString() =>
+      'PoolInfo(id: $poolId, ticker: $ticker, margin: $margin)';
 }
 
 /// Blockfrost HTTP provider for fetching UTxOs, protocol parameters, and submitting transactions.
@@ -210,6 +302,181 @@ class BlockfrostProvider {
 
     final json = jsonDecode(response.body);
     return json as String;
+  }
+
+  /// Fetches the current status of a submitted transaction.
+  ///
+  /// Returns [TransactionStatus] with [TransactionStatus.confirmed] = false if the
+  /// transaction is not yet in a block (Blockfrost returns 404 for pending TXs).
+  ///
+  /// Throws [BlockfrostUnauthorized], [BlockfrostRateLimited], [BlockfrostServerError],
+  /// or [BlockfrostNetworkError] on API errors.
+  ///
+  /// Example:
+  /// ```dart
+  /// final status = await provider.fetchTransactionStatus(txHash);
+  /// if (status.confirmed) {
+  ///   print('Confirmed in block \${status.blockHeight}');
+  /// } else {
+  ///   print('Still pending…');
+  /// }
+  /// ```
+  Future<TransactionStatus> fetchTransactionStatus(String txHash) async {
+    final uri = Uri.parse('${network.baseUrl}/txs/$txHash');
+    final response = await _makeRequest('GET', uri);
+
+    if (response.statusCode == 404) {
+      return TransactionStatus(hash: txHash, confirmed: false);
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return TransactionStatus(
+      hash: txHash,
+      confirmed: true,
+      blockHeight: json['block_height'] as int?,
+    );
+  }
+
+  /// Polls Blockfrost until [txHash] is confirmed or [timeout] expires.
+  ///
+  /// Queries [fetchTransactionStatus] every [pollInterval] (default 10 s).
+  /// Returns the confirmed [TransactionStatus] on success.
+  ///
+  /// Throws [TimeoutException] if the transaction is not confirmed within [timeout].
+  /// Other [BlockfrostException] subtypes are propagated immediately (no retry).
+  ///
+  /// Example:
+  /// ```dart
+  /// try {
+  ///   final status = await provider.pollTransactionConfirmation(
+  ///     txHash,
+  ///     pollInterval: const Duration(seconds: 10),
+  ///     timeout: const Duration(minutes: 5),
+  ///   );
+  ///   print('Confirmed in block \${status.blockHeight}');
+  /// } on TimeoutException {
+  ///   print('Not confirmed yet — check the explorer');
+  /// }
+  /// ```
+  Future<TransactionStatus> pollTransactionConfirmation(
+    String txHash, {
+    Duration pollInterval = const Duration(seconds: 10),
+    Duration timeout = const Duration(minutes: 5),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+
+    while (true) {
+      final status = await fetchTransactionStatus(txHash);
+      if (status.confirmed) return status;
+
+      final remaining = deadline.difference(DateTime.now());
+      if (remaining <= Duration.zero) {
+        throw TimeoutException(
+          'Transaction $txHash not confirmed within ${timeout.inSeconds}s',
+          timeout,
+        );
+      }
+
+      final delay = remaining < pollInterval ? remaining : pollInterval;
+      await Future.delayed(delay);
+    }
+  }
+
+  // ── Staking queries (Phase 4.1) ────────────────────────────────────────────
+
+  /// Fetches account info for a stake address.
+  ///
+  /// Returns null if the stake address is not yet registered on-chain (404).
+  ///
+  /// Throws [BlockfrostUnauthorized], [BlockfrostRateLimited],
+  /// [BlockfrostServerError], or [BlockfrostNetworkError] on API errors.
+  ///
+  /// Example:
+  /// ```dart
+  /// final info = await provider.fetchAccountInfo('stake_test1u...');
+  /// if (info == null) print('Not yet registered');
+  /// else print('Withdrawable: ${info.withdrawableReward} lovelace');
+  /// ```
+  Future<AccountInfo?> fetchAccountInfo(String stakeAddress) async {
+    final uri = Uri.parse('${network.baseUrl}/accounts/$stakeAddress');
+    final response = await _makeRequest('GET', uri);
+
+    if (response.statusCode == 404) return null;
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return AccountInfo(
+      stakeAddress: json['stake_address'] as String,
+      isRegistered: json['active'] as bool? ?? false,
+      controlledStake:
+          BigInt.parse((json['controlled_amount'] as String?) ?? '0'),
+      rewardsSum: BigInt.parse((json['rewards_sum'] as String?) ?? '0'),
+      withdrawableReward:
+          BigInt.parse((json['withdrawable_amount'] as String?) ?? '0'),
+      poolId: json['pool_id'] as String?,
+    );
+  }
+
+  /// Fetches a page of active pool IDs (bech32 strings).
+  ///
+  /// Example:
+  /// ```dart
+  /// final pools = await provider.fetchPoolIds(page: 1, count: 20);
+  /// ```
+  Future<List<String>> fetchPoolIds({int page = 1, int count = 20}) async {
+    final uri = Uri.parse(
+        '${network.baseUrl}/pools?page=$page&count=$count&order=desc');
+    final response = await _makeRequest('GET', uri);
+
+    final List<dynamic> jsonList = jsonDecode(response.body);
+    return jsonList.cast<String>();
+  }
+
+  /// Fetches details for a specific stake pool.
+  ///
+  /// Throws [BlockfrostNotFound] if the pool does not exist.
+  ///
+  /// Example:
+  /// ```dart
+  /// final info = await provider.fetchPoolInfo('pool1...');
+  /// print('${info.ticker}: margin ${info.margin}');
+  /// ```
+  Future<PoolInfo> fetchPoolInfo(String poolId) async {
+    final uri = Uri.parse('${network.baseUrl}/pools/$poolId');
+    final response = await _makeRequest('GET', uri);
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final marginStr = json['margin_cost'] as String?;
+    final saturationStr = json['live_saturation'] as String?;
+    return PoolInfo(
+      poolId: poolId,
+      fixedCost: json['fixed_cost'] as String?,
+      margin: marginStr != null ? double.tryParse(marginStr) : null,
+      saturation: saturationStr != null ? double.tryParse(saturationStr) : null,
+    );
+  }
+
+  /// Fetches pool metadata (name, ticker) for a specific stake pool.
+  ///
+  /// Returns an empty map if the pool has no metadata.
+  ///
+  /// Example:
+  /// ```dart
+  /// final meta = await provider.fetchPoolMetadata('pool1...');
+  /// print(meta['name']);
+  /// ```
+  Future<Map<String, String?>> fetchPoolMetadata(String poolId) async {
+    final uri = Uri.parse('${network.baseUrl}/pools/$poolId/metadata');
+    final response = await _makeRequest('GET', uri);
+
+    if (response.statusCode == 404) return {};
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return {
+      'name': json['name'] as String?,
+      'ticker': json['ticker'] as String?,
+      'description': json['description'] as String?,
+      'homepage': json['homepage'] as String?,
+    };
   }
 
   /// Makes an HTTP request with retry logic and error handling.

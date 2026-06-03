@@ -7,14 +7,15 @@ import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
 class MintScreen extends StatefulWidget {
   final BlockfrostProvider provider;
   final String myAddress;
-  final String paymentKey;
+  /// Payment signing key (xprv bech32) — used for signing only, not displayed.
+  final String paymentSigningKey;
   final String paymentKeyHash;
 
   const MintScreen({
     super.key,
     required this.provider,
     required this.myAddress,
-    required this.paymentKey,
+    required this.paymentSigningKey,
     required this.paymentKeyHash,
   });
 
@@ -162,11 +163,11 @@ class _MintScreenState extends State<MintScreen> {
         params: params,
       );
 
-      // 6. Sign with payment key (using metadata-aware signer)
+      // 6. Sign with payment signing key (using metadata-aware signer)
       setState(() => _status = 'Signing transaction...');
       final signedTx = await signMintTransaction(
         builtMintTx: builtMintTx,
-        paymentKeys: [widget.paymentKey],
+        paymentKeys: [widget.paymentSigningKey],
       );
 
       // 7. Submit to Blockfrost

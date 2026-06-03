@@ -43,18 +43,36 @@ Future<String> deriveAccountKeyInternal(
 
 class KeyDerivationResult {
   final String accountKey;
+
+  /// Payment public key bech32 (xpub). For display only — NOT for signing.
   final String paymentKey;
+
+  /// Stake public key bech32 (xpub). For display only — NOT for signing.
   final String stakeKey;
 
   /// Blake2b-224 hash of the payment public key (28 bytes = 56 hex chars).
   /// Use as `key_hash_hex` argument for `make_pubkey_script`.
   final String paymentKeyHash;
 
+  /// Payment private key bech32 (xprv) at m/1852'/1815'/0'/0/0.
+  /// Pass to `sign_tx` / `sign_tx_with_metadata`.
+  final String paymentSigningKey;
+
+  /// Stake private key bech32 (xprv) at m/1852'/1815'/0'/2/0.
+  /// Pass to signing functions for staking certificates / withdrawals.
+  final String stakeSigningKey;
+
+  /// Blake2b-224 hash of the stake public key (28 bytes = 56 hex chars).
+  final String stakeKeyHash;
+
   const KeyDerivationResult({
     required this.accountKey,
     required this.paymentKey,
     required this.stakeKey,
     required this.paymentKeyHash,
+    required this.paymentSigningKey,
+    required this.stakeSigningKey,
+    required this.stakeKeyHash,
   });
 
   @override
@@ -62,7 +80,10 @@ class KeyDerivationResult {
       accountKey.hashCode ^
       paymentKey.hashCode ^
       stakeKey.hashCode ^
-      paymentKeyHash.hashCode;
+      paymentKeyHash.hashCode ^
+      paymentSigningKey.hashCode ^
+      stakeSigningKey.hashCode ^
+      stakeKeyHash.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -72,5 +93,8 @@ class KeyDerivationResult {
           accountKey == other.accountKey &&
           paymentKey == other.paymentKey &&
           stakeKey == other.stakeKey &&
-          paymentKeyHash == other.paymentKeyHash;
+          paymentKeyHash == other.paymentKeyHash &&
+          paymentSigningKey == other.paymentSigningKey &&
+          stakeSigningKey == other.stakeSigningKey &&
+          stakeKeyHash == other.stakeKeyHash;
 }

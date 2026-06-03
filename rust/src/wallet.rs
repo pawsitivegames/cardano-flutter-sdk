@@ -5,11 +5,21 @@ use flutter_rust_bridge::frb;
 #[derive(Clone, Debug)]
 pub struct KeyDerivationResult {
     pub account_key: String,
+    /// Payment public key bech32 (xpub). For display only — NOT for signing.
     pub payment_key: String,
+    /// Stake public key bech32 (xpub). For display only — NOT for signing.
     pub stake_key: String,
     /// Blake2b-224 hash of the payment public key (28 bytes = 56 hex chars).
     /// Use as `key_hash_hex` argument for `make_pubkey_script`.
     pub payment_key_hash: String,
+    /// Payment private key bech32 (xprv) at m/1852'/1815'/0'/0/0.
+    /// Pass to `sign_tx` / `sign_tx_with_metadata`.
+    pub payment_signing_key: String,
+    /// Stake private key bech32 (xprv) at m/1852'/1815'/0'/2/0.
+    /// Pass to signing functions for staking certificates / withdrawals.
+    pub stake_signing_key: String,
+    /// Blake2b-224 hash of the stake public key (28 bytes = 56 hex chars).
+    pub stake_key_hash: String,
 }
 
 #[frb(sync)]
@@ -49,12 +59,16 @@ pub fn derive_keys_from_mnemonic_internal(
 
     let payment_pub = payment_key.to_public();
     let payment_key_hash = hex::encode(payment_pub.to_raw_key().hash().to_bytes());
+    let stake_key_hash = hex::encode(stake_key.to_public().to_raw_key().hash().to_bytes());
 
     Ok(KeyDerivationResult {
         account_key: account_key.to_bech32(),
-        payment_key: payment_pub.to_bech32(),
-        stake_key: stake_key.to_public().to_bech32(),
+        payment_key: payment_pub.to_bech32(),             // public (for display)
+        payment_signing_key: payment_key.to_bech32(),     // private xprv (for signing)
+        stake_key: stake_key.to_public().to_bech32(),     // public (for display)
+        stake_signing_key: stake_key.to_bech32(),         // private xprv (for signing)
         payment_key_hash,
+        stake_key_hash,
     })
 }
 
@@ -106,13 +120,24 @@ mod tests {
         assert!(result.is_ok());
         let keys = result.unwrap();
         assert!(!keys.account_key.is_empty());
+        // Public keys are xpub
         assert!(!keys.payment_key.is_empty());
         assert!(!keys.stake_key.is_empty());
+        // Private signing keys are xprv
+        assert!(
+            keys.payment_signing_key.starts_with("xprv"),
+            "payment_signing_key should start with 'xprv'"
+        );
+        assert!(
+            keys.stake_signing_key.starts_with("xprv"),
+            "stake_signing_key should start with 'xprv'"
+        );
         assert_eq!(keys.payment_key_hash.len(), 56); // 28 bytes hex
         assert_eq!(
             keys.payment_key_hash,
             "9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e"
         );
+        assert_eq!(keys.stake_key_hash.len(), 56); // 28 bytes hex
     }
 
     #[test]

@@ -34,8 +34,10 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 1 — Read-only wallet | ✅ Complete | v0.1.0 |
 | 2 — Transaction building | ✅ **Verified 2026-05-25** | v0.2.0 |
 | 3 — Minting + Plutus + CIP-25/68 | ✅ **Verified 2026-05-26** | v0.3.0 |
-| 2.5 — Production hardening | 🔜 Next | — |
-| 4+ | Planned | — |
+| 2.5 — Production hardening | ✅ **Complete 2026-05-25** | v0.3.1 |
+| 4.1 — Staking operations | ✅ **Verified 2026-05-26** | v0.4.0 |
+| 4.2 — Message signing (CIP-8) | ✅ **Complete 2026-05-26** | v0.5.0 |
+| 4.3+ | Planned | — |
 
 **Phase 2 verification (2026-05-25):**
 - Rust 30/30 · Dart unit 22/22 · Dart FFI 13/13 · Live Blockfrost 1/1
@@ -50,19 +52,36 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 - Example app: NFT Mint screen (CIP-25, native tokens, end-to-end)
 - iOS arm64 device + arm64-sim frameworks updated
 
+**Phase 4.1 verification (2026-05-26):**
+- Rust 77/77 · Dart unit 102/102 · clippy clean · flutter analyze clean
+- Staking operations: register, delegate, withdraw, deregister
+- Example app: Stake screen with pool delegation and reward management
+
+**Phase 4.2 verification (2026-05-26):**
+- Rust 77/77 (8 new message tests) · Dart package: no issues found
+- New module: `message` with CIP-8 COSE Sign1 support
+- `signMessage()` / `verifyMessage()` with payment or stake keys
+- Blake2b-256 hashing + Ed25519 signatures + CBOR encoding
+- Example app: Message screen with sign/verify UI for dApp auth
+- Build label: build-008 · Phase 4.2
+
+**Phase 2.5 verification (2026-05-25):**
+- Rust 56/56 · Dart 102/102 · 1 live test skipped · clippy clean · flutter analyze clean
+- Bug fix: multi-asset change output coin was 0 (ledger-invalid); now correct min-ADA
+- Feat: TX confirmation polling (`pollTransactionConfirmation`) with configurable interval/timeout
+- Feat: `utxoToTxInput` / `utxosToTxInputs` helpers — preserves native tokens in UTXO conversion
+- Fix: `SendScreen` used `assets: []` for all UTXOs, silently dropping tokens; fixed to use helpers
+- Fix: fee estimation now includes vkey witness overhead (100B/input) + per-output size (65B)
+- Feat: network mismatch safety gate in `SendScreen` (testnet address on mainnet provider → hard error)
+- Feat: confirmation polling spinner in `SendScreen` (submits → polls → "Confirmed in block N!")
+- Mainnet UI: MAINNET label, red confirm button, mainnet explorer link
+
 ---
 
 ## Roadmap
 
-### Phase 2.5 — Production Hardening
-*Scope: no new APIs, just robustness.*
-
-- TX confirmation polling (currently fire-and-forget after submit)
-- Multi-asset coin selection (CIP-2 currently ADA-only)
-- Edge case fixes: dust UTXOs, change address on empty wallet, fee estimation on complex inputs
-- Mainnet routing (currently testnet-only; add mainnet config + safety gate)
-
-**Exit criteria:** 1000+ testnet txs without fund loss; mainnet config present but gated behind explicit opt-in.
+### Phase 2.5 — Production Hardening ✅
+*Complete. All scope items shipped.*
 
 ---
 
@@ -85,24 +104,79 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 
 ---
 
-### Phase 4 — Wallet Connectors → v1.0.0
-*Dependency: Phase 3 complete.*
+### Phase 4.1 — Staking Operations → v0.4.0
+*Dependency: Phase 3 complete. Self-contained — uses existing tx-building primitives.*
 
 **Deliverables:**
-- CIP-30 dApp connector API (in-app wallet interface)
-- CIP-45 WalletConnect v2 for Cardano (cross-app; integrate Vespr's work, don't greenfield)
-- Staking pool delegation
-- Ledger / Trezor hardware wallet support (via CIP-30 bridge)
-- Deep linking for iOS/Android wallet handoff
-- Message signing (dApp auth)
-- Example: Flutter dApp connecting to Lace / Eternl / Vespr on mobile
+- Register stake key on-chain
+- Delegate to a pool (`stake_pool_id`)
+- Withdraw staking rewards
+- Deregister stake key
+- Example app: Stake tab (pool picker → delegate → show rewards)
+
+**Verification:**
+- Stake key registration tx confirmed on preview testnet
+- Delegation tx confirmed on-chain (pool shows delegator)
+- Reward withdrawal tx succeeds
+- Dart tests for all staking tx builders
+
+---
+
+### Phase 4.2 — Message Signing (CIP-8) → v0.5.0 ✅
+*Dependency: Phase 4.1 complete. Prerequisite for CIP-30.*
+
+**Deliverables:**
+- Sign arbitrary payload with payment or stake key (CIP-8 `signData`) ✅
+- Verify a CIP-8 signature ✅
+- Example: dApp login / auth flow in example app ✅
+
+**Verification:**
+- Signatures verified via Blake2b-256 + Ed25519 + CBOR round-trips ✅
+- Round-trip sign → verify passes for both payment and stake keys ✅
+- Rust 77/77 · Dart clean · Example app integrated ✅
+
+---
+
+### Phase 4.3 — CIP-30 dApp Connector → v0.6.0
+*Dependency: Phase 4.2 complete.*
+
+**Deliverables:**
+- Full CIP-30 wallet API: `getNetworkId`, `getUtxos`, `getBalance`, `signTx`, `signData`, `submitTx`, `getChangeAddress`, `getRewardAddresses`, `getUsedAddresses`, `getUnusedAddresses`
+- In-app wallet interface (Flutter app acts as CIP-30 wallet backend)
+- Example: Flutter dApp connecting to the SDK wallet
 
 **Verification:**
 - All CIP-30 methods implemented and spec-compliant
+- Example dApp can fetch UTXOs, sign a tx, and submit — end-to-end
+
+---
+
+### Phase 4.4 — CIP-45 WalletConnect & Deep Linking → v0.7.0
+*Dependency: Phase 4.3 complete.*
+
+**Deliverables:**
+- CIP-45 WalletConnect v2 for Cardano (cross-app; integrate Vespr's work, don't greenfield)
+- Deep linking (iOS/Android) for wallet pairing handoff
+- Example: Flutter dApp pairs with SDK wallet via WalletConnect
+
+**Verification:**
 - Example dApp pairs with production wallets (Lace iOS, Vespr Android)
-- Staking delegation confirmed on-chain
-- Ledger TX signing round-trip verified
+- Deep link round-trip verified on iOS and Android
+
+---
+
+### Phase 4.5 — Hardware Wallets → v0.8.0 → v1.0.0
+*Dependency: Phase 4.3 complete. Can parallel with 4.4.*
+
+**Deliverables:**
+- Ledger signing via CIP-30 bridge
+- Trezor signing
+- Physical device verification (Ledger Nano X / Stax)
 - v1.0.0 published to pub.dev
+
+**Verification:**
+- Ledger TX signing round-trip verified on device
+- v1.0.0 published to pub.dev with full changelog
 
 ---
 

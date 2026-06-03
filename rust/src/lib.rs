@@ -14,10 +14,12 @@ mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be
 pub mod address;
 pub mod coin_selection;
 pub mod error;
+pub mod message;
 pub mod metadata;
 pub mod minting;
 pub mod plutus;
 pub mod sign;
+pub mod staking;
 pub mod tx;
 pub mod wallet;
 
@@ -26,6 +28,7 @@ use flutter_rust_bridge::frb;
 // Re-export public types for Dart convenience
 pub use address::{is_valid_bech32, validate_address, AddressInfo};
 pub use coin_selection::{largest_first, CoinSelectionResult};
+pub use message::{sign_message, verify_message, SignedMessage};
 pub use metadata::{build_cip25_metadata, build_cip68_datum, Cip25Asset, Cip25Policy};
 pub use minting::{
     build_mint_tx, compute_policy_id, make_pubkey_script, make_timelock_expiry_script,
@@ -36,6 +39,10 @@ pub use plutus::{
     validate_plutus_data, PlutusInput, PlutusScriptVersion,
 };
 pub use sign::{sign_tx, sign_tx_with_metadata, SignedTx};
+pub use staking::{
+    build_delegation_tx, build_reward_withdrawal_tx, build_stake_deregistration_tx,
+    build_stake_registration_tx, compute_stake_address, BuiltStakingTx,
+};
 pub use tx::{
     build_tx, estimate_fee, min_ada_for_output, BuiltTx, NativeAsset, ProtocolParams, TxInput,
     TxOutput, Value,
