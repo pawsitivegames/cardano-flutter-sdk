@@ -331,8 +331,8 @@ pub fn cip30_verify_data(
     data_signature: DataSignature,
     expected_payload_hex: Option<String>,
 ) -> Result<bool, CardanoError> {
-    let cose_sign1 = COSESign1::from_bytes(hex_to_bytes(&data_signature.signature)?)
-        .map_err(map_cms_err)?;
+    let cose_sign1 =
+        COSESign1::from_bytes(hex_to_bytes(&data_signature.signature)?).map_err(map_cms_err)?;
 
     let payload = cose_sign1.payload().unwrap_or_default();
     if let Some(expected) = expected_payload_hex {
@@ -421,11 +421,9 @@ mod tests {
     #[test]
     fn test_utxo_to_cbor_hex() {
         let input = TxInput {
-            tx_hash: "0000000000000000000000000000000000000000000000000000000000000000"
-                .to_string(),
+            tx_hash: "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
             output_index: 0,
-            address: "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz"
-                .to_string(),
+            address: "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz".to_string(),
             value: Value {
                 coin: 5_000_000,
                 assets: vec![],
@@ -486,21 +484,13 @@ mod tests {
     #[test]
     fn test_sign_and_verify_data_roundtrip() {
         let k = keys();
-        let addr = compute_base_address(
-            k.payment_key_hash.clone(),
-            k.stake_key_hash.clone(),
-            0,
-        )
-        .unwrap();
+        let addr =
+            compute_base_address(k.payment_key_hash.clone(), k.stake_key_hash.clone(), 0).unwrap();
         let address_hex = address_to_hex(addr).unwrap();
         let payload = hex::encode("Login to dApp at 2026-06-02");
 
-        let sig = cip30_sign_data(
-            address_hex,
-            payload.clone(),
-            k.payment_signing_key.clone(),
-        )
-        .unwrap();
+        let sig =
+            cip30_sign_data(address_hex, payload.clone(), k.payment_signing_key.clone()).unwrap();
         assert!(!sig.signature.is_empty());
         assert!(!sig.key.is_empty());
 
@@ -519,18 +509,17 @@ mod tests {
         //   COSE_Sign1 protected headers: alg = EdDSA, "address" = signer address
         //   payload preserved; COSE_Key: alg = EdDSA, x = the public key.
         let k = keys();
-        let addr = compute_base_address(
-            k.payment_key_hash.clone(),
-            k.stake_key_hash.clone(),
-            0,
-        )
-        .unwrap();
+        let addr =
+            compute_base_address(k.payment_key_hash.clone(), k.stake_key_hash.clone(), 0).unwrap();
         let address_hex = address_to_hex(addr).unwrap();
         let payload_hex = hex::encode("interop check");
 
-        let sig =
-            cip30_sign_data(address_hex.clone(), payload_hex.clone(), k.payment_signing_key)
-                .unwrap();
+        let sig = cip30_sign_data(
+            address_hex.clone(),
+            payload_hex.clone(),
+            k.payment_signing_key,
+        )
+        .unwrap();
 
         // Parse COSE_Sign1 with CMS.
         let cose = COSESign1::from_bytes(hex::decode(&sig.signature).unwrap()).unwrap();
@@ -566,10 +555,9 @@ mod tests {
     #[test]
     fn test_verify_data_fails_on_wrong_payload() {
         let k = keys();
-        let address_hex = address_to_hex(
-            compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap(),
-        )
-        .unwrap();
+        let address_hex =
+            address_to_hex(compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap())
+                .unwrap();
         let payload = hex::encode("original");
         let sig = cip30_sign_data(address_hex, payload, k.payment_signing_key).unwrap();
 
@@ -580,10 +568,9 @@ mod tests {
     #[test]
     fn test_verify_data_fails_on_tampered_signature() {
         let k = keys();
-        let address_hex = address_to_hex(
-            compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap(),
-        )
-        .unwrap();
+        let address_hex =
+            address_to_hex(compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap())
+                .unwrap();
         let payload = hex::encode("msg");
         let mut sig = cip30_sign_data(address_hex, payload.clone(), k.payment_signing_key).unwrap();
 

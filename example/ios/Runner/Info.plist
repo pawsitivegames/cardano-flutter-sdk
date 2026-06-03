@@ -24,6 +24,11 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Phase 4.5: Ledger hardware wallet over Bluetooth LE -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Connect to a Ledger hardware wallet over Bluetooth to view your account and sign transactions.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Connect to a Ledger hardware wallet over Bluetooth to view your account and sign transactions.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

@@ -8,6 +8,7 @@ import 'send_screen.dart';
 import 'mint_screen.dart';
 import 'stake_screen.dart';
 import 'message_screen.dart';
+import 'ledger_screen.dart';
 import 'cip30_screen.dart';
 import 'cip45_screen.dart';
 
@@ -323,6 +324,30 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  void _navigateToLedgerScreen() {
+    if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please set BLOCKFROST_PROJECT_ID environment variable or run with --dart-define=BLOCKFROST_PROJECT_ID=your_id',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final provider = BlockfrostProvider(
+      projectId: _blockfrostProjectId!,
+      network: Network.testnetPreview,
+    );
+
+    _navigatorKey.currentState!.push(
+      MaterialPageRoute(
+        builder: (ctx) => LedgerScreen(provider: provider),
+      ),
+    );
+  }
+
   void _navigateToCip45Screen({String? initialUri}) {
     final projectId = _blockfrostProjectId;
     if (projectId == null || projectId.isEmpty) {
@@ -627,6 +652,20 @@ class _MyAppState extends State<MyApp> {
                             color: Colors.white, size: 16),
                         label: const Text(
                           'CIP-45',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed:
+                            _libInitialized ? _navigateToLedgerScreen : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                        ),
+                        icon: const Icon(Icons.memory,
+                            color: Colors.white, size: 16),
+                        label: const Text(
+                          'Ledger',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),

@@ -14,6 +14,41 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
+**Phase 4.5: Hardware Wallets — Core Complete; On-Device Signing PENDING** 🟡 *(2026-06-02)*
+
+Honest status: core protocol layer done + tested; example Ledger BLE read path
+code-complete; **transaction signing NOT yet verified on a physical Ledger**
+(no device available). v1.0.0 **not** published — the phase's v1.0 gate
+("Ledger TX signing round-trip verified on device") is deliberately still open.
+
+Core SDK (`rust/src/hardware.rs` + `dart/lib/src/hardware/`, device-agnostic):
+- `xpubToAccount(accountXpubHex, networkId)` — soft-derive base+reward addresses
+  and payment/stake key hashes from a BIP-32 **account xpub** (no private keys;
+  also serves watch-only). Proven to land on the same credentials as the
+  mnemonic private path.
+- `assembleVkeyWitnessSet` / `extractVkeyWitnesses` — device `(pubkey,sig)` pairs
+  ↔ CBOR `transaction_witness_set` (symmetric; for assembly + partial-sign/multisig).
+- `HardwareWallet` interface (`getAccountXpub`, `signTransaction`) + sign-request type.
+- `HardwareCip30Wallet` — CIP-30-shaped wallet: addresses from xpub, balance/UTxOs
+  via provider, signing delegated to device + assembled into a submittable tx.
+- **Tests:** Rust 98/98 (incl. assemble↔extract identity over a real signature),
+  Dart hardware suite incl. a **real-crypto round-trip** (software-sign → extract
+  → mock device → `HardwareCip30Wallet` assembles a **byte-identical** tx).
+  clippy clean · analyze clean.
+
+Example (Ledger over BLE, deps in example only — Vespr's MIT `ledger_cardano_plus`
++ `ledger_flutter_plus`):
+- `LedgerHardwareWallet implements HardwareWallet`: scan/connect, version,
+  `getAccountXpub` (= `publicKeyHex+chainCodeHex`). **Working read path.**
+- **Ledger screen**: scan → connect → derive address → balance/UTxOs via
+  `HardwareCip30Wallet`. iOS BLE Info.plist keys added; deployment target → 14.0
+  (universal_ble needs ≥13.1). Builds for iOS simulator.
+- `signTransaction` **intentionally throws** — the device-side `ParsedSigningRequest`
+  mapping (+ deriving witness pubkeys from the xpub) needs on-device validation;
+  not shipped unverified. Checklist to close the gate: `docs/hardware-wallets.md`.
+- **Trezor deferred** (USB-only, no BLE; Trezor Connect web bridge impractical on
+  mobile). Ledger-only for v1.0; Trezor a future follow-up.
+
 **Phase 4.4: CIP-45 Complete & Live-Verified** ✅ *(2026-06-02)*
 
 Protocol core (package, unit-tested) + reference transport (example):
@@ -104,11 +139,15 @@ Decisions made:
 - **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
 
 When you start a session, the next phase is:
-- **Phase 4.5 Hardware Wallets (Ledger/Trezor) → v1.0.0**
+- **Close the Phase 4.5 v1.0 gate:** implement + verify Ledger `signTransaction`
+  on a physical device (Nano X / Stax / Flex), then publish v1.0.0. Checklist:
+  `docs/hardware-wallets.md`. Needs hardware the maintainer must supply.
 - Optional CIP-45 follow-ups: Android intent-filter + Android-device verify;
   in-wallet QR scanning; a `flutter_webrtc`-native transport as a bugout fallback.
 - Done: 4.1 Staking (v0.4.0) · 4.2 Message Signing CIP-8 (v0.5.0) · 4.3 CIP-30 (v0.6.0)
-  · 4.4 CIP-45 (v0.7.0, live-verified on iOS)
+  · 4.4 CIP-45 (v0.7.0, live-verified on iOS) · 4.5 Hardware-wallet **core**
+  (v0.8.0; xpub→account, witness assemble/extract, `HardwareCip30Wallet`,
+  Ledger BLE read path — **on-device signing still pending**)
 
 ## Tech stack (planned versions; verify against latest at install time)
 
@@ -160,14 +199,22 @@ cd example && flutter run -d <device-id>
 ```
 
 **One-time macOS setup for `flutter test`:** the widget tests load the Rust FFI bridge.
-Build the debug dylib and install it where Flutter's test runner searches:
+The generated FRB loader (`frb_generated.dart` → `defaultExternalLibraryLoaderConfig`)
+resolves the lib from **`rust/target/release/`** with stem `cardano_flutter_rs` — i.e.
+`flutter test` opens `rust/target/release/libcardano_flutter_rs.dylib`, NOT the engine
+Frameworks dir. So after any Rust change + `flutter_rust_bridge_codegen generate`, put a
+**current** dylib there or tests fail with a content-hash mismatch:
 ```bash
-cd rust && cargo build --lib
-FLUTTER_FRAMEWORKS="/opt/homebrew/Caskroom/flutter/$(flutter --version | head -1 | awk '{print $2}')/flutter/bin/cache/artifacts/engine/darwin-x64/Frameworks"
-mkdir -p "$FLUTTER_FRAMEWORKS/cardano_flutter_rs.framework"
-cp target/debug/libcardano_flutter_rs.dylib "$FLUTTER_FRAMEWORKS/cardano_flutter_rs.framework/cardano_flutter_rs"
-install_name_tool -id "@rpath/cardano_flutter_rs.framework/cardano_flutter_rs" "$FLUTTER_FRAMEWORKS/cardano_flutter_rs.framework/cardano_flutter_rs"
+cd rust && cargo build --lib            # or: cargo build --release --lib
+cp target/debug/libcardano_flutter_rs.dylib target/release/libcardano_flutter_rs.dylib
 ```
+> The dylib's embedded FRB content hash must equal `frb_generated.dart`'s
+> `rustContentHash`. A debug build copied to `target/release/` is fine for tests
+> (same ABI); just make sure it was compiled *after* the latest codegen.
+>
+> *(Legacy: older setups instead copied the dylib into the Flutter engine's
+> `…/artifacts/engine/darwin-x64/Frameworks/cardano_flutter_rs.framework/`. The
+> `target/release/` path above is what the current loader actually uses.)*
 
 ## Important external references
 

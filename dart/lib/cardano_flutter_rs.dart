@@ -39,6 +39,19 @@ export 'src/cip30/cip30_wallet.dart';
 // Phase 4.4: CIP-45 mobile dApp connector (transport-agnostic protocol core).
 export 'src/cip45/cip45.dart';
 
+// Phase 4.5: Hardware wallets (Ledger/Trezor).
+// Pure xpub-derivation + witness-assembly primitives, a device-agnostic
+// HardwareWallet interface, and a CIP-30-shaped HardwareCip30Wallet. The device
+// transport (BLE/USB) is implemented by adapters outside the core package.
+export 'src/hardware.dart'
+    show
+        HardwareAccount,
+        HardwareVkeyWitness,
+        xpubToAccount,
+        assembleVkeyWitnessSet,
+        extractVkeyWitnesses;
+export 'src/hardware/hardware_cip30_wallet.dart';
+
 // Providers
 export 'src/providers/blockfrost.dart';
 export 'src/providers/blockfrost_errors.dart';

@@ -15,6 +15,7 @@ pub mod address;
 pub mod cip30;
 pub mod coin_selection;
 pub mod error;
+pub mod hardware;
 pub mod message;
 pub mod metadata;
 pub mod minting;
@@ -36,8 +37,8 @@ pub use coin_selection::{largest_first, CoinSelectionResult};
 pub use message::{sign_message, verify_message, SignedMessage};
 pub use metadata::{build_cip25_metadata, build_cip68_datum, Cip25Asset, Cip25Policy};
 pub use minting::{
-    build_mint_tx, compute_policy_id, make_pubkey_script, make_timelock_expiry_script,
-    BuiltMintTx, MintAsset, MintSpec,
+    build_mint_tx, compute_policy_id, make_pubkey_script, make_timelock_expiry_script, BuiltMintTx,
+    MintAsset, MintSpec,
 };
 pub use plutus::{
     build_script_tx, plutus_data_bytes, plutus_data_constr, plutus_data_int, plutus_data_list,

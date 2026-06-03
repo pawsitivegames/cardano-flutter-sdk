@@ -38,8 +38,9 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 4.1 — Staking operations | ✅ **Verified 2026-05-26** | v0.4.0 |
 | 4.2 — Message signing (CIP-8) | ✅ **Complete 2026-05-26** | v0.5.0 |
 | 4.3 — CIP-30 dApp connector | ✅ **Verified 2026-06-02** | v0.6.0 |
-| 4.4 — CIP-45 mobile connector | 🟡 **Core done 2026-06-02** (transport deferred) | v0.7.0 |
-| 4.5+ | Planned | — |
+| 4.4 — CIP-45 mobile connector | ✅ **Live-verified 2026-06-02** (iOS) | v0.7.0 |
+| 4.5 — Hardware wallets (Ledger) | 🟡 **Core done 2026-06-02**; on-device signing pending | v0.8.0 |
+| 5+ | Planned | — |
 
 **Phase 2 verification (2026-05-25):**
 - Rust 30/30 · Dart unit 22/22 · Dart FFI 13/13 · Live Blockfrost 1/1
@@ -201,14 +202,24 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 *Dependency: Phase 4.3 complete. Can parallel with 4.4.*
 
 **Deliverables:**
-- Ledger signing via CIP-30 bridge
-- Trezor signing
-- Physical device verification (Ledger Nano X / Stax)
-- v1.0.0 published to pub.dev
+- ✅ Core (device-agnostic, tested): `xpubToAccount`, `assembleVkeyWitnessSet` /
+  `extractVkeyWitnesses`, `HardwareWallet` interface, `HardwareCip30Wallet`.
+- ✅ Ledger BLE adapter + screen (example): scan/connect, account xpub, address +
+  balance/UTxO read path. (Vespr's MIT `ledger_cardano_plus`/`ledger_flutter_plus`.)
+- 🟡 Ledger transaction signing — assembly side done in SDK; device-side
+  `ParsedSigningRequest` mapping pending on-device verification (throws until then).
+- ⏸️ Trezor signing — **deferred** (USB-only/no BLE; Trezor Connect impractical on mobile).
+- ⏳ Physical device verification (Ledger Nano X / Stax / Flex) — **blocked on hardware**.
+- ⏳ v1.0.0 published to pub.dev — gated on the device-verified signing round-trip.
 
 **Verification:**
-- Ledger TX signing round-trip verified on device
-- v1.0.0 published to pub.dev with full changelog
+- 🟡 Ledger TX signing round-trip verified on device — **OPEN** (no false claim until
+  it runs on hardware; see `docs/hardware-wallets.md` → on-device checklist).
+- ⏳ v1.0.0 published to pub.dev with full changelog.
+
+> Honesty note: this phase's v1.0 gate is intentionally still open. The core
+> protocol layer is complete and unit-tested (incl. a real-crypto byte-identical
+> assemble round-trip), but "verified on device" is reserved for actual hardware.
 
 ---
 

@@ -63,10 +63,10 @@ pub fn derive_keys_from_mnemonic_internal(
 
     Ok(KeyDerivationResult {
         account_key: account_key.to_bech32(),
-        payment_key: payment_pub.to_bech32(),             // public (for display)
-        payment_signing_key: payment_key.to_bech32(),     // private xprv (for signing)
-        stake_key: stake_key.to_public().to_bech32(),     // public (for display)
-        stake_signing_key: stake_key.to_bech32(),         // private xprv (for signing)
+        payment_key: payment_pub.to_bech32(), // public (for display)
+        payment_signing_key: payment_key.to_bech32(), // private xprv (for signing)
+        stake_key: stake_key.to_public().to_bech32(), // public (for display)
+        stake_signing_key: stake_key.to_bech32(), // private xprv (for signing)
         payment_key_hash,
         stake_key_hash,
     })

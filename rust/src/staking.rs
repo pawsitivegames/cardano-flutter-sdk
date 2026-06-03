@@ -12,7 +12,9 @@ use cardano_serialization_lib as csl;
 use flutter_rust_bridge::frb;
 
 use crate::error::CardanoError;
-use crate::tx::{hex_to_bytes, input_to_csl, map_csl_error, map_deserialize_error, ProtocolParams, TxInput};
+use crate::tx::{
+    hex_to_bytes, input_to_csl, map_csl_error, map_deserialize_error, ProtocolParams, TxInput,
+};
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -161,8 +163,7 @@ pub fn build_stake_registration_tx(
 ) -> Result<BuiltStakingTx, CardanoError> {
     let _ = network_id;
     let credential = stake_credential(&stake_key_hash_hex)?;
-    let cert =
-        csl::Certificate::new_stake_registration(&csl::StakeRegistration::new(&credential));
+    let cert = csl::Certificate::new_stake_registration(&csl::StakeRegistration::new(&credential));
     let mut certs_builder = csl::CertificatesBuilder::new();
     certs_builder.add(&cert).map_err(map_csl_error)?;
 
@@ -278,9 +279,8 @@ pub fn build_stake_deregistration_tx(
 ) -> Result<BuiltStakingTx, CardanoError> {
     let _ = network_id;
     let credential = stake_credential(&stake_key_hash_hex)?;
-    let cert = csl::Certificate::new_stake_deregistration(&csl::StakeDeregistration::new(
-        &credential,
-    ));
+    let cert =
+        csl::Certificate::new_stake_deregistration(&csl::StakeDeregistration::new(&credential));
     let mut certs_builder = csl::CertificatesBuilder::new();
     certs_builder.add(&cert).map_err(map_csl_error)?;
 
@@ -327,12 +327,10 @@ mod tests {
 
     fn test_input() -> TxInput {
         TxInput {
-            tx_hash: "0000000000000000000000000000000000000000000000000000000000000000"
-                .to_string(),
+            tx_hash: "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
             output_index: 0,
             // Enterprise address from test mnemonic (testnet)
-            address: "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz"
-                .to_string(),
+            address: "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz".to_string(),
             value: Value {
                 coin: 10_000_000,
                 assets: vec![],
@@ -419,7 +417,11 @@ mod tests {
         csl::TransactionBody::from_bytes(body_bytes).expect("body CBOR is invalid");
 
         assert!(!built.tx_body_cbor_hex.is_empty());
-        assert_eq!(built.tx_hash.len(), 64, "tx hash should be 32 bytes (64 hex)");
+        assert_eq!(
+            built.tx_hash.len(),
+            64,
+            "tx hash should be 32 bytes (64 hex)"
+        );
         assert!(built.fee > 0, "fee should be positive");
         assert_eq!(built.deposit_change, expected_deposit);
     }
@@ -486,12 +488,10 @@ mod tests {
             None,
             test_params(),
         );
-        assert!(
-            matches!(
-                result,
-                Err(CardanoError::InvalidParameter { ref field, .. }) if field == "inputs"
-            )
-        );
+        assert!(matches!(
+            result,
+            Err(CardanoError::InvalidParameter { ref field, .. }) if field == "inputs"
+        ));
     }
 
     // ── build_reward_withdrawal_tx ───────────────────────────────────────────
@@ -528,7 +528,11 @@ mod tests {
             None,
             test_params(),
         );
-        assert!(result.is_ok(), "zero withdrawal should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "zero withdrawal should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -543,12 +547,10 @@ mod tests {
             None,
             test_params(),
         );
-        assert!(
-            matches!(
-                result,
-                Err(CardanoError::InvalidParameter { ref field, .. }) if field == "inputs"
-            )
-        );
+        assert!(matches!(
+            result,
+            Err(CardanoError::InvalidParameter { ref field, .. }) if field == "inputs"
+        ));
     }
 
     // ── build_stake_deregistration_tx ────────────────────────────────────────
@@ -588,11 +590,9 @@ mod tests {
             None,
             test_params(),
         );
-        assert!(
-            matches!(
-                result,
-                Err(CardanoError::InvalidParameter { ref field, .. }) if field == "inputs"
-            )
-        );
+        assert!(matches!(
+            result,
+            Err(CardanoError::InvalidParameter { ref field, .. }) if field == "inputs"
+        ));
     }
 }

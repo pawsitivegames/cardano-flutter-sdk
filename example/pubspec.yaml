@@ -17,6 +17,11 @@ dependencies:
   # headless WebView, and handles web+cardano:// deep links.
   flutter_inappwebview: ^6.1.5
   app_links: ^6.3.2
+  # Phase 4.5 hardware wallets: Ledger over BLE/USB + the Cardano Ledger app
+  # APDU protocol (Vespr's MIT-licensed libs). Used only in the example to back
+  # the HardwareWallet adapter; the core SDK stays free of device transports.
+  ledger_cardano_plus: ^0.5.9
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

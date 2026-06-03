@@ -309,7 +309,9 @@ fn estimate_min_ada(params: &ProtocolParams) -> u64 {
     // Pure ADA output serialization is ~57 bytes; 160 is Babbage overhead
     let output_size = 57u64;
     let base_overhead = 160u64;
-    params.coins_per_utxo_byte.saturating_mul(output_size + base_overhead)
+    params
+        .coins_per_utxo_byte
+        .saturating_mul(output_size + base_overhead)
 }
 
 /// Estimate the minimum ADA needed for a multi-asset output.
@@ -336,7 +338,9 @@ fn estimate_fee_for_inputs(num_inputs: usize, num_outputs: usize, params: &Proto
     let total_size = base_size
         + (num_inputs as u64).saturating_mul(per_input_size + per_witness_size)
         + (num_outputs as u64).saturating_mul(per_output_size);
-    params.min_fee_b.saturating_add(params.min_fee_a.saturating_mul(total_size))
+    params
+        .min_fee_b
+        .saturating_add(params.min_fee_a.saturating_mul(total_size))
 }
 
 #[cfg(test)]
@@ -526,8 +530,7 @@ mod tests {
         ];
         let targets = vec![output("addr_recv", 2_500_000)];
 
-        let result1 =
-            largest_first(utxos1, targets.clone(), change_addr.clone(), params).unwrap();
+        let result1 = largest_first(utxos1, targets.clone(), change_addr.clone(), params).unwrap();
         let result2 = largest_first(utxos2, targets, change_addr, params).unwrap();
 
         // Should select the same inputs regardless of input order
@@ -626,9 +629,13 @@ mod tests {
             },
         };
 
-        let result =
-            largest_first(vec![utxo_with_asset], vec![target], "addr_change".to_string(), params)
-                .unwrap();
+        let result = largest_first(
+            vec![utxo_with_asset],
+            vec![target],
+            "addr_change".to_string(),
+            params,
+        )
+        .unwrap();
 
         // Find the multi-asset change output
         let multi_output = result

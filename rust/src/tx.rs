@@ -74,7 +74,9 @@ pub(crate) fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, CardanoError> {
 }
 
 /// Convert a TxInput into a CSL TransactionInput and its Value.
-pub(crate) fn input_to_csl(input: &TxInput) -> Result<(csl::TransactionInput, csl::Value), CardanoError> {
+pub(crate) fn input_to_csl(
+    input: &TxInput,
+) -> Result<(csl::TransactionInput, csl::Value), CardanoError> {
     let tx_hash_bytes = hex_to_bytes(&input.tx_hash)?;
     let tx_hash = csl::TransactionHash::from_bytes(tx_hash_bytes).map_err(map_deserialize_error)?;
     let tx_input = csl::TransactionInput::new(&tx_hash, input.output_index);

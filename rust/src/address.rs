@@ -50,9 +50,7 @@ mod tests {
     fn derive_canonical_testnet_address() {
         let keys = derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 0, true).unwrap();
         let pub_key = csl::Bip32PublicKey::from_bech32(&keys.payment_key).unwrap();
-        let payment_cred = csl::Credential::from_keyhash(
-            &pub_key.to_raw_key().hash(),
-        );
+        let payment_cred = csl::Credential::from_keyhash(&pub_key.to_raw_key().hash());
         // Network id 0 = testnet
         let addr = csl::EnterpriseAddress::new(0, &payment_cred)
             .to_address()
@@ -64,8 +62,7 @@ mod tests {
 
     /// Enterprise address derived from the test mnemonic via CIP-1852 m/1852'/1815'/0'/0/0.
     /// Verified CSL-valid by derive_canonical_testnet_address above.
-    const TESTNET_ADDR: &str =
-        "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz";
+    const TESTNET_ADDR: &str = "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz";
 
     #[test]
     fn test_validate_valid_bech32() {

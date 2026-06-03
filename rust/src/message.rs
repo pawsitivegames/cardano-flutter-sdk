@@ -2,7 +2,7 @@
 //!
 //! Provides functions to sign arbitrary messages with payment or stake keys
 //! and verify signatures following the CIP-8 specification (COSESign1).
-//! 
+//!
 //! The COSE Sign1 structure is a compact signing envelope defined in RFC 9052
 //! and adopted by Cardano for dApp authentication flows.
 
@@ -55,11 +55,10 @@ pub fn sign_message_internal(
     address: Option<String>,
 ) -> Result<SignedMessage, CardanoError> {
     // Decode the hex message
-    let message_bytes = hex::decode(&message)
-        .map_err(|_| CardanoError::InvalidParameter {
-            field: "message".to_string(),
-            reason: "Message must be valid hex".to_string(),
-        })?;
+    let message_bytes = hex::decode(&message).map_err(|_| CardanoError::InvalidParameter {
+        field: "message".to_string(),
+        reason: "Message must be valid hex".to_string(),
+    })?;
 
     // Parse the signing key
     let bip32_key = csl::Bip32PrivateKey::from_bech32(&signing_key_bech32)
@@ -136,21 +135,24 @@ pub fn verify_message_internal(
     }
 
     // Decode the COSE Sign1 structure
-    let cose_cbor = hex::decode(&signed_message.cose_sign1_hex)
-        .map_err(|_| CardanoError::InvalidParameter {
+    let cose_cbor = hex::decode(&signed_message.cose_sign1_hex).map_err(|_| {
+        CardanoError::InvalidParameter {
             field: "cose_sign1_hex".to_string(),
             reason: "Invalid hex encoding".to_string(),
-        })?;
+        }
+    })?;
 
     let cose_structure: CoseSign1 = serde_cbor::from_slice(&cose_cbor)
         .map_err(|e| CardanoError::InvalidCbor(format!("COSE Sign1 decode failed: {}", e)))?;
 
     // Decode message and signature
-    let message_bytes = hex::decode(&cose_structure.message)
-        .map_err(|_| CardanoError::InvalidCbor("Invalid message hex in COSE structure".to_string()))?;
+    let message_bytes = hex::decode(&cose_structure.message).map_err(|_| {
+        CardanoError::InvalidCbor("Invalid message hex in COSE structure".to_string())
+    })?;
 
-    let signature_bytes = hex::decode(&cose_structure.signature)
-        .map_err(|_| CardanoError::InvalidCbor("Invalid signature hex in COSE structure".to_string()))?;
+    let signature_bytes = hex::decode(&cose_structure.signature).map_err(|_| {
+        CardanoError::InvalidCbor("Invalid signature hex in COSE structure".to_string())
+    })?;
 
     // Hash the original message
     let hash = blake2b_256(&message_bytes);
@@ -260,16 +262,12 @@ mod tests {
         let message = "Test message".as_bytes();
         let message_hex = hex::encode(message);
 
-        let signed = sign_message_internal(
-            message_hex,
-            payment_key,
-            Some("addr_test1qz0".to_string()),
-        )
-        .unwrap();
+        let signed =
+            sign_message_internal(message_hex, payment_key, Some("addr_test1qz0".to_string()))
+                .unwrap();
 
         // Verify with different address should fail
-        let is_valid =
-            verify_message_internal(signed, Some("addr_test1qz1".to_string())).unwrap();
+        let is_valid = verify_message_internal(signed, Some("addr_test1qz1".to_string())).unwrap();
         assert!(!is_valid, "Signature should not verify for wrong address");
     }
 
@@ -280,12 +278,8 @@ mod tests {
         let message_hex = hex::encode(message);
         let expected_addr = "addr_test1qz0".to_string();
 
-        let signed = sign_message_internal(
-            message_hex,
-            payment_key,
-            Some(expected_addr.clone()),
-        )
-        .unwrap();
+        let signed =
+            sign_message_internal(message_hex, payment_key, Some(expected_addr.clone())).unwrap();
 
         // Verify with same address should succeed
         let is_valid = verify_message_internal(signed, Some(expected_addr)).unwrap();
@@ -327,7 +321,10 @@ mod tests {
         tampered.public_key_hex = tampered.public_key_hex[..62].to_string() + "ff";
 
         let is_valid = verify_message_internal(tampered, None).unwrap();
-        assert!(!is_valid, "Tampered public key should fail signature verification");
+        assert!(
+            !is_valid,
+            "Tampered public key should fail signature verification"
+        );
     }
 
     #[test]

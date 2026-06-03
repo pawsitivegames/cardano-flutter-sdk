@@ -88,13 +88,12 @@ pub fn build_cip25_metadata(policies: Vec<Cip25Policy>) -> Result<String, Cardan
 
             // Key is the UTF-8 string representation of the asset name bytes.
             let asset_name_bytes = hex_to_bytes(&asset.asset_name_hex)?;
-            let asset_name_str =
-                String::from_utf8(asset_name_bytes).map_err(|e| {
-                    CardanoError::InvalidParameter {
-                        field: "asset_name_hex".to_string(),
-                        reason: format!("Asset name bytes are not valid UTF-8: {}", e),
-                    }
-                })?;
+            let asset_name_str = String::from_utf8(asset_name_bytes).map_err(|e| {
+                CardanoError::InvalidParameter {
+                    field: "asset_name_hex".to_string(),
+                    reason: format!("Asset name bytes are not valid UTF-8: {}", e),
+                }
+            })?;
 
             asset_map.insert(
                 &text_datum(&asset_name_str)?,
@@ -109,10 +108,7 @@ pub fn build_cip25_metadata(policies: Vec<Cip25Policy>) -> Result<String, Cardan
     }
 
     let mut general_metadata = csl::GeneralTransactionMetadata::new();
-    general_metadata.insert(
-        &label,
-        &csl::TransactionMetadatum::new_map(&policy_map),
-    );
+    general_metadata.insert(&label, &csl::TransactionMetadatum::new_map(&policy_map));
 
     let mut aux_data = csl::AuxiliaryData::new();
     aux_data.set_metadata(&general_metadata);
@@ -148,10 +144,7 @@ pub fn build_cip68_datum(
     fn insert_bytes(map: &mut csl::PlutusMap, key: &str, val: &str) {
         let mut vals = csl::PlutusMapValues::new();
         vals.add(&csl::PlutusData::new_bytes(val.as_bytes().to_vec()));
-        map.insert(
-            &csl::PlutusData::new_bytes(key.as_bytes().to_vec()),
-            &vals,
-        );
+        map.insert(&csl::PlutusData::new_bytes(key.as_bytes().to_vec()), &vals);
     }
 
     let mut fields_map = csl::PlutusMap::new();

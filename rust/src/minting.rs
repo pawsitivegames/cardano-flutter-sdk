@@ -85,8 +85,7 @@ pub fn make_timelock_expiry_script(
     let key_hash =
         csl::Ed25519KeyHash::from_bytes(key_hash_bytes).map_err(map_deserialize_error)?;
 
-    let pubkey_script =
-        csl::NativeScript::new_script_pubkey(&csl::ScriptPubkey::new(&key_hash));
+    let pubkey_script = csl::NativeScript::new_script_pubkey(&csl::ScriptPubkey::new(&key_hash));
     let expiry_script = csl::NativeScript::new_timelock_expiry(
         &csl::TimelockExpiry::new_timelockexpiry(&csl::BigNum::from(expiry_slot)),
     );
@@ -228,8 +227,7 @@ pub fn build_mint_tx(
     // ── Auxiliary data (metadata) ─────────────────────────────────────────
     if let Some(ref aux_hex) = aux_data_cbor_hex {
         let aux_bytes = hex_to_bytes(aux_hex)?;
-        let aux_data =
-            csl::AuxiliaryData::from_bytes(aux_bytes).map_err(map_deserialize_error)?;
+        let aux_data = csl::AuxiliaryData::from_bytes(aux_bytes).map_err(map_deserialize_error)?;
         tx_builder.set_auxiliary_data(&aux_data);
     }
 
@@ -297,8 +295,7 @@ mod tests {
         TxInput {
             tx_hash: "0".repeat(64),
             output_index: 0,
-            address: "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz"
-                .to_string(),
+            address: "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz".to_string(),
             value: Value {
                 coin: lovelace,
                 assets: vec![],
@@ -318,8 +315,7 @@ mod tests {
 
     #[test]
     fn make_timelock_expiry_script_roundtrips() {
-        let cbor =
-            make_timelock_expiry_script(TEST_KEY_HASH.to_string(), 99_999_999).unwrap();
+        let cbor = make_timelock_expiry_script(TEST_KEY_HASH.to_string(), 99_999_999).unwrap();
         let bytes = hex::decode(&cbor).unwrap();
         csl::NativeScript::from_bytes(bytes).expect("round-trip failed");
     }
