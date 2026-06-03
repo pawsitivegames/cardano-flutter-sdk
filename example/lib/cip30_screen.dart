@@ -25,8 +25,14 @@ class Cip30Screen extends StatefulWidget {
 
 class _Cip30ScreenState extends State<Cip30Screen> {
   Cip30Wallet? _wallet;
+  Cip45WalletHandler? _cip45;
   bool _loading = true;
   String? _error;
+
+  // Demo peer-discovery identifier. A real CIP-45 transport generates an
+  // ephemeral Ed25519 keypair and uses its public key here.
+  static const _demoIdentifier =
+      'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a';
 
   final List<_LogEntry> _log = [];
 
@@ -44,6 +50,7 @@ class _Cip30ScreenState extends State<Cip30Screen> {
       );
       setState(() {
         _wallet = wallet;
+        _cip45 = Cip45WalletHandler(wallet: wallet, name: 'cardano_flutter_rs');
         _loading = false;
       });
     } catch (e) {
@@ -161,6 +168,8 @@ class _Cip30ScreenState extends State<Cip30Screen> {
                         ],
                       ),
                       const SizedBox(height: 20),
+                      _cip45Card(),
+                      const SizedBox(height: 20),
                       const Text('Results',
                           style: TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 14)),
@@ -172,6 +181,55 @@ class _Cip30ScreenState extends State<Cip30Screen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _cip45Card() {
+    final uri =
+        const Cip45ConnectionUri(identifier: _demoIdentifier).toUriString();
+    return Card(
+      color: Colors.deepPurple.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.cable, size: 16, color: Colors.deepPurple),
+                SizedBox(width: 8),
+                Text('CIP-45 (mobile dApp connect)',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text('Connection URI (CIP-13), shareable as a QR/link:',
+                style: TextStyle(fontSize: 11)),
+            const SizedBox(height: 4),
+            SelectableText(uri,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 10)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _btn('CIP-45 announce', () async {
+                  _add('CIP-45 apiAnnouncement',
+                      const JsonEncoder.withIndent('  ')
+                          .convert(_cip45!.apiAnnouncement()));
+                }, color: Colors.deepPurple),
+                _btn('CIP-45 dApp→getRewardAddresses', () async {
+                  final res =
+                      await _cip45!.handleRequest('getRewardAddresses');
+                  _add('CIP-45 RPC getRewardAddresses', '$res',
+                      ok: true);
+                }, color: Colors.deepPurple),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 

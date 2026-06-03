@@ -36,6 +36,9 @@ export 'src/message.dart' show SignedMessage;
 export 'src/cip30.dart';
 export 'src/cip30/cip30_wallet.dart';
 
+// Phase 4.4: CIP-45 mobile dApp connector (transport-agnostic protocol core).
+export 'src/cip45/cip45.dart';
+
 // Providers
 export 'src/providers/blockfrost.dart';
 export 'src/providers/blockfrost_errors.dart';

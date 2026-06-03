@@ -14,6 +14,20 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
+**Phase 4.4: CIP-45 core done** 🟡 *(2026-06-02)* — transport deferred
+
+Transport-agnostic CIP-45 protocol core (pure Dart, fully unit-tested):
+- `Cip45ConnectionUri` — CIP-13 `web+cardano://connect/v1?identifier=…` build/parse
+- `Cip45WalletHandler` — routes inbound RPC (CIP-30 method names) to `Cip30Wallet`,
+  plus the API-announcement payload for the handshake
+- `Cip45Transport` — interface for a pluggable WebTorrent/WebRTC backend
+- Example: CIP-45 card on the CIP-30 screen (connection URI + simulated RPC)
+- **Tests:** Dart +15 (cip45) · analyze clean. No Rust change (no dylib rebuild).
+- **Spec note:** CIP-45 is WebTorrent+WebRTC (not WalletConnect — common myth).
+- **Deferred** (needs real transport + 2-device testing): WebTorrent/WebRTC
+  transport, iOS/Android `web+cardano://` deep links, end-to-end pairing.
+  See `docs/cip45-transport.md`.
+
 **Phase 4.3: Complete & Verified** ✅ *(2026-06-02)*
 
 CIP-30 dApp connector shipped:
@@ -82,9 +96,11 @@ Decisions made:
 - **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
 
 When you start a session, the next phase is:
-- **Phase 4.4:** CIP-45 WalletConnect v2 + deep linking (iOS/Android wallet handoff) → v0.7.0
+- **Phase 4.4 (finish):** wire a CIP-45 WebTorrent/WebRTC transport + `web+cardano://`
+  deep links, then 2-device verify (core already shipped; see `docs/cip45-transport.md`) → v0.7.0
 - Then: 4.5 Hardware Wallets (Ledger/Trezor) → v1.0.0
 - Done: 4.1 Staking (v0.4.0) · 4.2 Message Signing CIP-8 (v0.5.0) · 4.3 CIP-30 (v0.6.0)
+  · 4.4 CIP-45 protocol core
 
 ## Tech stack (planned versions; verify against latest at install time)
 

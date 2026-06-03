@@ -38,7 +38,8 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 4.1 — Staking operations | ✅ **Verified 2026-05-26** | v0.4.0 |
 | 4.2 — Message signing (CIP-8) | ✅ **Complete 2026-05-26** | v0.5.0 |
 | 4.3 — CIP-30 dApp connector | ✅ **Verified 2026-06-02** | v0.6.0 |
-| 4.4+ | Planned | — |
+| 4.4 — CIP-45 mobile connector | 🟡 **Core done 2026-06-02** (transport deferred) | v0.7.0 |
+| 4.5+ | Planned | — |
 
 **Phase 2 verification (2026-05-25):**
 - Rust 30/30 · Dart unit 22/22 · Dart FFI 13/13 · Live Blockfrost 1/1
@@ -168,17 +169,24 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 
 ---
 
-### Phase 4.4 — CIP-45 WalletConnect & Deep Linking → v0.7.0
+### Phase 4.4 — CIP-45 mobile dApp connector → v0.7.0  🟡 core done
 *Dependency: Phase 4.3 complete.*
 
-**Deliverables:**
-- CIP-45 WalletConnect v2 for Cardano (cross-app; integrate Vespr's work, don't greenfield)
-- Deep linking (iOS/Android) for wallet pairing handoff
-- Example: Flutter dApp pairs with SDK wallet via WalletConnect
+> Correction: CIP-45 proper is **WebTorrent (discovery) + WebRTC (data channel)**
+> with a CIP-13 connection URI — not WalletConnect (a common conflation). The
+> roadmap label was updated to match the spec.
 
-**Verification:**
-- Example dApp pairs with production wallets (Lace iOS, Vespr Android)
-- Deep link round-trip verified on iOS and Android
+**Shipped (transport-agnostic protocol core, fully unit-tested):**
+- `Cip45ConnectionUri` — build/parse the CIP-13 `web+cardano://connect/v1?identifier=…` URI ✅
+- `Cip45WalletHandler` — bridge inbound RPC (CIP-30 method names) to `Cip30Wallet`, plus the API-announcement payload ✅
+- `Cip45Transport` interface for a pluggable WebTorrent/WebRTC backend ✅
+- Example: CIP-45 card (connection URI + simulated dApp RPC call) ✅
+- Dart 15 new tests; analyze clean ✅
+
+**Deferred (needs a real transport + device testing — see `docs/cip45-transport.md`):**
+- WebTorrent/WebRTC transport implementation (e.g. `bugout`/`flutter_webrtc`)
+- iOS/Android deep-link registration for `web+cardano://`
+- Two-device verification: dApp QR → wallet scan → connect → RPC round-trip
 
 ---
 
