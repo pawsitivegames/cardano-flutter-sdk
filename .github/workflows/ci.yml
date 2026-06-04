@@ -35,6 +35,14 @@ jobs:
   dart-tests:
     runs-on: ubuntu-latest
     name: Dart Analysis & Tests
+    # Map the secret to a JOB-level env so the live-integration step's `if:` can
+    # gate on it. The `secrets` context is NOT available inside `if:` expressions
+    # (referencing it there is an "Unrecognized named-value: 'secrets'" workflow
+    # validation error → the whole run fails to start with zero jobs). A job-level
+    # env IS visible to step-level `if:`, so this is the correct gate. An absent
+    # secret resolves to an empty string, skipping the step on forks/PRs.
+    env:
+      BLOCKFROST_PROJECT_ID: ${{ secrets.BLOCKFROST_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -74,14 +82,11 @@ jobs:
         run: cd dart && flutter test test/conformance_test.dart
       # Live testnet integration only runs when the Blockfrost secret is present;
       # it must not fail forks/PRs without the secret, so it stays non-blocking.
-      # Gate directly on the secret (a step-level `env:` is NOT visible to a job-
-      # level `if:`, so the previous `env.BLOCKFROST_PROJECT_ID` check was always
-      # false and this step never ran).
+      # Gate on the JOB-level `env` mirror of the secret (see the job `env:` above):
+      # `secrets` itself is not a valid context inside `if:`.
       - name: Run integration tests (live testnet, only if secret present)
-        if: ${{ secrets.BLOCKFROST_PROJECT_ID != '' }}
+        if: ${{ env.BLOCKFROST_PROJECT_ID != '' }}
         run: cd example && flutter test integration_test/send_flow_test.dart
-        env:
-          BLOCKFROST_PROJECT_ID: ${{ secrets.BLOCKFROST_PROJECT_ID }}
 
   web-conformance:
     runs-on: ubuntu-latest
