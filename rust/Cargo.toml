@@ -3,8 +3,8 @@ name = "cardano_flutter_rs"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Rust FFI wrapper around cardano-multiplatform-lib for the cardano_flutter_rs Dart package."
-repository = "https://github.com/YOUR_HANDLE/cardano-flutter-sdk"
+description = "Rust FFI wrapper around cardano-serialization-lib (CSL) for the cardano_flutter_rs Dart package."
+repository = "https://github.com/pawsitivegames/cardano-flutter-sdk"
 
 [lib]
 crate-type = ["staticlib", "cdylib"]

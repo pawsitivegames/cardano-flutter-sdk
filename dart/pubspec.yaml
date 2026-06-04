@@ -1,8 +1,10 @@
 name: cardano_flutter_rs
-description: Production-grade Cardano SDK for Flutter, powered by Rust + CML.
-version: 0.1.0
-homepage: https://github.com/YOUR_HANDLE/cardano-flutter-sdk
-repository: https://github.com/YOUR_HANDLE/cardano-flutter-sdk
+description: >-
+  Production-grade Cardano SDK for Flutter. Thin Dart API over flutter_rust_bridge
+  → Rust → cardano-serialization-lib (CSL). Native via Rust FFI; web via CML JS interop.
+version: 0.8.1
+homepage: https://github.com/pawsitivegames/cardano-flutter-sdk
+repository: https://github.com/pawsitivegames/cardano-flutter-sdk
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -11,7 +13,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_rust_bridge: ^2.0.0
+  flutter_rust_bridge: 2.12.0 # pinned — must match rust/Cargo.toml (FRB content-hash check)
   ffi: ^2.1.0
   meta: ^1.10.0
   freezed_annotation: ^3.1.0

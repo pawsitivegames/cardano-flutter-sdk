@@ -11,6 +11,8 @@
 //   * [assembleVkeyWitnessSet] — device witnesses → CBOR witness set
 // both re-exported from `hardware.dart` (generated bindings).
 
+import 'package:meta/meta.dart';
+
 import '../hardware.dart' show HardwareVkeyWitness;
 
 /// What a hardware device must be asked to sign.
@@ -20,6 +22,12 @@ import '../hardware.dart' show HardwareVkeyWitness;
 /// carries both the CBOR needed for *final assembly* ([txBodyCborHex]) and the
 /// information a device needs to *produce* the witnesses ([signerPaths], and the
 /// full unsigned tx for libraries that parse it).
+///
+/// > **Experimental.** The hardware-wallet API is implemented but **not yet
+/// > verified on a physical device**. Transaction signing currently models simple
+/// > payments only. Do not rely on it in production until the v1.1.0 on-device
+/// > verification gate closes (see `docs/hardware-wallets.md`).
+@experimental
 class HardwareSignRequest {
   /// CBOR hex of the transaction **body** to be signed. Used to assemble the
   /// final signed transaction once the device returns witnesses.
@@ -61,6 +69,9 @@ class HardwareSignRequest {
 /// The SDK consumes it through [HardwareCip30Wallet], which derives addresses
 /// from [getAccountXpub] and assembles the witnesses [signTransaction] returns
 /// into submittable transactions.
+///
+/// > **Experimental** — unverified on physical hardware; see [HardwareSignRequest].
+@experimental
 abstract class HardwareWallet {
   /// Human-readable device identifier (model + connection), for UI/logs.
   String get deviceName;

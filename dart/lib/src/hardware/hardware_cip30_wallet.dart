@@ -8,6 +8,8 @@
 
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
+
 import '../cip30.dart';
 import '../tx.dart' show Value;
 import '../hardware.dart'
@@ -40,6 +42,11 @@ export '../hardware.dart' show HardwareAccount, HardwareVkeyWitness;
 /// ));
 /// final txId = await wallet.submitTx(signedTx);
 /// ```
+///
+/// > **Experimental.** Read paths (addresses, balance, UTxOs) are exercised, but
+/// > device signing is **unverified on physical hardware** and models simple
+/// > payments only. Not for production use until the v1.1.0 gate closes.
+@experimental
 class HardwareCip30Wallet {
   /// The underlying hardware device transport.
   final HardwareWallet device;
