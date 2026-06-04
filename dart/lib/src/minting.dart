@@ -83,6 +83,13 @@ class BuiltMintTx {
   /// Pass this to `sign_tx_with_metadata` so it is included in the final tx.
   final String? auxDataCborHex;
 
+  /// Partial witness set (CBOR hex) that CSL assembled while building — it
+  /// carries the minting policy's **native script**. Pass this to
+  /// `sign_tx_with_metadata` so signing merges the vkey witnesses into it
+  /// instead of dropping the script (a tx missing the policy script is
+  /// rejected on submission with `MissingScriptWitnessesUTXOW`).
+  final String? witnessSetCborHex;
+
   /// Blake2b-256 hash of the serialised body.
   final String txHash;
 
@@ -92,6 +99,7 @@ class BuiltMintTx {
   const BuiltMintTx({
     required this.txBodyCborHex,
     this.auxDataCborHex,
+    this.witnessSetCborHex,
     required this.txHash,
     required this.fee,
   });
@@ -100,6 +108,7 @@ class BuiltMintTx {
   int get hashCode =>
       txBodyCborHex.hashCode ^
       auxDataCborHex.hashCode ^
+      witnessSetCborHex.hashCode ^
       txHash.hashCode ^
       fee.hashCode;
 
@@ -110,6 +119,7 @@ class BuiltMintTx {
           runtimeType == other.runtimeType &&
           txBodyCborHex == other.txBodyCborHex &&
           auxDataCborHex == other.auxDataCborHex &&
+          witnessSetCborHex == other.witnessSetCborHex &&
           txHash == other.txHash &&
           fee == other.fee;
 }

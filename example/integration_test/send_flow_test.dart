@@ -157,7 +157,7 @@ void main() {
         // (Note: In a real wallet, keys would come from secure storage, not derived fresh)
         final signedTx = await signTransaction(
           txBodyCborHex: builtTx.txBodyCborHex,
-          paymentKeys: [keys.paymentKey], // list of payment keys
+          paymentKeys: [keys.paymentSigningKey], // xprv signing key (paymentKey is a display-only xpub)
         );
 
         expect(signedTx.txCborHex, isNotEmpty,

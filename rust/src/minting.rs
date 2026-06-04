@@ -50,6 +50,12 @@ pub struct BuiltMintTx {
     /// Auxiliary data (CBOR hex) if metadata was attached; `None` otherwise.
     /// Pass this to `sign_tx_with_metadata` so it is included in the final tx.
     pub aux_data_cbor_hex: Option<String>,
+    /// Partial witness set (CBOR hex) that CSL assembled while building — it
+    /// carries the minting policy's **native script**. Pass this to
+    /// `sign_tx_with_metadata` so signing merges the vkey witnesses into it
+    /// instead of dropping the script (a tx missing the policy script is
+    /// rejected on submission with `MissingScriptWitnessesUTXOW`).
+    pub witness_set_cbor_hex: Option<String>,
     /// Blake2b-256 hash of the serialised body.
     pub tx_hash: String,
     /// Computed fee in lovelace.
@@ -211,10 +217,24 @@ pub fn build_mint_tx(
             for asset in &spec.assets {
                 let name_bytes = hex_to_bytes(&asset.asset_name_hex)?;
                 let asset_name = csl::AssetName::new(name_bytes).map_err(map_csl_error)?;
+                // Reject the one unencodable value up front with a clean error:
+                // the CBOR negative-int writer computes `-value`, which overflows
+                // for exactly i64::MIN (magnitude 2^63 → signed -2^63), panicking
+                // deep inside CSL. Every other i64 serialises fine.
+                if asset.quantity == i64::MIN {
+                    return Err(CardanoError::InvalidParameter {
+                        field: "quantity".to_string(),
+                        reason: "mint/burn quantity i64::MIN is out of the encodable range"
+                            .to_string(),
+                    });
+                }
                 let quantity = if asset.quantity >= 0 {
                     csl::Int::new(&csl::BigNum::from(asset.quantity as u64))
                 } else {
-                    csl::Int::new_negative(&csl::BigNum::from((-asset.quantity) as u64))
+                    // `unsigned_abs()` avoids the `-i64::MIN` overflow (negating
+                    // i64::MIN is not representable as i64); the guard above has
+                    // already excluded i64::MIN itself.
+                    csl::Int::new_negative(&csl::BigNum::from(asset.quantity.unsigned_abs()))
                 };
                 mint_builder
                     .add_asset(&mint_witness, &asset_name, &quantity)
@@ -249,6 +269,11 @@ pub fn build_mint_tx(
     let body_bytes = body.to_bytes();
     let body_cbor_hex = hex::encode(&body_bytes);
 
+    // CSL populates the witness set with the minting policy's native script
+    // while building. Capture it so signing can merge vkeys into it rather than
+    // discard the script (which would fail submission with MissingScriptWitnesses).
+    let witness_set_cbor_hex = Some(hex::encode(tx.witness_set().to_bytes()));
+
     let mut hasher = Blake2b::<U32>::new();
     hasher.update(&body_bytes);
     let tx_hash = hex::encode(hasher.finalize().as_slice());
@@ -264,6 +289,7 @@ pub fn build_mint_tx(
     Ok(BuiltMintTx {
         tx_body_cbor_hex: body_cbor_hex,
         aux_data_cbor_hex,
+        witness_set_cbor_hex,
         tx_hash,
         fee,
     })
@@ -440,5 +466,122 @@ mod tests {
 
         // fee must be > 0.
         assert!(built.fee > 0, "fee should be positive");
+    }
+
+    fn burn_tx(quantity: i64) -> Result<BuiltMintTx, CardanoError> {
+        let script = make_pubkey_script(TEST_KEY_HASH.to_string()).unwrap();
+        build_mint_tx(
+            vec![dummy_input(10_000_000)],
+            vec![],
+            "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz".to_string(),
+            vec![MintSpec {
+                policy_script_cbor_hex: script,
+                assets: vec![MintAsset {
+                    asset_name_hex: hex::encode(b"TestNFT"),
+                    quantity,
+                }],
+            }],
+            None,
+            None,
+            params(),
+        )
+    }
+
+    /// Regression: a burn quantity of `i64::MIN` must be rejected with a clean
+    /// error, never panic. The old code computed `-asset.quantity` (overflow for
+    /// i64::MIN); even `unsigned_abs()` then overflows inside CSL's CBOR negative
+    /// -int writer (which computes `-value`). So we reject i64::MIN up front.
+    #[test]
+    fn mint_quantity_i64_min_is_rejected_cleanly() {
+        let result = burn_tx(i64::MIN);
+        assert!(
+            matches!(result, Err(CardanoError::InvalidParameter { ref field, .. }) if field == "quantity"),
+            "expected InvalidParameter for quantity, got {:?}",
+            result
+        );
+    }
+
+    /// The value just inside the edge (`i64::MIN + 1`) must NOT panic — it
+    /// serialises fine; the burn is simply unbalanced, yielding a clean error.
+    #[test]
+    fn mint_quantity_near_i64_min_does_not_panic() {
+        let result = burn_tx(i64::MIN + 1);
+        // Reaching here means no panic; the unbalanced burn is a clean error.
+        assert!(result.is_err(), "expected a clean error, got {:?}", result);
+    }
+
+    /// Regression: the minting policy's native script must survive into the
+    /// signed transaction's witness set. Before the fix, signing built a fresh
+    /// vkey-only witness set and dropped the script, so submission failed with
+    /// `MissingScriptWitnessesUTXOW`.
+    #[test]
+    fn mint_signing_preserves_native_script_witness() {
+        const MNEMONIC: &str =
+            "test walk nut penalty hip pave soap entry language right filter choice";
+        let keys =
+            crate::wallet::derive_keys_from_mnemonic_internal(MNEMONIC, "", 0, true).unwrap();
+
+        let script = make_pubkey_script(keys.payment_key_hash.clone()).unwrap();
+        let policy_id = compute_policy_id(script.clone()).unwrap();
+        let change_addr =
+            "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz".to_string();
+
+        let built = build_mint_tx(
+            vec![dummy_input(10_000_000)],
+            vec![],
+            change_addr,
+            vec![MintSpec {
+                policy_script_cbor_hex: script,
+                assets: vec![MintAsset {
+                    asset_name_hex: hex::encode(b"WitNFT"),
+                    quantity: 1,
+                }],
+            }],
+            None,
+            None,
+            params(),
+        )
+        .unwrap();
+
+        // The builder must have captured a witness set carrying the policy script.
+        let ws_hex = built
+            .witness_set_cbor_hex
+            .clone()
+            .expect("build_mint_tx must return a witness set with the native script");
+        let ws = csl::TransactionWitnessSet::from_bytes(hex::decode(&ws_hex).unwrap()).unwrap();
+        let scripts = ws
+            .native_scripts()
+            .expect("witness set must carry a native script");
+        assert_eq!(scripts.len(), 1);
+        assert_eq!(compute_policy_id_of(&scripts.get(0)), policy_id);
+
+        // Sign, then confirm the FINAL tx still carries the native script AND vkeys.
+        let signed = crate::sign::sign_tx_with_metadata_internal(
+            built.tx_body_cbor_hex.clone(),
+            vec![keys.payment_signing_key.clone()],
+            None,
+            built.witness_set_cbor_hex.clone(),
+        )
+        .unwrap();
+
+        let tx = csl::Transaction::from_bytes(hex::decode(&signed.tx_cbor_hex).unwrap()).unwrap();
+        let final_ws = tx.witness_set();
+        assert_eq!(
+            final_ws
+                .native_scripts()
+                .expect("signed tx must keep the native script")
+                .len(),
+            1,
+            "native script must survive signing"
+        );
+        assert_eq!(
+            final_ws.vkeys().expect("signed tx must have vkeys").len(),
+            1,
+            "vkey witness must be present"
+        );
+    }
+
+    fn compute_policy_id_of(script: &csl::NativeScript) -> String {
+        hex::encode(script.hash().to_bytes())
     }
 }

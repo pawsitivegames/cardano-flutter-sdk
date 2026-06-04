@@ -41,6 +41,34 @@ fn text_datum(s: &str) -> Result<csl::TransactionMetadatum, CardanoError> {
         .map_err(|e| CardanoError::CslError(format!("{:?}", e)))
 }
 
+/// CIP-25 metadatum for a value string. Transaction metadata text strings are
+/// capped at 64 **bytes**, so CIP-25 specifies that longer values (e.g. a long
+/// `ipfs://`/`https://` image URI or `description`) are encoded as an array of
+/// ≤64-byte string chunks. Short values stay a plain text string.
+///
+/// Chunks are split on UTF-8 character boundaries so every piece is itself valid
+/// UTF-8 (never splitting a multi-byte codepoint), and wallets reconstruct the
+/// value by concatenating the chunks in order.
+fn text_or_chunks(s: &str) -> Result<csl::TransactionMetadatum, CardanoError> {
+    const MAX: usize = 64;
+    if s.len() <= MAX {
+        return text_datum(s);
+    }
+    let mut list = csl::MetadataList::new();
+    let mut chunk = String::new();
+    for ch in s.chars() {
+        if chunk.len() + ch.len_utf8() > MAX {
+            list.add(&text_datum(&chunk)?);
+            chunk.clear();
+        }
+        chunk.push(ch);
+    }
+    if !chunk.is_empty() {
+        list.add(&text_datum(&chunk)?);
+    }
+    Ok(csl::TransactionMetadatum::new_list(&list))
+}
+
 // ── CIP-25 ───────────────────────────────────────────────────────────────────
 
 /// Build CIP-25 v2 NFT auxiliary data (label 721) and return its CBOR hex.
@@ -71,14 +99,15 @@ pub fn build_cip25_metadata(policies: Vec<Cip25Policy>) -> Result<String, Cardan
         for asset in &policy.assets {
             let mut fields = csl::MetadataMap::new();
 
-            fields.insert(&text_datum("name")?, &text_datum(&asset.name)?);
-            fields.insert(&text_datum("image")?, &text_datum(&asset.image)?);
+            fields.insert(&text_datum("name")?, &text_or_chunks(&asset.name)?);
+            fields.insert(&text_datum("image")?, &text_or_chunks(&asset.image)?);
 
             if let Some(ref mt) = asset.media_type {
+                // MIME types are always short; a single text string is correct.
                 fields.insert(&text_datum("mediaType")?, &text_datum(mt)?);
             }
             if let Some(ref desc) = asset.description {
-                fields.insert(&text_datum("description")?, &text_datum(desc)?);
+                fields.insert(&text_datum("description")?, &text_or_chunks(desc)?);
             }
             // CIP-25 v2 version field
             fields.insert(
@@ -238,6 +267,109 @@ mod tests {
         ];
         let hex = build_cip25_metadata(policies).unwrap();
         assert!(!hex.is_empty());
+    }
+
+    /// Regression: a CIP-25 `image` URI longer than 64 bytes must be encoded as
+    /// an array of ≤64-byte chunks (per the spec), not rejected. The old code
+    /// called `new_text` directly, which errors for strings > 64 bytes — so a
+    /// normal long `ipfs://`/`https://` image URI could not be minted.
+    #[test]
+    fn cip25_long_image_uri_is_chunked() {
+        let long_image = format!("ipfs://{}", "Q".repeat(90)); // 97 bytes > 64
+        assert!(long_image.len() > 64);
+
+        let policies = vec![Cip25Policy {
+            policy_id_hex: "a0".repeat(28),
+            assets: vec![Cip25Asset {
+                asset_name_hex: hex::encode("LongNFT"),
+                name: "Long NFT".to_string(),
+                image: long_image.clone(),
+                media_type: Some("image/png".to_string()),
+                description: None,
+            }],
+        }];
+
+        let hex =
+            build_cip25_metadata(policies).expect("long image URI must be chunked, not rejected");
+        let bytes = hex::decode(&hex).unwrap();
+        let aux = csl::AuxiliaryData::from_bytes(bytes).expect("must deserialise");
+
+        // Navigate 721 → policy → asset → "image".
+        let md = aux.metadata().expect("has metadata");
+        let top = md.get(&csl::BigNum::from(721u64)).expect("721 present");
+        let policy_map = top.as_map().expect("721 value is a map");
+        let policy_val = policy_map
+            .get(&text_datum(&"a0".repeat(28)).unwrap())
+            .expect("policy present");
+        let asset_map = policy_val.as_map().expect("policy value is a map");
+        let asset_val = asset_map
+            .get(&text_datum("LongNFT").unwrap())
+            .expect("asset present");
+        let fields = asset_val.as_map().expect("asset value is a map");
+        let image = fields
+            .get(&text_datum("image").unwrap())
+            .expect("image present");
+
+        // The image must be a LIST of chunks, each ≤64 bytes, concatenating back
+        // to the original URI.
+        let list = image
+            .as_list()
+            .expect("image must be a metadata list when > 64 bytes");
+        assert!(
+            list.len() >= 2,
+            "long URI should split into multiple chunks"
+        );
+
+        let mut reassembled = String::new();
+        for i in 0..list.len() {
+            let chunk = list.get(i).as_text().expect("each chunk is text");
+            assert!(
+                chunk.len() <= 64,
+                "each chunk must be ≤64 bytes, got {}",
+                chunk.len()
+            );
+            reassembled.push_str(&chunk);
+        }
+        assert_eq!(
+            reassembled, long_image,
+            "chunks must concatenate to the original URI"
+        );
+    }
+
+    /// A short value (≤64 bytes) stays a single text string, not a list.
+    #[test]
+    fn cip25_short_image_uri_stays_text() {
+        let policies = vec![Cip25Policy {
+            policy_id_hex: "a0".repeat(28),
+            assets: vec![Cip25Asset {
+                asset_name_hex: hex::encode("ShortNFT"),
+                name: "Short NFT".to_string(),
+                image: "ipfs://QmShort".to_string(),
+                media_type: None,
+                description: None,
+            }],
+        }];
+        let hex = build_cip25_metadata(policies).unwrap();
+        let aux = csl::AuxiliaryData::from_bytes(hex::decode(&hex).unwrap()).unwrap();
+        let md = aux.metadata().unwrap();
+        let top = md.get(&csl::BigNum::from(721u64)).unwrap();
+        let policy_val = top
+            .as_map()
+            .unwrap()
+            .get(&text_datum(&"a0".repeat(28)).unwrap())
+            .unwrap();
+        let fields = policy_val
+            .as_map()
+            .unwrap()
+            .get(&text_datum("ShortNFT").unwrap())
+            .unwrap()
+            .as_map()
+            .unwrap();
+        let image = fields.get(&text_datum("image").unwrap()).unwrap();
+        assert!(
+            image.as_text().is_ok(),
+            "a short image URI must stay a single text string"
+        );
     }
 
     #[test]

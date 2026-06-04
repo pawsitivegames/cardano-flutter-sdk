@@ -27,20 +27,24 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 SignedTx signTxWithMetadata(
         {required String txBodyCborHex,
         required List<String> paymentKeysHex,
-        String? auxDataCborHex}) =>
+        String? auxDataCborHex,
+        String? baseWitnessSetCborHex}) =>
     RustLib.instance.api.crateSignSignTxWithMetadata(
         txBodyCborHex: txBodyCborHex,
         paymentKeysHex: paymentKeysHex,
-        auxDataCborHex: auxDataCborHex);
+        auxDataCborHex: auxDataCborHex,
+        baseWitnessSetCborHex: baseWitnessSetCborHex);
 
 Future<SignedTx> signTxWithMetadataInternal(
         {required String txBodyCborHex,
         required List<String> paymentKeysHex,
-        String? auxDataCborHex}) =>
+        String? auxDataCborHex,
+        String? baseWitnessSetCborHex}) =>
     RustLib.instance.api.crateSignSignTxWithMetadataInternal(
         txBodyCborHex: txBodyCborHex,
         paymentKeysHex: paymentKeysHex,
-        auxDataCborHex: auxDataCborHex);
+        auxDataCborHex: auxDataCborHex,
+        baseWitnessSetCborHex: baseWitnessSetCborHex);
 
 /// Sign a transaction body with one or more payment keys.
 ///

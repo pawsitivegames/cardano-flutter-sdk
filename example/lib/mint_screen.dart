@@ -25,8 +25,12 @@ class MintScreen extends StatefulWidget {
 
 class _MintScreenState extends State<MintScreen> {
   final _nftNameController = TextEditingController(text: 'TestNFT');
-  final _nftImageController =
-      TextEditingController(text: 'ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG');
+  // Default is intentionally >64 bytes so it exercises CIP-25 string chunking
+  // (a single metadata text string is capped at 64 bytes; longer values must be
+  // encoded as an array of ≤64-byte chunks).
+  final _nftImageController = TextEditingController(
+      text:
+          'https://gateway.pinata.cloud/ipfs/QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG');
   final _nftDescriptionController =
       TextEditingController(text: 'A test NFT minted from the Cardano Flutter SDK');
 
@@ -136,16 +140,21 @@ class _MintScreenState extends State<MintScreen> {
         ],
       );
 
-      // 4. Build inputs from UTxOs
+      // 4. Build inputs from UTxOs.
+      //
+      // Prefer a single pure-ADA UTxO: minting from UTxOs that already hold
+      // native tokens requires returning every one of those tokens in the
+      // change output, which the demo's simple build path does not handle and
+      // which the ledger rejects with ValueNotConservedUTxO. A pure-ADA input
+      // keeps the mint self-contained. If the wallet has only token-bearing
+      // UTxOs we fall back to all of them WITH their assets preserved (via
+      // utxoToTxInput) so the input values are at least correct.
       setState(() => _status = 'Building transaction...');
-      final inputs = utxos
-          .map((u) => TxInput(
-                txHash: u.txHash,
-                outputIndex: u.outputIndex,
-                address: widget.myAddress,
-                value: Value(coin: u.coin, assets: []),
-              ))
-          .toList();
+      final pureAda = utxos.where((u) => u.assets.isEmpty).toList()
+        ..sort((a, b) => b.coin.compareTo(a.coin));
+      final inputs = pureAda.isNotEmpty
+          ? [utxoToTxInput(pureAda.first)]
+          : utxosToTxInputs(utxos);
 
       // 5. Build minting transaction with CIP-25 metadata
       final builtMintTx = buildMintTx(
