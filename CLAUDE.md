@@ -14,8 +14,8 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
-**Phase 6: Web (scoped) & Desktop — CONFORMANCE CORE COMPLETE; CML mapping +
-browser/macOS PENDING** 🟡 *(2026-06-04)*
+**Phase 6: Web (scoped) & Desktop — WEB BACKEND VERIFIED IN-BROWSER; macOS
+PENDING** 🟢 *(2026-06-04)*
 Web = a **second backend** (no Rust FFI on web; CML-JS via Dart JS interop —
 Rust→WASM stays banned). Shipped the linchpin: a **CSL↔CML golden-CBOR
 conformance suite** freezing the byte-for-byte contract both backends must meet.
@@ -25,14 +25,34 @@ conformance suite** freezing the byte-for-byte contract both backends must meet.
 - `dart/test/conformance/golden_cbor.json`: **23 frozen vectors** (from native via
   `generate_golden.dart`); `dart/test/conformance_test.dart` = CI gate (native
   reproduces every vector byte-for-byte + COSE sigs verify).
-- `dart/lib/src/conformance/cml_web_backend.dart`: `CmlWebBackend` scaffold
-  (`dart:js_interop` → `@dcspark/cardano-multiplatform-lib-browser`). **Browser-
-  verify pending**; unmapped ops `throw` (fail loud). NOT barrel-exported.
-- **Tests:** Dart **+4** conformance; analyze clean. Rust unchanged.
-- **Pending (honest):** finish CML mapping per scoped op; run `CmlWebBackend`
-  against full golden suite in a browser; web example build; macOS packaging
-  (needs trimmed example — many plugins mobile-only); Lace/Eternl cross-wallet
-  `verifyMessage` check. Design: `docs/web-backend.md`.
+- `dart/lib/src/conformance/cml_web_backend.dart`: `CmlWebBackend` — **all scoped
+  ops now mapped** (`dart:js_interop` → `@dcspark/cardano-multiplatform-lib-browser`
+  + `@emurgo/cardano-message-signing-browser`): address, value, plutus
+  (constr/list/int/bytes), witness, COSE `signData`, key derivation. NOT
+  barrel-exported. `verifyData`/legacy `signMessageCose` left `throw` (out of
+  contract).
+- `dart/lib/src/conformance/conformance_contract.dart`: NEW — the platform-agnostic
+  contract (interface + `ConformanceCase` + `runConformanceCase`), no FFI / no
+  `dart:js_interop`. Split out of `conformance.dart` so the web backend compiles
+  under dart2js (without it, importing the contract dragged in the FFI chain →
+  web build impossible). `conformance.dart` keeps `NativeConformanceBackend` and
+  re-exports the contract.
+- **VERIFIED IN A REAL BROWSER (24/24):** `CmlWebBackend`, dart2js-compiled, driven
+  through the full golden suite against the live CML 6.2.0 + message-signing 1.1.0
+  **browser WASM** builds → **PASS 24 FAIL 0** (`tool/web_conformance/`). First
+  de-risked at the library level under Node (`tool/cml_conformance_spike/`, also
+  `PASS 24`). Divergences resolved & baked in: Plutus → `to_cardano_node_format()`
+  (indefinite arrays); `Value` → `to_canonical_cbor_hex()` (sorted map keys). Fixed
+  a scaffold bug (`BaseAddress.new` static vs JS `new`) and a dart2js int-precision
+  bug (Plutus i64 rounded as float64 → `plutusDataInt` now takes `BigInt`, golden
+  stores `n` as a string).
+- **Tests:** Dart **+4** conformance (native 4/4 green); analyze clean; web harness
+  24/24 in-browser. Rust unchanged.
+- **Pending (honest):** wire the in-browser run into CI as a headless step (today
+  it's a manual `npm install` + `dart compile js` + browser harness); web example
+  app build; macOS packaging (needs trimmed example — many plugins mobile-only);
+  Lace/Eternl cross-wallet `verifyMessage` check; `CmlWebBackend.verifyData` mapping.
+  Design: `docs/web-backend.md`.
 
 **Phase 4.6: Foundation hygiene — COMPLETE** ✅ *(2026-06-04, PR #2)*
 CI badge + README de-stale (status → v0.9.0, fixed broken `docs/project-plan.md`

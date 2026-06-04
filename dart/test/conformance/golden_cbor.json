@@ -142,7 +142,7 @@
     "category": "plutus",
     "op": "plutusInt",
     "input": {
-      "n": 0
+      "n": "0"
     },
     "expected": "00"
   },
@@ -151,7 +151,7 @@
     "category": "plutus",
     "op": "plutusInt",
     "input": {
-      "n": 42
+      "n": "42"
     },
     "expected": "182a"
   },
@@ -160,7 +160,7 @@
     "category": "plutus",
     "op": "plutusInt",
     "input": {
-      "n": -1
+      "n": "-1"
     },
     "expected": "20"
   },
@@ -169,7 +169,7 @@
     "category": "plutus",
     "op": "plutusInt",
     "input": {
-      "n": 1234567890123456789
+      "n": "1234567890123456789"
     },
     "expected": "1b112210f47de98115"
   },

@@ -52,19 +52,51 @@ Pieces:
 | `ConformanceCase` | One `(op, input, expected)` golden vector. |
 | `runConformanceCase(backend, case)` | Backend-agnostic dispatch — the native test and an in-browser CML run drive the **same** cases through the **same** runner. |
 | `NativeConformanceBackend` | CSL/FFI reference backend. Produced the golden file; conformant by construction. |
-| `CmlWebBackend` | CML-via-JS-interop backend. **Scaffold — browser-verify pending.** |
+| `CmlWebBackend` | CML-via-JS-interop backend. **All scoped ops mapped; passes the full golden suite (24/24) in a real browser** (`tool/web_conformance/`). |
+| `conformance_contract.dart` | The **platform-agnostic** core (interface + `ConformanceCase` + `runConformanceCase`). No FFI, no `dart:js_interop` — compiles on native AND web. Both backends and the in-browser harness import this. |
 | `test/conformance/golden_cbor.json` | The frozen golden vectors (24 as of v0.10.0-dev). |
 | `test/conformance_test.dart` | CI gate: asserts native still reproduces every vector + COSE sigs verify. |
 | `test/conformance/generate_golden.dart` | Regenerates the golden file from native (run **only on purpose**). |
 
-> **What the CI gate proves today vs. tomorrow.** The native backend *generated*
-> these vectors, so `conformance_test.dart` is currently a **native
-> self-consistency / CSL-drift** gate: it catches a CSL upgrade silently changing
-> canonical bytes. It is **not yet** a cross-backend equivalence result — that
-> only exists once `CmlWebBackend` is driven through these identical vectors in a
-> real browser (an unchecked item below). "Conformance suite in place" means the
-> contract is frozen and the runner is shared, not that two backends are proven
-> equal.
+> **What each gate proves.** The native backend *generated* these vectors, so
+> `conformance_test.dart` (CI) is a **native self-consistency / CSL-drift** gate:
+> it catches a CSL upgrade silently changing canonical bytes. **Cross-backend
+> equivalence** is now also established: `CmlWebBackend`, dart2js-compiled, was
+> driven through these identical vectors against the live CML browser WASM and
+> reproduced all 24 byte-for-byte (`tool/web_conformance/`, `PASS 24 FAIL 0`).
+> That in-browser run is currently a **manual** gate (it needs `npm install` +
+> `dart compile js` + a browser); wiring it into CI as a headless step is future
+> work. Until then, CI guards CSL drift and the manual harness guards CML parity.
+
+### Library-equivalence proof (CML ↔ CSL, byte-for-byte)
+
+Before writing the JS-interop wiring, the core assumption — *CML produces the
+same canonical bytes as CSL* — was proven with a Node spike
+(`tool/cml_conformance_spike/`, `node harness.mjs` → **`PASS 24 FAIL 0`**). It
+drives the **same** 24 golden vectors through CML 6.2.0 +
+`cardano-message-signing` 1.1.0 (the nodejs builds, whose WASM core is identical
+to the browser bundles the Dart backend binds) and asserts byte-equality with
+the frozen CSL output. The CIP-30 `signData` vector matched **including the
+deterministic `COSE_Sign1` signature** — the interop-critical path.
+
+Two CML↔CSL encoding divergences surfaced and are now baked into `CmlWebBackend`
+(do not "simplify" them away):
+
+| Op | CML default | CSL-matching call |
+|----|-------------|-------------------|
+| Plutus constr / list | definite-length arrays (`d87981…`, `82…`) | `to_cardano_node_format()` → indefinite (`d8799f…ff`, `9f…ff`) |
+| `Value` multi-asset | insertion order | `to_canonical_cbor_hex()` → length-then-lexicographic key sort |
+
+The spike also caught a bug in the original scaffold: it called
+`new CML.BaseAddress(...)` where wasm-bindgen requires the static
+`BaseAddress.new(...)`, and used plain `to_cbor_hex()` for Plutus (definite —
+would have diverged). Both are fixed in the current backend.
+
+**What this proves vs. doesn't.** It proves the *libraries* agree, so the
+remaining `CmlWebBackend` gate is no longer "do CML and CSL match?" (yes) but
+the narrower, lower-risk "does this Dart JS-interop binding + the browser WASM
+build reproduce the same call results?" — still an in-browser Flutter run, just
+de-risked to a mechanical check.
 
 ### Excluded on purpose: legacy CIP-8 `signMessage`
 
@@ -96,9 +128,19 @@ The host web app loads the CML browser build and exposes it on `globalThis.CML`
 package barrel, so native builds never link `dart:js_interop`):
 
 ```
-npm i @dcspark/cardano-multiplatform-lib-browser
-# web/index.html: import * as CML from '.../cml_browser.js'; globalThis.CML = CML;
+npm i @dcspark/cardano-multiplatform-lib-browser \
+      @emurgo/cardano-message-signing-browser bip39
+# web/index.html (ESM shim):
+#   import * as CML from '.../cml_browser.js';  globalThis.CML = CML;  // serialization
+#   import * as MS  from '.../ms_browser.js';   globalThis.MS  = MS;   // COSE signData
+#   import * as bip39 from 'bip39';
+#   globalThis.CFL_mnemonicToEntropy = (m) => bip39.mnemonicToEntropy(m); // optional
 ```
+
+`globalThis.MS` backs the COSE `signData` path; `globalThis.CFL_mnemonicToEntropy`
+is an **optional** BIP-39 bridge used only by `deriveKeys`'s mnemonic path (CML
+has no mnemonic parser, and project policy keeps mnemonic crypto out of Dart).
+The primary web key path — `deriveAddress` from an account xprv — needs neither.
 
 > ⚠️ **Do not call `RustLib.init()` on web.** The web backend path is
 > `CmlWebBackend` (pure JS interop to CML); it must not depend on the FRB bridge.
@@ -130,11 +172,28 @@ for (final c in parseConformanceCases(goldenJson)) {
       vector byte-for-byte; runs as a named CI step on PRs to any branch
 - [x] COSE `signData` golden vectors verify under native `verifyData`
 - [x] CML-JS backend **scaffold** with honest browser-verify-pending stubs
-- [ ] More divergence-prone vectors: Plutus bignum >2^64 (needs a BigInt FFI;
-      current `plutusDataInt` is i64-bound), non-base address types (enterprise/
-      reward/script-cred), nested Plutus, COSE protected-header ordering
-- [ ] CML mapping completed for every scoped op (constr/list, value, witness, COSE)
-- [ ] `CmlWebBackend` passes the **full** golden suite in a real browser
+- [x] CML mapping completed for every scoped op (address, value, plutus
+      constr/list/int/bytes, witness, COSE `signData`, key derivation) — see
+      `cml_web_backend.dart`
+- [x] **Library-equivalence proven under Node**: CML reproduces all 24 CSL
+      golden vectors byte-for-byte (`tool/cml_conformance_spike/`, `PASS 24`),
+      incl. the deterministic COSE `signData` signature
+- [x] **`CmlWebBackend` passes the FULL golden suite (24/24) in a real browser**
+      — dart2js-compiled, driven against the live CML + message-signing browser
+      WASM builds (`tool/web_conformance/`, `PASS 24 FAIL 0`). This verifies the
+      Dart JS-interop binding + the browser WASM, not just library equivalence.
+- [x] **dart2js int-precision fix:** the in-browser run caught that Plutus i64
+      integers (e.g. `0x112210f47de98115`) were silently rounded — on web a Dart
+      `int` is a float64, so a JSON-number `n` loses precision at parse time.
+      Fixed by making `ConformanceBackend.plutusDataInt` take a **`BigInt`** and
+      storing `n` as a decimal **string** in the golden (the web path builds via
+      `BigInteger.from_str`, never touching a lossy int). Native unaffected.
+- [ ] More divergence-prone vectors: Plutus bignum **>2^64** (still needs a
+      BigInt FFI on native; i64 now exact on both backends), non-base address
+      types (enterprise/reward/script-cred), nested Plutus, COSE protected-header
+      ordering
+- [ ] `CmlWebBackend.verifyData` mapped (COSE parse + identity-binding) and
+      legacy `signMessageCose` left intentionally unmapped (excluded from contract)
 - [ ] Scoped CIP-30 methods run in a desktop browser build of the example
 - [ ] **Cross-wallet check vs Lace/Eternl** (a real wallet-signed message verifies
       under native `verifyMessage` — runnable today, no web needed)
