@@ -293,7 +293,7 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 ---
 
-### Phase 5a — HD multi-account → v0.9.0  ✅ code-complete (live-testnet run pending)
+### Phase 5a — HD multi-account → v0.9.0  ✅ complete & live-verified (iPhone 13)
 *Dependency: Phase 4.3. Pure Dart/Rust — verifiable on iPhone 13 + testnet.*
 
 **Deliverables:**
@@ -308,9 +308,10 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
   identical to the CIP-30 path); Rust 108 · Dart 155; clippy/fmt/analyze clean
 - ✅ Gap-limit + account-gap logic unit-tested with a deterministic fake lookup
   over real FFI-derived addresses
-- ⏳ Live-testnet run on iPhone 13 (real Blockfrost address-usage queries) — the
-  remaining quick on-device check; gap scanning relies on the provider's
-  address-history semantics + rate limits (handled by existing backoff).
+- ✅ **Live-verified on iPhone 13 (2026-06-04):** discovered account 0 (Active,
+  ~36,092 ₳) via real Blockfrost `/addresses/{addr}/total` queries — external 6
+  scanned (1 used at idx 0 + gap-limit 5 unused), change 5 scanned, stopped at the
+  first empty account (account 1). Next-receive = first unused external (idx 1).
 
 ---
 

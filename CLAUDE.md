@@ -151,9 +151,10 @@ When you start a session, the next phase is:
   (GitHub Actions: cargo test/clippy, analyze, flutter test, build iOS/macOS/web),
   pubspec/Cargo metadata hygiene (pin `flutter_rust_bridge: =2.12.x`, fix "CSL" not
   "CML" in description, drop `YOUR_HANDLE`), mark hardware-wallet API `@experimental`.
-- **5a** HD multi-account (CIP-1852 discovery + gap scan) ✅ **code-complete (v0.9.0)** —
-  `deriveAddress`, `HdWalletDiscovery`, Blockfrost `isAddressUsed`, Accounts screen;
-  Rust 108 · Dart 155. Remaining: live-testnet run on iPhone 13.
+- **5a** HD multi-account (CIP-1852 discovery + gap scan) ✅ **complete & live-verified
+  on iPhone 13 (v0.9.0)** — `deriveAddress`, `HdWalletDiscovery`, Blockfrost
+  `isAddressUsed`, Accounts screen; Rust 108 · Dart 155. Live run discovered
+  account 0 (~36,092 ₳) via real Blockfrost queries; gap-limit + account-gap correct.
 - Next: **5b** seed encryption (Rust Argon2id + XChaCha20-Poly1305, threat model,
   security review — NOT pure-Dart crypto) → **6** Web *scoped* (CML-JS backend =
   second backend; golden-CBOR CSL↔CML conformance suite; macOS packaging) → **7**
