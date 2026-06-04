@@ -84,7 +84,8 @@ class CmlWebBackend implements ConformanceBackend {
   @override
   String get name => 'cml-js';
 
-  static Never _pending(String what, String cmlHint) => throw UnimplementedError(
+  static Never _pending(String what, String cmlHint) =>
+      throw UnimplementedError(
         'CmlWebBackend.$what is browser-verify pending. '
         'Map via CML ($cmlHint), then validate against golden_cbor.json '
         'in a real browser before claiming parity. See docs/web-backend.md.',
@@ -141,8 +142,8 @@ class CmlWebBackend implements ConformanceBackend {
           'ConstrPlutusData.new(BigNum, PlutusList) + PlutusData.new_constr_plutus_data');
 
   @override
-  String plutusDataList(List<String> itemsCborHex) => _pending(
-      'plutusDataList', 'PlutusList.new()/.add + PlutusData.new_list');
+  String plutusDataList(List<String> itemsCborHex) =>
+      _pending('plutusDataList', 'PlutusList.new()/.add + PlutusData.new_list');
 
   // --- witness ------------------------------------------------------------
 
@@ -167,6 +168,7 @@ class CmlWebBackend implements ConformanceBackend {
     required String signature,
     required String key,
     String? expectedPayloadHex,
+    String? expectedAddressHex,
   }) =>
       _pending('verifyData', '@emurgo/cardano-message-signing-browser');
 

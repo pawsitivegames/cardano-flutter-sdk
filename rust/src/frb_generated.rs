@@ -640,10 +640,14 @@ fn wire__crate__cip30__cip30_verify_data_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_data_signature = <crate::cip30::DataSignature>::sse_decode(&mut deserializer);
             let api_expected_payload_hex = <Option<String>>::sse_decode(&mut deserializer);
+            let api_expected_address_hex = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, crate::error::CardanoError>((move || {
-                let output_ok =
-                    crate::cip30::cip30_verify_data(api_data_signature, api_expected_payload_hex)?;
+                let output_ok = crate::cip30::cip30_verify_data(
+                    api_data_signature,
+                    api_expected_payload_hex,
+                    api_expected_address_hex,
+                )?;
                 Ok(output_ok)
             })())
         },

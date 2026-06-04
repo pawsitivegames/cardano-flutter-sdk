@@ -31,7 +31,11 @@ import '../wallet.dart' as wallet;
 
 /// A native-asset entry used by [ConformanceBackend.valueToCborHex], expressed
 /// with plain types so the interface never leaks a backend-specific class.
-typedef ConformanceAsset = ({String policyId, String assetName, BigInt quantity});
+typedef ConformanceAsset = ({
+  String policyId,
+  String assetName,
+  BigInt quantity
+});
 
 /// A `(public key, signature)` pair for witness-set assembly.
 typedef ConformanceWitness = ({String vkeyHex, String signatureHex});
@@ -107,6 +111,7 @@ abstract interface class ConformanceBackend {
     required String signature,
     required String key,
     String? expectedPayloadHex,
+    String? expectedAddressHex,
   });
 
   /// CIP-8 message signing; returns the `COSE_Sign1` hex (deterministic).
@@ -384,10 +389,12 @@ class NativeConformanceBackend implements ConformanceBackend {
     required String signature,
     required String key,
     String? expectedPayloadHex,
+    String? expectedAddressHex,
   }) =>
       cip30.cip30VerifyData(
         dataSignature: cip30.DataSignature(signature: signature, key: key),
         expectedPayloadHex: expectedPayloadHex,
+        expectedAddressHex: expectedAddressHex,
       );
 
   @override

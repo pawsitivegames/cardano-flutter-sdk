@@ -252,6 +252,33 @@ fn map_cms_err<E: std::fmt::Debug>(e: E) -> CardanoError {
     CardanoError::InvalidCbor(format!("COSE decode error: {:?}", e))
 }
 
+/// Collect the key-hash credentials (payment and/or stake) embedded in an
+/// address. Returns the raw 28-byte Blake2b-224 hashes.
+///
+/// Used to bind a signing public key to a claimed address: the signer's key
+/// hash must appear here for the signature to be attributable to that address.
+/// Script credentials are intentionally excluded — a vkey signature can only be
+/// owned by a key credential.
+pub(crate) fn address_credential_hashes(addr: &csl::Address) -> Vec<Vec<u8>> {
+    let mut creds = Vec::new();
+    let mut push = |cred: csl::Credential| {
+        if let Some(kh) = cred.to_keyhash() {
+            creds.push(kh.to_bytes());
+        }
+    };
+    if let Some(base) = csl::BaseAddress::from_address(addr) {
+        push(base.payment_cred());
+        push(base.stake_cred());
+    } else if let Some(reward) = csl::RewardAddress::from_address(addr) {
+        push(reward.payment_cred());
+    } else if let Some(ent) = csl::EnterpriseAddress::from_address(addr) {
+        push(ent.payment_cred());
+    } else if let Some(ptr) = csl::PointerAddress::from_address(addr) {
+        push(ptr.payment_cred());
+    }
+    creds
+}
+
 /// CBOR label for the COSE `address` protected header (CIP-30 / CIP-8).
 fn address_label() -> Label {
     Label::new_text("address".to_string())
@@ -320,16 +347,31 @@ pub fn cip30_sign_data(
 /// `Sig_structure`, and verifies the Ed25519 signature against the public key
 /// embedded in the `COSE_Key`.
 ///
+/// # Identity binding (security)
+///
+/// A bare signature check answers only "is this a valid signature by the key in
+/// this `COSE_Key`?" — and the caller supplies that `COSE_Key`, so on its own it
+/// does **not** prove the owner of the signer `address` signed anything. To
+/// close that gap, this function additionally requires the `COSE_Key` public key
+/// to hash to a credential inside the `address` carried in the `COSE_Sign1`
+/// protected header (always, when that header is present). Pass
+/// `expected_address_hex` to further pin verification to a specific address.
+///
 /// # Arguments
 /// - `data_signature`: the [`DataSignature`] to verify
 /// - `expected_payload_hex`: if provided, the embedded payload must match it
+/// - `expected_address_hex`: if provided, the protected-header `address` must
+///   equal these raw address bytes (hex). The key→address binding is enforced
+///   regardless.
 ///
 /// # Returns
-/// `true` if the signature is valid (and the payload matches, if given).
+/// `true` if the signature is valid, the signing key owns the header address,
+/// and the payload/address match any expectations supplied.
 #[frb(sync)]
 pub fn cip30_verify_data(
     data_signature: DataSignature,
     expected_payload_hex: Option<String>,
+    expected_address_hex: Option<String>,
 ) -> Result<bool, CardanoError> {
     let cose_sign1 =
         COSESign1::from_bytes(hex_to_bytes(&data_signature.signature)?).map_err(map_cms_err)?;
@@ -361,6 +403,41 @@ pub fn cip30_verify_data(
         .map_err(|_| CardanoError::InvalidKey("Invalid public key bytes".to_string()))?;
     let signature = csl::Ed25519Signature::from_bytes(signature_bytes)
         .map_err(|_| CardanoError::InvalidCbor("Invalid signature bytes".to_string()))?;
+
+    // ── Identity binding ──────────────────────────────────────────────────────
+    // Read the signer address from the protected header. CIP-30 `signData`
+    // always sets it; if present we require the COSE_Key public key to hash to
+    // one of its credentials, so a valid signature cannot be passed off as
+    // coming from an address the key does not control.
+    let header_address_bytes = cose_sign1
+        .headers()
+        .protected()
+        .deserialized_headers()
+        .header(&address_label())
+        .and_then(|v| v.as_bytes());
+
+    if let Some(addr_bytes) = header_address_bytes {
+        // Optionally pin to a specific expected address.
+        if let Some(expected_hex) = expected_address_hex.as_ref() {
+            if hex_to_bytes(expected_hex)? != addr_bytes {
+                return Ok(false);
+            }
+        }
+
+        let addr = csl::Address::from_bytes(addr_bytes.clone()).map_err(|_| {
+            CardanoError::InvalidAddress("Invalid header address bytes".to_string())
+        })?;
+        let pk_hash = public_key.hash().to_bytes();
+        let owns = address_credential_hashes(&addr)
+            .iter()
+            .any(|cred| cred == &pk_hash);
+        if !owns {
+            return Ok(false);
+        }
+    } else if expected_address_hex.is_some() {
+        // Caller demanded a specific address but the signature carries none.
+        return Ok(false);
+    }
 
     Ok(public_key.verify(&to_verify, &signature))
 }
@@ -494,11 +571,11 @@ mod tests {
         assert!(!sig.signature.is_empty());
         assert!(!sig.key.is_empty());
 
-        let ok = cip30_verify_data(sig.clone(), Some(payload)).unwrap();
+        let ok = cip30_verify_data(sig.clone(), Some(payload), None).unwrap();
         assert!(ok, "data signature should verify");
 
         // No expected payload also verifies.
-        let ok2 = cip30_verify_data(sig, None).unwrap();
+        let ok2 = cip30_verify_data(sig, None, None).unwrap();
         assert!(ok2);
     }
 
@@ -561,7 +638,7 @@ mod tests {
         let payload = hex::encode("original");
         let sig = cip30_sign_data(address_hex, payload, k.payment_signing_key).unwrap();
 
-        let ok = cip30_verify_data(sig, Some(hex::encode("tampered"))).unwrap();
+        let ok = cip30_verify_data(sig, Some(hex::encode("tampered")), None).unwrap();
         assert!(!ok, "verification must fail for a different payload");
     }
 
@@ -580,8 +657,95 @@ mod tests {
         bytes[last] ^= 0xff;
         sig.signature = hex::encode(bytes);
 
-        let ok = cip30_verify_data(sig, Some(payload)).unwrap();
+        let ok = cip30_verify_data(sig, Some(payload), None).unwrap();
         assert!(!ok, "tampered signature must not verify");
+    }
+
+    fn attacker_keys() -> crate::wallet::KeyDerivationResult {
+        // A different account → a different key the victim does not control.
+        derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 1, true).unwrap()
+    }
+
+    #[test]
+    fn test_verify_data_rejects_forged_identity() {
+        // Forgery: the attacker signs with THEIR OWN key but stamps the VICTIM's
+        // address into the protected header, then hands over their own COSE_Key.
+        // The Ed25519 signature is genuine, so a naive "valid sig by some key"
+        // check would return true. Identity binding must reject it.
+        let victim = keys();
+        let attacker = attacker_keys();
+
+        let victim_addr_hex = address_to_hex(
+            compute_base_address(victim.payment_key_hash, victim.stake_key_hash, 0).unwrap(),
+        )
+        .unwrap();
+        let payload = hex::encode("Withdraw all funds");
+
+        // Attacker produces a perfectly valid signature claiming the victim addr.
+        let forged = cip30_sign_data(
+            victim_addr_hex.clone(),
+            payload.clone(),
+            attacker.payment_signing_key,
+        )
+        .unwrap();
+
+        let ok = cip30_verify_data(forged, Some(payload), None).unwrap();
+        assert!(
+            !ok,
+            "signature by attacker key must NOT verify against victim address"
+        );
+    }
+
+    #[test]
+    fn test_verify_data_expected_address_pins_signer() {
+        // Attacker honestly signs with their own key AND their own address (this
+        // is internally consistent and binds correctly). But a verifier that
+        // pins the victim's address must still reject it.
+        let victim = keys();
+        let attacker = attacker_keys();
+
+        let victim_addr_hex = address_to_hex(
+            compute_base_address(victim.payment_key_hash, victim.stake_key_hash, 0).unwrap(),
+        )
+        .unwrap();
+        let attacker_addr_hex = address_to_hex(
+            compute_base_address(attacker.payment_key_hash, attacker.stake_key_hash, 0).unwrap(),
+        )
+        .unwrap();
+        let payload = hex::encode("login");
+
+        let sig = cip30_sign_data(
+            attacker_addr_hex.clone(),
+            payload.clone(),
+            attacker.payment_signing_key,
+        )
+        .unwrap();
+
+        // Self-consistent: verifies against the attacker's own address.
+        assert!(
+            cip30_verify_data(sig.clone(), Some(payload.clone()), Some(attacker_addr_hex)).unwrap()
+        );
+        // But not when the verifier requires the victim's address.
+        assert!(
+            !cip30_verify_data(sig, Some(payload), Some(victim_addr_hex)).unwrap(),
+            "must reject when pinned address differs from header address"
+        );
+    }
+
+    #[test]
+    fn test_verify_data_expected_address_matches() {
+        let k = keys();
+        let addr_hex =
+            address_to_hex(compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap())
+                .unwrap();
+        let payload = hex::encode("ok");
+        let sig =
+            cip30_sign_data(addr_hex.clone(), payload.clone(), k.payment_signing_key).unwrap();
+
+        assert!(
+            cip30_verify_data(sig, Some(payload), Some(addr_hex)).unwrap(),
+            "honest signature must verify when the pinned address matches"
+        );
     }
 
     #[test]

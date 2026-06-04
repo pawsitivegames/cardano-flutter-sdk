@@ -7,7 +7,7 @@ import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `blake2b_256`
+// These functions are ignored because they are not marked as `pub`: `blake2b_256`, `public_key_owns_address`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CoseSign1`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
@@ -43,18 +43,22 @@ Future<SignedMessage> signMessageInternal(
 
 /// Verify a CIP-8 signed message.
 ///
-/// Reconstructs the message hash, extracts the public key from the signature,
-/// and verifies that the signature is valid.
+/// Verifies that the signature is a valid Ed25519 signature over the message
+/// **and**, when an address is involved, that the signing public key actually
+/// owns that address (identity binding — see the module docs).
 ///
 /// # Arguments
 /// * `signed_message` - The [SignedMessage] to verify
-/// * `expected_address` - Optional: if provided, the address in the message must match
+/// * `expected_address` - Optional: if provided, must equal `signed_message.address`,
+///   and the signing key must hash to a credential in that address.
 ///
 /// # Returns
-/// `true` if the signature is valid, `false` otherwise.
+/// `true` if the signature is valid (and identity-bound, when an address is
+/// present); `false` otherwise.
 ///
 /// # Errors
 /// * `InvalidCbor` - If the COSE Sign1 structure is malformed
+/// * `InvalidAddress` - If a claimed/expected address cannot be parsed
 bool verifyMessage(
         {required SignedMessage signedMessage, String? expectedAddress}) =>
     RustLib.instance.api.crateMessageVerifyMessage(

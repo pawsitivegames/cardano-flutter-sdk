@@ -185,7 +185,9 @@ abstract class RustLibApi extends BaseApi {
       {required String txCborHex, required List<String> signingKeysBech32});
 
   bool crateCip30Cip30VerifyData(
-      {required DataSignature dataSignature, String? expectedPayloadHex});
+      {required DataSignature dataSignature,
+      String? expectedPayloadHex,
+      String? expectedAddressHex});
 
   String crateCip30ComputeBaseAddress(
       {required String paymentKeyHashHex,
@@ -902,12 +904,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   bool crateCip30Cip30VerifyData(
-      {required DataSignature dataSignature, String? expectedPayloadHex}) {
+      {required DataSignature dataSignature,
+      String? expectedPayloadHex,
+      String? expectedAddressHex}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_box_autoadd_data_signature(dataSignature, serializer);
         sse_encode_opt_String(expectedPayloadHex, serializer);
+        sse_encode_opt_String(expectedAddressHex, serializer);
         return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
       },
       codec: SseCodec(
@@ -915,14 +920,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateCip30Cip30VerifyDataConstMeta,
-      argValues: [dataSignature, expectedPayloadHex],
+      argValues: [dataSignature, expectedPayloadHex, expectedAddressHex],
       apiImpl: this,
     ));
   }
 
   TaskConstMeta get kCrateCip30Cip30VerifyDataConstMeta => const TaskConstMeta(
         debugName: "cip30_verify_data",
-        argNames: ["dataSignature", "expectedPayloadHex"],
+        argNames: ["dataSignature", "expectedPayloadHex", "expectedAddressHex"],
       );
 
   @override
