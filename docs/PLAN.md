@@ -279,17 +279,22 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 ## Track A — Active (no Ledger; Android via emulator only)
 
-### Phase 4.6 — Foundation hygiene → v0.8.1
+### Phase 4.6 — Foundation hygiene → v0.8.1  ✅ complete (2026-06-04)
 *Dependency: none. Cheap, hardware-free, unblocks everything. Do first.*
 
 **Deliverables:**
-- **CI** (GitHub Actions): `cargo test` + `clippy -D warnings`, `flutter analyze`,
-  `flutter test`, build iOS + macOS + web; status badge in README.
-- **Metadata hygiene** (blocks any pub.dev publish): `dart/pubspec.yaml` version,
-  `flutter_rust_bridge: =2.12.x` (pin — not `^2.0.0`), fix description ("CSL"
-  backend, not "CML"), real `homepage`/`repository` (drop `YOUR_HANDLE`); same in
-  `rust/Cargo.toml`.
-- Mark hardware-wallet public API `@experimental`.
+- ✅ **CI** (GitHub Actions `ci.yml`): `cargo test` + `clippy -D warnings` +
+  `cargo fmt --check`, `flutter analyze`, `flutter test`, build iOS + macOS +
+  Android; gating summary job; **status badge in README**. *(Web build deferred to
+  Phase 6 — no web backend exists yet; macOS/Android jobs are informational until
+  their scaffolding/device verification lands, same pattern.)*
+- ✅ **Metadata hygiene**: `dart/pubspec.yaml` version `0.9.0`,
+  `flutter_rust_bridge: 2.12.0` (pinned), description fixed to "CSL", real
+  `homepage`/`repository` (no `YOUR_HANDLE`); `rust/Cargo.toml` version bumped
+  `0.1.0` → `0.9.0`, CSL description, `flutter_rust_bridge = "=2.12.0"`.
+- ✅ Hardware-wallet public API marked `@experimental` (3 sites).
+- ✅ README de-staled: badge added, status line updated to v0.9.0, broken
+  `docs/project-plan.md` links fixed → `docs/PLAN.md`.
 
 ---
 

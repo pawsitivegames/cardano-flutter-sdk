@@ -1,8 +1,16 @@
 # cardano_flutter_rs
 
+[![CI](https://github.com/pawsitivegames/cardano-flutter-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/pawsitivegames/cardano-flutter-sdk/actions/workflows/ci.yml)
+
 A production-grade Flutter SDK for Cardano, built on Emurgo's Cardano Serialization Library (CSL) via Rust FFI.
 
-> **Status:** Phase 1 & 2 complete (v0.2.0). See [`docs/project-plan.md`](docs/project-plan.md) for the full 8-phase roadmap.
+> **Status:** v0.9.0 — Phases 1–4.4 complete and verified; Phase 4.5 (hardware
+> wallets) core complete with on-device signing pending; Phase 5a (HD
+> multi-account) live-verified on iPhone 13. CIP-30/CIP-45 dApp connectors,
+> staking, minting, Plutus, and message signing all shipped. See
+> [`docs/PLAN.md`](docs/PLAN.md) for the full roadmap and current phase gates.
+>
+> Pre-1.0: APIs may change. The hardware-wallet API is `@experimental`.
 
 ## Why
 
@@ -35,7 +43,7 @@ cardano-flutter-sdk/
 ├── CLAUDE.md             # Claude Code project memory
 ├── README.md             # this file
 ├── docs/
-│   └── project-plan.md   # full strategic plan, 8-phase roadmap
+│   └── PLAN.md           # full strategic plan + roadmap (single source of truth)
 ├── rust/                 # Rust wrapper crate (cardano_flutter_rs)
 │   ├── src/
 │   │   ├── lib.rs        # SDK entry, version export
@@ -275,7 +283,7 @@ Get a free testnet API key at [https://blockfrost.io](https://blockfrost.io).
 - Plutus script support
 - Multi-sig transactions
 
-See [`docs/project-plan.md`](docs/project-plan.md) for full 8-phase roadmap.
+See [`docs/PLAN.md`](docs/PLAN.md) for the full roadmap.
 
 ## Contributing
 

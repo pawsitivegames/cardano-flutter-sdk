@@ -1,6 +1,6 @@
 [package]
 name = "cardano_flutter_rs"
-version = "0.1.0"
+version = "0.9.0"
 edition = "2021"
 license = "MIT"
 description = "Rust FFI wrapper around cardano-serialization-lib (CSL) for the cardano_flutter_rs Dart package."
