@@ -47,6 +47,7 @@ extension type _Credential._(JSObject _) implements JSObject {
 extension type _Address._(JSObject _) implements JSObject {
   external static _Address from_bech32(String bech32);
   external String to_hex();
+  external String to_bech32([String? prefix]);
 }
 
 @JS('CML.BaseAddress')
@@ -101,9 +102,11 @@ class CmlWebBackend implements ConformanceBackend {
         _Credential.new_pub_key(_Ed25519KeyHash.from_hex(paymentKeyHashHex));
     final stake =
         _Credential.new_pub_key(_Ed25519KeyHash.from_hex(stakeKeyHashHex));
-    // NOTE: bech32 HRP/network mapping must match CSL exactly — the conformance
-    // gate is what proves it; do not trust this until it passes.
-    return _BaseAddress(networkId, payment, stake).to_address().to_hex();
+    // The native contract returns a BECH32 base address (CSL `to_bech32(None)`),
+    // NOT hex — return bech32 here too or this can never pass conformance. The
+    // bech32 HRP/network mapping must still match CSL exactly; the conformance
+    // gate is what proves it. Do not trust this until it passes in a browser.
+    return _BaseAddress(networkId, payment, stake).to_address().to_bech32();
   }
 
   @override

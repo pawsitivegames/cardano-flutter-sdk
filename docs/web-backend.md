@@ -50,12 +50,31 @@ Pieces:
 |----------|------|
 | `ConformanceBackend` | The deterministic op subset both backends implement. Every method is a pure function of its inputs (Ed25519 signing included — it is deterministic), so two conformant backends agree byte-for-byte. |
 | `ConformanceCase` | One `(op, input, expected)` golden vector. |
-| `runConformanceCase(backend, case)` | Backend-agnostic dispatch — native CI and in-browser CML drive the **same** cases through the **same** runner. |
+| `runConformanceCase(backend, case)` | Backend-agnostic dispatch — the native test and an in-browser CML run drive the **same** cases through the **same** runner. |
 | `NativeConformanceBackend` | CSL/FFI reference backend. Produced the golden file; conformant by construction. |
 | `CmlWebBackend` | CML-via-JS-interop backend. **Scaffold — browser-verify pending.** |
-| `test/conformance/golden_cbor.json` | The frozen golden vectors (23 as of v0.10.0-dev). |
+| `test/conformance/golden_cbor.json` | The frozen golden vectors (24 as of v0.10.0-dev). |
 | `test/conformance_test.dart` | CI gate: asserts native still reproduces every vector + COSE sigs verify. |
 | `test/conformance/generate_golden.dart` | Regenerates the golden file from native (run **only on purpose**). |
+
+> **What the CI gate proves today vs. tomorrow.** The native backend *generated*
+> these vectors, so `conformance_test.dart` is currently a **native
+> self-consistency / CSL-drift** gate: it catches a CSL upgrade silently changing
+> canonical bytes. It is **not yet** a cross-backend equivalence result — that
+> only exists once `CmlWebBackend` is driven through these identical vectors in a
+> real browser (an unchecked item below). "Conformance suite in place" means the
+> contract is frozen and the runner is shared, not that two backends are proven
+> equal.
+
+### Excluded on purpose: legacy CIP-8 `signMessage`
+
+`rust/src/message.rs`'s `sign_message` does **not** emit a spec `COSE_Sign1`
+(it serializes a custom `{public_key, signature, message}` CBOR map), so it is
+deliberately **kept out of the golden contract** — freezing it would certify a
+non-interoperable encoding as canonical. COSE conformance is covered only by the
+CIP-30 `signData` path (`rust/src/cip30.rs`), which is built on Emurgo's reference
+`cardano-message-signing` library. `message.rs` is slated for deprecation in
+favour of `cip30_sign_data` (tracked for the Phase 7 security review).
 
 ### Categories covered
 
@@ -81,6 +100,14 @@ npm i @dcspark/cardano-multiplatform-lib-browser
 # web/index.html: import * as CML from '.../cml_browser.js'; globalThis.CML = CML;
 ```
 
+> ⚠️ **Do not call `RustLib.init()` on web.** `flutter_rust_bridge` generated a
+> WASM web stub (`dart/lib/src/frb_generated.web.dart`) that expects a
+> `wasm_bindgen`-compiled Rust module — i.e. the Rust→WASM tunnel the project
+> bans and never builds. On web, `RustLib.init()` would fail looking for that
+> module. The web backend path is `CmlWebBackend` (pure JS interop to CML); it
+> must not depend on the FRB bridge. A follow-up will configure codegen to stop
+> emitting the web target so this dead artifact can be removed.
+
 Then in a browser test harness:
 
 ```dart
@@ -92,10 +119,15 @@ for (final c in parseConformanceCases(goldenJson)) {
 
 ## Verification (Phase 6 gate)
 
-- [x] Conformance harness + 23 golden vectors frozen from native CSL
-- [x] CI gate: native backend reproduces every vector byte-for-byte
+- [x] Conformance harness + 24 golden vectors frozen from native CSL (incl. a
+      canonical-ordering stress vector with out-of-order multi-asset + multi-witness)
+- [x] CI gate (native self-consistency / CSL-drift): native reproduces every
+      vector byte-for-byte; runs as a named CI step on PRs to any branch
 - [x] COSE `signData` golden vectors verify under native `verifyData`
 - [x] CML-JS backend **scaffold** with honest browser-verify-pending stubs
+- [ ] More divergence-prone vectors: Plutus bignum >2^64 (needs a BigInt FFI;
+      current `plutusDataInt` is i64-bound), non-base address types (enterprise/
+      reward/script-cred), nested Plutus, COSE protected-header ordering
 - [ ] CML mapping completed for every scoped op (constr/list, value, witness, COSE)
 - [ ] `CmlWebBackend` passes the **full** golden suite in a real browser
 - [ ] Scoped CIP-30 methods run in a desktop browser build of the example

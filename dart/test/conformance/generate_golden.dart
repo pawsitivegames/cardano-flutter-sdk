@@ -276,14 +276,50 @@ void main() {
         },
         expected: '',
       ),
+      // Canonical-ordering stress: assets supplied OUT of CBOR-canonical order
+      // (policy 0x33 before 0x22; within 0x33, name "AB"(len 2) before "A"(len 1)).
+      // A conformant backend MUST re-sort to canonical (0x22 first; "A" before
+      // "AB"). This catches a backend that does no sorting — the #1 CSL/CML
+      // divergence area, which the in-order vectors above cannot detect.
       ConformanceCase(
-        id: 'sign-message-cip8',
-        category: 'cose',
-        op: 'signMessage',
+        id: 'value-multi-asset-unsorted',
+        category: 'value',
+        op: 'valueToCbor',
         input: {
-          'message': '48656c6c6f', // "Hello"
-          'signingKeyBech32': keys.paymentSigningKey,
-          'address': addr0.address,
+          'coin': '3000000',
+          'assets': [
+            {
+              'policyId':
+                  '33333333333333333333333333333333333333333333333333333333',
+              'assetName': '4142', // "AB" (length 2)
+              'quantity': '7',
+            },
+            {
+              'policyId':
+                  '33333333333333333333333333333333333333333333333333333333',
+              'assetName': '41', // "A" (length 1)
+              'quantity': '8',
+            },
+            {
+              'policyId':
+                  '22222222222222222222222222222222222222222222222222222222',
+              'assetName': '42', // "B"
+              'quantity': '9',
+            },
+          ],
+        },
+        expected: '',
+      ),
+      // Multiple witnesses supplied out of vkey order — pins witness-set ordering.
+      ConformanceCase(
+        id: 'witness-set-multi',
+        category: 'witness',
+        op: 'witnessSet',
+        input: {
+          'witnesses': [
+            {'vkeyHex': 'ab' * 32, 'signatureHex': 'cd' * 64},
+            {'vkeyHex': '01' * 32, 'signatureHex': '02' * 64},
+          ],
         },
         expected: '',
       ),

@@ -105,13 +105,21 @@ password**, and so a strong random key can replace a weak password:
 - **Android Keystore** (StrongBox where present, `setUserAuthenticationRequired`)
   holds the equivalent.
 
-Composition: the Argon2id-derived key encrypts the seed; the resulting blob is
-then stored, and the **password is combined with the hardware wrapping key**
-(HKDF over `password-derived-key || keystore-key`) so that decryption requires
-*both* device possession and the password. This is integrated in the **example
-app** via `flutter_secure_storage` (kept out of the core package to preserve the
-minimal FFI surface); the core ships the password-based primitives that the
-wrapping-key layer composes over.
+Composition: the example composes the user password with the hardware wrapping
+key **at the input to Argon2id** — `Argon2id(password ‖ 0x1F ‖ wrapSecretHex)` —
+using an ASCII Unit-Separator (`0x1F`, which cannot appear in a password text
+field or in lowercase hex) so the concatenation is unambiguous. Feeding both
+secrets through the memory-hard KDF means decryption requires *both* device
+possession (the Keychain/Keystore wrap secret) and the password. This is
+integrated in the **example app** via `flutter_secure_storage` (kept out of the
+core package to preserve the minimal FFI surface); the core ships the
+password-based primitives that the wrapping-key layer composes over.
+
+> Note on the "useless without the device" claim: it holds against a **blob-only**
+> leak (e.g. an iCloud/file backup that excludes the Keychain — iOS
+> `ThisDeviceOnly` accessibility enforces this). It does *not* help if an attacker
+> compromises the secure store itself, since the example stores the encrypted blob
+> and the wrap secret in the same `FlutterSecureStorage`.
 
 > Implementation note: the core SDK exposes `encrypt_seed`/`decrypt_seed`
 > (+ `_with_params`) and `benchmark_kdf`. The Keychain/Keystore wiring lives in

@@ -3,8 +3,11 @@ name: CI
 on:
   push:
     branches: [ main, develop ]
+  # Run on PRs targeting ANY branch so stacked PRs (phase branches based on other
+  # phase branches, not main) are actually gated — otherwise the CI gate is
+  # dormant on the very PRs that introduce new code.
   pull_request:
-    branches: [ main, develop ]
+    branches: [ '**' ]
 
 env:
   # Single source of truth for the Flutter version CI runs.
@@ -64,10 +67,18 @@ jobs:
       # Real gate: a failing unit test fails CI (no continue-on-error).
       - name: Run Dart unit tests
         run: cd dart && flutter test
+      # Named gate for the CSL↔CML golden-CBOR conformance suite so a selective
+      # test-path change can never silently drop it (it also runs under the
+      # blanket `flutter test` above; this makes the contract explicit).
+      - name: Run conformance suite (golden-CBOR contract)
+        run: cd dart && flutter test test/conformance_test.dart
       # Live testnet integration only runs when the Blockfrost secret is present;
       # it must not fail forks/PRs without the secret, so it stays non-blocking.
+      # Gate directly on the secret (a step-level `env:` is NOT visible to a job-
+      # level `if:`, so the previous `env.BLOCKFROST_PROJECT_ID` check was always
+      # false and this step never ran).
       - name: Run integration tests (live testnet, only if secret present)
-        if: ${{ env.BLOCKFROST_PROJECT_ID != '' }}
+        if: ${{ secrets.BLOCKFROST_PROJECT_ID != '' }}
         run: cd example && flutter test integration_test/send_flow_test.dart
         env:
           BLOCKFROST_PROJECT_ID: ${{ secrets.BLOCKFROST_PROJECT_ID }}

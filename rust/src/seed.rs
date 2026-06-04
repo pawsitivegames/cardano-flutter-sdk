@@ -269,9 +269,15 @@ fn decrypt_seed_internal(blob_hex: &str, password: &[u8]) -> Result<String, Card
             })?,
     );
 
-    String::from_utf8(plaintext.to_vec()).map_err(|_| {
-        CardanoError::SerializationError("decrypted secret is not valid UTF-8".to_string())
-    })
+    // Validate UTF-8 by borrowing the zeroized buffer (no extra un-zeroized Vec
+    // copy), then allocate exactly one owned String for the FFI return value.
+    // The returned String crosses to Dart and cannot be zeroized there — that
+    // is documented in docs/seed-encryption.md as an accepted out-of-scope item.
+    std::str::from_utf8(&plaintext)
+        .map(|s| s.to_owned())
+        .map_err(|_| {
+            CardanoError::SerializationError("decrypted secret is not valid UTF-8".to_string())
+        })
 }
 
 #[cfg(test)]
