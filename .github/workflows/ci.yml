@@ -10,11 +10,13 @@ on:
     branches: [ '**' ]
 
 env:
-  # Single source of truth for the Flutter version CI runs.
-  # Must ship Dart >=3.4.0: flutter_rust_bridge (>=2.x) requires it, so the older
-  # 3.19.0 (Dart 3.3.0) fails `flutter pub get` version-solving on every job.
-  # 3.24.3 ships Dart 3.5.3.
-  FLUTTER_VERSION: '3.24.3'
+  # Single source of truth for the Flutter version CI runs. Pin to the SDK the
+  # project is actually developed against so CI resolves the same dependency set
+  # and `flutter analyze` agrees with local. The dev dependencies force a recent
+  # floor: flutter_rust_bridge 2.12 needs Dart >=3.4.0 and freezed ^3.2.5 needs
+  # Dart >=3.6.0 — older Flutters (e.g. 3.19.0/Dart 3.3.0) fail `pub get`
+  # version-solving on every job. 3.38.4 ships Dart 3.10.x.
+  FLUTTER_VERSION: '3.38.4'
 
 jobs:
   rust-tests:
