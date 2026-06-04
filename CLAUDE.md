@@ -48,11 +48,14 @@ conformance suite** freezing the byte-for-byte contract both backends must meet.
   stores `n` as a string).
 - **Tests:** Dart **+4** conformance (native 4/4 green); analyze clean; web harness
   24/24 in-browser. Rust unchanged.
-- **Pending (honest):** wire the in-browser run into CI as a headless step (today
-  it's a manual `npm install` + `dart compile js` + browser harness); web example
-  app build; macOS packaging (needs trimmed example — many plugins mobile-only);
-  Lace/Eternl cross-wallet `verifyMessage` check; `CmlWebBackend.verifyData` mapping.
-  Design: `docs/web-backend.md`.
+- **CI gate (NEW):** the in-browser run is now an automated gate — `web-conformance`
+  job in `.github/workflows/ci.yml` runs `CmlWebBackend` through every vector in
+  **headless Chromium** (Puppeteer) on each PR (`tool/web_conformance/run-headless.mjs`,
+  `npm run ci`); fails the build on any CML↔CSL byte divergence. Reproduces the
+  manual harness, just automated.
+- **Pending (honest):** web example app build; macOS packaging (needs trimmed
+  example — many plugins mobile-only); Lace/Eternl cross-wallet `verifyMessage`
+  check; `CmlWebBackend.verifyData` mapping. Design: `docs/web-backend.md`.
 
 **Phase 4.6: Foundation hygiene — COMPLETE** ✅ *(2026-06-04, PR #2)*
 CI badge + README de-stale (status → v0.9.0, fixed broken `docs/project-plan.md`

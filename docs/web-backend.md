@@ -64,9 +64,13 @@ Pieces:
 > equivalence** is now also established: `CmlWebBackend`, dart2js-compiled, was
 > driven through these identical vectors against the live CML browser WASM and
 > reproduced all 24 byte-for-byte (`tool/web_conformance/`, `PASS 24 FAIL 0`).
-> That in-browser run is currently a **manual** gate (it needs `npm install` +
-> `dart compile js` + a browser); wiring it into CI as a headless step is future
-> work. Until then, CI guards CSL drift and the manual harness guards CML parity.
+> That in-browser run is now an **automated CI gate** (`web-conformance` job in
+> `.github/workflows/ci.yml`): it compiles the harness with `dart compile js`,
+> stages the browser WASM, and runs `CmlWebBackend` through every vector in
+> **headless Chromium** (Puppeteer), failing the build on any byte divergence.
+> CI thus guards both CSL drift (native `conformance_test.dart`) and CML parity
+> (this in-browser job). The same run is reproducible locally via
+> `node run-headless.mjs` (see `tool/web_conformance/`).
 
 ### Library-equivalence proof (CML ↔ CSL, byte-for-byte)
 
@@ -188,6 +192,10 @@ for (final c in parseConformanceCases(goldenJson)) {
       Fixed by making `ConformanceBackend.plutusDataInt` take a **`BigInt`** and
       storing `n` as a decimal **string** in the golden (the web path builds via
       `BigInteger.from_str`, never touching a lossy int). Native unaffected.
+- [x] **In-browser run wired into CI as a headless gate** (`web-conformance` job):
+      `dart compile js` → stage WASM → run `CmlWebBackend` through every vector in
+      headless Chromium (Puppeteer), failing the build on any divergence. Reproduce
+      locally with `node tool/web_conformance/run-headless.mjs`.
 - [ ] More divergence-prone vectors: Plutus bignum **>2^64** (still needs a
       BigInt FFI on native; i64 now exact on both backends), non-base address
       types (enterprise/reward/script-cred), nested Plutus, COSE protected-header

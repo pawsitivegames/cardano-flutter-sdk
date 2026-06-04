@@ -22,13 +22,24 @@ cd ../tool/web_conformance
 npm install
 node build.mjs
 
-# 3. Serve and open:
+# 3a. Headless (what CI runs) — drives the page in headless Chromium and exits
+#     non-zero on any divergence:
+node run-headless.mjs   # → "✓ in-browser conformance clean: PASS 24 FAIL 0 …"
+
+# 3b. Or serve and open in a real browser to inspect manually:
 node serve.mjs          # http://localhost:8099
 ```
 
 Open the URL; the page prints `PASS 24 FAIL 0` (green) when the backend
-reproduces every vector. For automated/headless checks, read
-`globalThis.CONFORMANCE_RESULT` after `globalThis.HARNESS_DONE` is true.
+reproduces every vector. For automated/headless checks, `run-headless.mjs`
+(Puppeteer) waits for `globalThis.HARNESS_DONE`, parses
+`globalThis.CONFORMANCE_RESULT`, and fails on any `FAIL` or accounting mismatch.
+
+## CI
+
+The `web-conformance` job in `.github/workflows/ci.yml` runs steps 1–3a on every
+PR (headless Chromium via Puppeteer) and **gates** the build — a CML↔CSL byte
+divergence in the web backend now fails CI, not just a manual harness run.
 
 ## How the WASM is wired (no bundler)
 
