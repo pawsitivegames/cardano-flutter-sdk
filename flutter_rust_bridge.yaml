@@ -5,3 +5,9 @@ dart_format_line_length: 80
 add_mod_to_lib: true
 dart3: true
 dart_enums_style: true
+# Web is a SECOND backend (CML-JS via Dart JS interop), NOT Rust→WASM. The
+# Rust→WASM tunnel is banned (CLAUDE.md → "Things NOT to do"; docs/web-backend.md).
+# Disabling web-module generation prevents FRB from emitting frb_generated.web.dart,
+# which would otherwise bind a wasm_bindgen CSL module that is never built and make
+# RustLib.init() fail on web. Web must use src/conformance/cml_web_backend.dart.
+web: false

@@ -1,10 +1,26 @@
 //! CIP-8 message signing and verification.
 //!
 //! Provides functions to sign arbitrary messages with payment or stake keys
-//! and verify signatures following the CIP-8 specification (COSESign1).
+//! and verify signatures.
 //!
-//! The COSE Sign1 structure is a compact signing envelope defined in RFC 9052
-//! and adopted by Cardano for dApp authentication flows.
+//! # ⚠️ Legacy — prefer [`crate::cip30`] for new code
+//!
+//! These functions emit a **custom, non-COSE** CBOR map
+//! (`{public_key, signature, message}`), **not** a spec `COSE_Sign1` array, so
+//! they are *not interoperable* with browser wallets (Lace/Eternl/Nami). For
+//! CIP-30 `signData`/CIP-8 interop use [`crate::cip30::cip30_sign_data`] /
+//! [`crate::cip30::cip30_verify_data`], which are built on Emurgo's reference
+//! `cardano-message-signing` library.
+//!
+//! # Identity binding (security)
+//!
+//! A bare "this is a valid Ed25519 signature by *some* key" check is a forgery
+//! oracle: an attacker can keep a victim's `address` while supplying their own
+//! `public_key` + a signature they made with their own key. To prevent this,
+//! [`verify_message`] **cryptographically binds** the signing public key to the
+//! claimed address — the Blake2b-224 hash of `public_key_hex` must equal a
+//! credential inside the address before the signature is trusted. See
+//! [`verify_message_internal`].
 
 use crate::error::CardanoError;
 use blake2::Blake2b;

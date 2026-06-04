@@ -100,13 +100,18 @@ npm i @dcspark/cardano-multiplatform-lib-browser
 # web/index.html: import * as CML from '.../cml_browser.js'; globalThis.CML = CML;
 ```
 
-> ⚠️ **Do not call `RustLib.init()` on web.** `flutter_rust_bridge` generated a
-> WASM web stub (`dart/lib/src/frb_generated.web.dart`) that expects a
-> `wasm_bindgen`-compiled Rust module — i.e. the Rust→WASM tunnel the project
-> bans and never builds. On web, `RustLib.init()` would fail looking for that
-> module. The web backend path is `CmlWebBackend` (pure JS interop to CML); it
-> must not depend on the FRB bridge. A follow-up will configure codegen to stop
-> emitting the web target so this dead artifact can be removed.
+> ⚠️ **Do not call `RustLib.init()` on web.** The web backend path is
+> `CmlWebBackend` (pure JS interop to CML); it must not depend on the FRB bridge.
+> `flutter_rust_bridge.yaml` now sets **`web: false`** (= the `--no-web` codegen
+> flag), so codegen no longer emits the WASM web stub
+> (`dart/lib/src/frb_generated.web.dart`) that bound a `wasm_bindgen`-compiled
+> Rust module — i.e. the Rust→WASM tunnel the project bans and never builds. That
+> dead artifact is removed. FRB still emits a residual conditional import in the
+> generated `frb_generated.dart`
+> (`import 'frb_generated.io.dart' if (dart.library.js_interop) 'frb_generated.web.dart'`);
+> on every native platform this resolves to the `io` variant, which is the only
+> branch ever compiled — the SDK's FFI surface does not target web. A real web
+> build never goes through `RustLib`; it uses `CmlWebBackend` directly.
 
 Then in a browser test harness:
 
