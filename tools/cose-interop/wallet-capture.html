@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CIP-30 signData capture — cardano-flutter-sdk</title>
+<style>
+  body { font: 15px/1.5 -apple-system, system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #1a1a2e; }
+  h1 { font-size: 1.3rem; }
+  button { font: inherit; padding: .55rem 1rem; margin: .25rem .4rem .25rem 0; border: 0; border-radius: 999px; background: #4b46c7; color: #fff; cursor: pointer; }
+  button.wallet { background: #2f9e63; }
+  button:disabled { opacity: .5; cursor: default; }
+  pre { background: #f3f3fb; padding: 1rem; border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
+  .ok { color: #2f9e63; font-weight: 600; }
+  .err { color: #c0392b; font-weight: 600; }
+  label { display:block; margin: .8rem 0 .2rem; font-weight:600; }
+  input { width:100%; font: 13px monospace; padding:.4rem; box-sizing:border-box; }
+  #out textarea { width:100%; height:170px; font:12px monospace; }
+</style>
+</head>
+<body>
+<h1>CIP-30 <code>signData</code> capture</h1>
+<p>Produces a real browser-wallet signature to regression-test the SDK's hardened
+COSE identity binding. Steps: pick your wallet → approve the popup → copy the
+JSON and paste it back to Claude.</p>
+
+<label for="msg">Message to sign</label>
+<input id="msg" value="cardano-flutter-sdk COSE interop check" />
+
+<div id="wallets"><em>Scanning for wallets…</em></div>
+
+<div id="status"></div>
+<div id="out"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const toHex = (s) => Array.from(new TextEncoder().encode(s)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+function scan() {
+  const c = window.cardano || {};
+  const keys = Object.keys(c).filter(k => c[k] && typeof c[k].enable === 'function' && c[k].name);
+  const box = $('wallets');
+  if (!keys.length) {
+    box.innerHTML = '<span class="err">No CIP-30 wallet detected.</span> Install/unlock Lace, Eternl, Nami, etc., then reload.';
+    return;
+  }
+  box.innerHTML = '<strong>Detected wallets:</strong><br/>';
+  for (const k of keys) {
+    const b = document.createElement('button');
+    b.className = 'wallet';
+    b.textContent = `${c[k].name || k} (${k})`;
+    b.onclick = () => run(k);
+    box.appendChild(b);
+  }
+}
+
+async function run(key) {
+  const status = $('status'); const out = $('out');
+  out.innerHTML = '';
+  status.innerHTML = `Enabling <code>${key}</code>… approve the popup.`;
+  try {
+    const api = await window.cardano[key].enable();
+    const networkId = await api.getNetworkId();
+    let used = [];
+    try { used = await api.getUsedAddresses(); } catch (_) {}
+    const addrHex = (used && used[0]) || await api.getChangeAddress();
+    const payloadHex = toHex($('msg').value);
+
+    status.innerHTML = 'Signing… approve the signData popup in your wallet.';
+    const sig = await api.signData(addrHex, payloadHex);
+
+    const result = {
+      wallet: window.cardano[key].name || key,
+      walletKey: key,
+      networkId,                 // 0 = testnet, 1 = mainnet
+      addressHex: addrHex,
+      payloadHex,
+      signatureHex: sig.signature,
+      keyHex: sig.key,
+    };
+    status.innerHTML = '<span class="ok">✓ Signed. Copy the JSON below and paste it back to Claude.</span>';
+    out.innerHTML = '<label>Result (copy all of this):</label>';
+    const ta = document.createElement('textarea');
+    ta.value = JSON.stringify(result, null, 2);
+    ta.readOnly = true;
+    out.appendChild(ta);
+    ta.select();
+  } catch (e) {
+    status.innerHTML = `<span class="err">Failed:</span> <pre>${(e && e.message) || e}</pre>`;
+  }
+}
+
+setTimeout(scan, 300); // give extensions a moment to inject window.cardano
+</script>
+</body>
+</html>

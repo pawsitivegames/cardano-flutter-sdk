@@ -857,4 +857,48 @@ mod tests {
             "a mismatched COSE_Key must not verify against the header address"
         );
     }
+
+    // ── Live wallet vector ──────────────────────────────────────────────────
+    //
+    // Captured from the real **Eternl** browser extension (mainnet) signing
+    // "cardano-flutter-sdk COSE interop check" over its own base address via the
+    // CIP-30 `signData` API (tools/cose-interop/wallet-capture.html). Note the
+    // COSE_Key here is `a4…` (no `key_ops` entry) — a different encoding from the
+    // `a5…` our signer emits — so this also guards against over-strict COSE_Key
+    // parsing. The hardened verifier must accept it with the address bound.
+    const ETERNL_ADDRESS_HEX: &str = "0110997ab1d79815c41244f70195ec41ebbcb9698d023465a397353fa083d566cb6d70811839d998f40393fb43132688164423842135f8b20b";
+    const ETERNL_PAYLOAD_HEX: &str =
+        "63617264616e6f2d666c75747465722d73646b20434f534520696e7465726f7020636865636b";
+    const ETERNL_SIG_HEX: &str = "845846a20127676164647265737358390110997ab1d79815c41244f70195ec41ebbcb9698d023465a397353fa083d566cb6d70811839d998f40393fb43132688164423842135f8b20ba166686173686564f4582663617264616e6f2d666c75747465722d73646b20434f534520696e7465726f7020636865636b58402304c4d20e247c1ebb958359e418eb6b90d5571977990528c947f6d363d65f8b0d1da8daaed3597eae30c045e0c4c3427b68bb8d4c2706db2e48529b83108b0a";
+    const ETERNL_KEY_HEX: &str =
+        "a40101032720062158205af41bc80e360f15d611eb610fd3f12903a920dc0a49901e29de261c881e50fa";
+
+    #[test]
+    fn test_interop_live_eternl_mainnet_vector_verifies() {
+        let sig = DataSignature {
+            signature: ETERNL_SIG_HEX.to_string(),
+            key: ETERNL_KEY_HEX.to_string(),
+        };
+        assert!(
+            cip30_verify_data(
+                sig,
+                Some(ETERNL_PAYLOAD_HEX.to_string()),
+                Some(ETERNL_ADDRESS_HEX.to_string()),
+            )
+            .unwrap(),
+            "a real Eternl signData signature must verify with identity binding"
+        );
+    }
+
+    #[test]
+    fn test_interop_live_eternl_vector_rejects_wrong_payload() {
+        let sig = DataSignature {
+            signature: ETERNL_SIG_HEX.to_string(),
+            key: ETERNL_KEY_HEX.to_string(),
+        };
+        assert!(
+            !cip30_verify_data(sig, Some(hex::encode("not what was signed")), None).unwrap(),
+            "the real signature must not verify for a different payload"
+        );
+    }
 }
