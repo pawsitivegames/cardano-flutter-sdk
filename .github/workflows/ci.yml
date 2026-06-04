@@ -11,7 +11,10 @@ on:
 
 env:
   # Single source of truth for the Flutter version CI runs.
-  FLUTTER_VERSION: '3.19.0'
+  # Must ship Dart >=3.4.0: flutter_rust_bridge (>=2.x) requires it, so the older
+  # 3.19.0 (Dart 3.3.0) fails `flutter pub get` version-solving on every job.
+  # 3.24.3 ships Dart 3.5.3.
+  FLUTTER_VERSION: '3.24.3'
 
 jobs:
   rust-tests:
