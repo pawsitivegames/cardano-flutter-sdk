@@ -138,12 +138,32 @@ Decisions made:
 - **Env var:** `BLOCKFROST_PROJECT_ID` (for live integration tests in CI)
 - **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
 
+**Roadmap restructure v2 (2026-06-03, post critic review)** — `docs/PLAN.md` is the
+source of truth. No Android phone, no spare Ledger. Three adversarial critics
+reviewed v1 and the plan was corrected: the feature-complete build ships as
+**`0.12.0` RC (iOS verified · macOS · Web scoped · Android emulator-verified)**, NOT
+`1.0.0`. The bare **`1.0.0`** tag waits for **Android on a physical device** (a
+platform, ~70% of mobile — a used Pixel is the cheap unblock). **Ledger** is a
+peripheral → stays `@experimental` → verified in **v1.1.0**.
+
 When you start a session, the next phase is:
-- **Close the Phase 4.5 v1.0 gate:** Ledger `signTransaction` is now **implemented**
-  (Rust `xpubDerivePublicKey`+`decomposeTxBody`; example adapter maps→`ParsedSigningRequest`,
-  re-derives witness pubkeys) but **unverified on hardware** — needs a physical
-  device (Nano X / Stax / Flex) round-trip, then publish v1.0.0. Checklist:
-  `docs/hardware-wallets.md`. Needs hardware the maintainer must supply.
+- **Phase 4.6 — Foundation hygiene → v0.8.1 (do first; cheap, unblocks all):** CI
+  (GitHub Actions: cargo test/clippy, analyze, flutter test, build iOS/macOS/web),
+  pubspec/Cargo metadata hygiene (pin `flutter_rust_bridge: =2.12.x`, fix "CSL" not
+  "CML" in description, drop `YOUR_HANDLE`), mark hardware-wallet API `@experimental`.
+- Then **5a** HD multi-account (CIP-1852 + gap scan) → **5b** seed encryption
+  (Rust Argon2id + XChaCha20-Poly1305, threat model, security review — NOT pure-Dart
+  crypto) → **6** Web *scoped* (CML-JS backend = second backend; golden-CBOR
+  CSL↔CML conformance suite; macOS packaging) → **7** CIP-36 governance + security
+  review + Pallas eval + fuzzing → **0.12.0 RC**.
+- **Android emulator IS valid partial verification** (app + FFI `.so` load + 16KB
+  page-size image, Google's recommended test) — label "emulator", never "device".
+- **Track B (physical-device-gated → v1.1.0):** H1 Ledger TX signing on a *spare*
+  device (Nano S Plus ≈ $80 — NOT the maintainer's main-account Ledger; signing
+  models simple payments only, expect more than the alonzo↔babbage fix). H2 Android
+  physical-device + Play Store acceptance. Native WebRTC transport = unbuilt
+  research (Dart WebTorrent client + bugout NaCl/bencode), not "parked verification".
+  Checklists: `docs/hardware-wallets.md`, `docs/cip45-transport.md`.
 - CIP-45 follow-ups (2026-06-03): Android `web+cardano://` intent-filter ✅
   (Android-device verify pending), in-wallet QR scanning (`mobile_scanner`) ✅
   **verified on iPhone 13** (scan dApp QR → parse → CIP-45 connect → API handshake),
@@ -176,7 +196,15 @@ When you start a session, the next phase is:
 - Generated bindings go in `dart/lib/src/bridge_generated.dart` — **never edit by hand**.
 - The reference Flutter app lives in `example/` and depends on the local `dart/` package via path.
 - Use MIT license throughout (matches CML/CSL upstream).
-- Semantic versioning. Pre-1.0 = `0.x.y`. v1.0 = first version that's safe to recommend for production mainnet usage (definition is technical readiness, not feature checklist).
+- Semantic versioning. Pre-1.0 = `0.x.y`. **`1.0.0` = safe to recommend for
+  production mainnet usage on every platform it claims to support.** Concretely
+  (post critic review, 2026-06-03): a *platform* must be verified before 1.0 claims
+  it — Android verified on at least an emulator for the `0.12.0` RC, and on a
+  physical device (+ Play Store build acceptance) before bare `1.0.0`. A *peripheral*
+  (hardware wallets) may ship `@experimental` and be promoted post-1.0 (v1.1.0).
+  Never use "verified on device" for emulator-only results. The README/pub.dev page
+  carries a platform-support matrix so the version string never implies uniform
+  readiness. (Rationale + full gates: `docs/PLAN.md` → "Roadmap restructure v2".)
 
 ## Style rules
 
