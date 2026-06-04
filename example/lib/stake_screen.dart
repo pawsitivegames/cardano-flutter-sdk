@@ -20,14 +20,14 @@ class StakeScreen extends StatefulWidget {
   final String stakeKeyHashHex;
 
   const StakeScreen({
-    Key? key,
+    super.key,
     required this.provider,
     required this.myAddress,
     required this.stakeAddress,
     required this.paymentSigningKey,
     required this.stakeSigningKey,
     required this.stakeKeyHashHex,
-  }) : super(key: key);
+  });
 
   @override
   State<StakeScreen> createState() => _StakeScreenState();
@@ -542,7 +542,7 @@ class _StakeScreenState extends State<StakeScreen> {
     bool showSpinner = false,
   }) {
     return Card(
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(
         side: BorderSide(color: color),
         borderRadius: BorderRadius.circular(8),
@@ -563,7 +563,7 @@ class _StakeScreenState extends State<StakeScreen> {
             Expanded(
               child: Text(
                 message,
-                style: TextStyle(color: color.withOpacity(0.9), fontSize: 13),
+                style: TextStyle(color: color.withValues(alpha: 0.9), fontSize: 13),
               ),
             ),
           ],

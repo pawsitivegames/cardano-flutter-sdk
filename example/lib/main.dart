@@ -39,11 +39,9 @@ class _MyAppState extends State<MyApp> {
   String _sdkVersion = 'Ready to test';
   String _addressValidation = 'Not tested yet';
   String _keyDerivation = 'Not tested yet';
-  bool _isTesting = false;
   bool _libInitialized = false;
-  String _initError = '';
+  final String _initError = '';
   String? _blockfrostProjectId;
-  String? _myAddress;
   KeyDerivationResult? _derivedKeys;
 
   final AppLinks _appLinks = AppLinks();
@@ -76,41 +74,12 @@ class _MyAppState extends State<MyApp> {
     }, onError: (_) {});
   }
 
-  Future<void> _preInitializeLib() async {
-    try {
-      debugPrint('[Cardano SDK] Starting pre-initialization...');
-      if (!kIsWeb) {
-        if (Platform.isIOS) {
-          // Build absolute path: Runner.app/ is the parent of the executable.
-          // CocoaPods embeds the framework at Runner.app/Frameworks/.
-          final bundleDir = File(Platform.resolvedExecutable).parent.path;
-          final libPath = '$bundleDir/Frameworks/cardano_flutter_rs.framework/cardano_flutter_rs';
-          await RustLib.init(
-            externalLibrary: ExternalLibrary.open(libPath),
-          );
-        } else {
-          await RustLib.init();
-        }
-        debugPrint('[Cardano SDK] RustLib.init() completed successfully');
-        setState(() => _libInitialized = true);
-      }
-    } catch (e) {
-      debugPrint('[Cardano SDK] RustLib.init() failed: $e');
-      setState(() {
-        _initError = 'Init Error: $e';
-        _libInitialized = false;
-      });
-    }
-  }
-
   Future<void> _testSDK() async {
-    setState(() => _isTesting = true);
     if (kIsWeb) {
       setState(() {
         _sdkVersion = 'Web Version (Demo Mode)';
         _addressValidation = 'Valid: true\nNetwork: Demo (No FFI on web)';
         _keyDerivation = 'Payment Key: demo_key_abcdef123456...\nStake Key: demo_stake_key_xyz789...';
-        _isTesting = false;
       });
       return;
     }
@@ -162,7 +131,7 @@ class _MyAppState extends State<MyApp> {
           isTestnet: true,
         );
         keyDerived =
-            'Payment Key: ${keys?.paymentKey.substring(0, 20)}...\nStake Key: ${keys?.stakeKey.substring(0, 20)}...';
+            'Payment Key: ${keys.paymentKey.substring(0, 20)}...\nStake Key: ${keys.stakeKey.substring(0, 20)}...';
         debugPrint('[Cardano SDK] Key derivation successful');
 
         // Store keys for Send screen
@@ -177,7 +146,6 @@ class _MyAppState extends State<MyApp> {
         _addressValidation =
             'Valid: $isValid\nNetwork: Cardano Testnet Preview';
         _keyDerivation = keyDerived;
-        _isTesting = false;
       });
     } catch (e) {
       debugPrint('[Cardano SDK] Test failed with error: $e');
@@ -185,7 +153,6 @@ class _MyAppState extends State<MyApp> {
         _sdkVersion = 'Error: $e';
         _addressValidation = 'Error: $e';
         _keyDerivation = 'Error: $e';
-        _isTesting = false;
       });
     }
   }

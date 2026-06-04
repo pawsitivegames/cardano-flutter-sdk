@@ -17,12 +17,12 @@ class SendScreen extends StatefulWidget {
   final String stakeKey;
 
   const SendScreen({
-    Key? key,
+    super.key,
     required this.provider,
     required this.myAddress,
     required this.paymentSigningKey,
     required this.stakeKey,
-  }) : super(key: key);
+  });
 
   @override
   State<SendScreen> createState() => _SendScreenState();
@@ -346,7 +346,7 @@ class _SendScreenState extends State<SendScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: networkColor.withOpacity(0.1),
+                color: networkColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: networkColor),
               ),
