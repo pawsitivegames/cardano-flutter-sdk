@@ -768,4 +768,93 @@ mod tests {
         let res = cip30_sign_tx("deadbeef".to_string(), vec![k.payment_signing_key]);
         assert!(matches!(res, Err(CardanoError::InvalidCbor(_))));
     }
+
+    // ── Cross-implementation interop vectors ────────────────────────────────
+    //
+    // These `COSE_Sign1` + `COSE_Key` blobs were produced OUTSIDE this crate by
+    // Emurgo's `@emurgo/cardano-message-signing-nodejs` (the reference COSE/CIP-8
+    // WASM library that Lace / Eternl / Nami / MeshJS use) signing with keys
+    // derived by `@emurgo/cardano-serialization-lib-nodejs` from the shared test
+    // mnemonic. They are frozen here as a regression gate: our hardened
+    // `cip30_verify_data` (CSL-based identity binding) must ACCEPT a genuine
+    // wallet-shaped signature for both address forms a wallet emits —
+    //   • a base address signed by the payment key (dApp login), and
+    //   • a reward (stake) address signed by the stake key.
+    // Generation is reproducible via tools/cose-interop/gen.js (see docs).
+
+    // base address signed by the payment key.
+    const EXT_BASE_ADDRESS_HEX: &str = "009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc";
+    const EXT_BASE_PAYLOAD_HEX: &str =
+        "4c6f67696e20746f204578616d706c654441707020617420323032362d30362d3034";
+    const EXT_BASE_SIG_HEX: &str = "845846a2012767616464726573735839009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dca166686173686564f458224c6f67696e20746f204578616d706c654441707020617420323032362d30362d30345840c98ec88a85c603c66ba729e92b0fdef7c6c0c484b1474c64584eec2456f228b459ed5685a7f5d7063ddcf78ffe71f9de121cf408e4ecf98eeedd33f5e7677b04";
+    const EXT_BASE_KEY_HEX: &str = "a501010327048102200621582073fea80d424276ad0978d4fe5310e8bc2d485f5f6bb3bf87612989f112ad5a7d";
+
+    // reward (stake) address signed by the stake key.
+    const EXT_REWARD_ADDRESS_HEX: &str =
+        "e032c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc";
+    const EXT_REWARD_PAYLOAD_HEX: &str = "50726f7665207374616b65206b6579206f776e657273686970";
+    const EXT_REWARD_SIG_HEX: &str = "84582aa201276761646472657373581de032c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dca166686173686564f4581950726f7665207374616b65206b6579206f776e65727368697058408a52ad61150efd36d7e830cb8641faba7757a36686f2cb6f503ca3a8f0dad7209d89f2f92dd4fe2f95bf580424d4b6436130b00ccfe4c2e50287ac977256c707";
+    const EXT_REWARD_KEY_HEX: &str = "a50101032704810220062158202c041c9c6a676ac54d25e2fdce44c56581e316ae43adc4c7bf17f23214d8d892";
+
+    #[test]
+    fn test_interop_external_base_address_vector_verifies() {
+        // The external lib derived the same base address we do — ties the foreign
+        // vector to our own derivation.
+        let k = keys();
+        let ours =
+            address_to_hex(compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap())
+                .unwrap();
+        assert_eq!(
+            ours, EXT_BASE_ADDRESS_HEX,
+            "external base address must match ours"
+        );
+
+        let sig = DataSignature {
+            signature: EXT_BASE_SIG_HEX.to_string(),
+            key: EXT_BASE_KEY_HEX.to_string(),
+        };
+        assert!(
+            cip30_verify_data(
+                sig,
+                Some(EXT_BASE_PAYLOAD_HEX.to_string()),
+                Some(EXT_BASE_ADDRESS_HEX.to_string()),
+            )
+            .unwrap(),
+            "wallet-shaped base-address signature must verify with identity binding"
+        );
+    }
+
+    #[test]
+    fn test_interop_external_reward_address_vector_verifies() {
+        // Exercises the RewardAddress branch of the credential binding: the stake
+        // key signs and the stake (reward) address sits in the header.
+        let sig = DataSignature {
+            signature: EXT_REWARD_SIG_HEX.to_string(),
+            key: EXT_REWARD_KEY_HEX.to_string(),
+        };
+        assert!(
+            cip30_verify_data(
+                sig,
+                Some(EXT_REWARD_PAYLOAD_HEX.to_string()),
+                Some(EXT_REWARD_ADDRESS_HEX.to_string()),
+            )
+            .unwrap(),
+            "wallet-shaped reward-address signature must verify with identity binding"
+        );
+    }
+
+    #[test]
+    fn test_interop_external_vector_rejects_swapped_key() {
+        // Take the genuine base-address signature but present the OTHER vector's
+        // COSE_Key. The key no longer hashes to the header address → reject,
+        // proving the binding guards the externally-produced signature too.
+        let forged = DataSignature {
+            signature: EXT_BASE_SIG_HEX.to_string(),
+            key: EXT_REWARD_KEY_HEX.to_string(),
+        };
+        assert!(
+            !cip30_verify_data(forged, Some(EXT_BASE_PAYLOAD_HEX.to_string()), None).unwrap(),
+            "a mismatched COSE_Key must not verify against the header address"
+        );
+    }
 }
