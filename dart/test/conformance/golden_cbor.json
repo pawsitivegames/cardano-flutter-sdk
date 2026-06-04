@@ -1,0 +1,264 @@
+[
+  {
+    "id": "key-derivation-acct0-testnet",
+    "category": "address",
+    "op": "keyDerivation",
+    "input": {
+      "mnemonic": "test walk nut penalty hip pave soap entry language right filter choice",
+      "passphrase": "",
+      "accountIndex": 0,
+      "isTestnet": true
+    },
+    "expected": "9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e|32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc"
+  },
+  {
+    "id": "derive-address-r0-i0-testnet",
+    "category": "address",
+    "op": "deriveAddress",
+    "input": {
+      "accountKey": "xprv12phl7y4uv58mne08me5szrwly2gn6jasqmkvcrndq762q68p5302z24gdf365klhll2a5f357k7nc4kpaq7j6agr5m22jq4jwlfv6l505h7dg64an4rdfk9f028nge0zcn508jw6m8lkdq36zc0v4h9xqssmejpt",
+      "role": 0,
+      "index": 0,
+      "networkId": 0
+    },
+    "expected": "addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp|9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e"
+  },
+  {
+    "id": "derive-address-r1-i0-testnet",
+    "category": "address",
+    "op": "deriveAddress",
+    "input": {
+      "accountKey": "xprv12phl7y4uv58mne08me5szrwly2gn6jasqmkvcrndq762q68p5302z24gdf365klhll2a5f357k7nc4kpaq7j6agr5m22jq4jwlfv6l505h7dg64an4rdfk9f028nge0zcn508jw6m8lkdq36zc0v4h9xqssmejpt",
+      "role": 1,
+      "index": 0,
+      "networkId": 0
+    },
+    "expected": "addr_test1qz4kjk0as0x7ptt54l6cnfyzejqg22cku0qhqx6al4g2xepjcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq5hxe5g|ab6959fd83cde0ad74aff589a482cc80852b16e3c1701b5dfd50a364"
+  },
+  {
+    "id": "derive-address-r0-i5-testnet",
+    "category": "address",
+    "op": "deriveAddress",
+    "input": {
+      "accountKey": "xprv12phl7y4uv58mne08me5szrwly2gn6jasqmkvcrndq762q68p5302z24gdf365klhll2a5f357k7nc4kpaq7j6agr5m22jq4jwlfv6l505h7dg64an4rdfk9f028nge0zcn508jw6m8lkdq36zc0v4h9xqssmejpt",
+      "role": 0,
+      "index": 5,
+      "networkId": 0
+    },
+    "expected": "addr_test1qpy62t8ryk2rh4gku7lffelfaj5awqf58e9exmaj39c90mfjcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq94gpgw|49a52ce325943bd516e7be94e7e9eca9d701343e4b936fb2897057ed"
+  },
+  {
+    "id": "derive-address-r0-i0-mainnet",
+    "category": "address",
+    "op": "deriveAddress",
+    "input": {
+      "accountKey": "xprv12phl7y4uv58mne08me5szrwly2gn6jasqmkvcrndq762q68p5302z24gdf365klhll2a5f357k7nc4kpaq7j6agr5m22jq4jwlfv6l505h7dg64an4rdfk9f028nge0zcn508jw6m8lkdq36zc0v4h9xqssmejpt",
+      "role": 0,
+      "index": 0,
+      "networkId": 1
+    },
+    "expected": "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwqfjkjv7|9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e"
+  },
+  {
+    "id": "compute-base-address-testnet",
+    "category": "address",
+    "op": "computeBaseAddress",
+    "input": {
+      "paymentKeyHashHex": "9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e",
+      "stakeKeyHashHex": "32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc",
+      "networkId": 0
+    },
+    "expected": "addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp"
+  },
+  {
+    "id": "compute-base-address-mainnet",
+    "category": "address",
+    "op": "computeBaseAddress",
+    "input": {
+      "paymentKeyHashHex": "9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e",
+      "stakeKeyHashHex": "32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc",
+      "networkId": 1
+    },
+    "expected": "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwqfjkjv7"
+  },
+  {
+    "id": "address-to-hex",
+    "category": "address",
+    "op": "addressToHex",
+    "input": {
+      "addressBech32": "addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp"
+    },
+    "expected": "009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc"
+  },
+  {
+    "id": "value-ada-only",
+    "category": "value",
+    "op": "valueToCbor",
+    "input": {
+      "coin": "1000000",
+      "assets": []
+    },
+    "expected": "1a000f4240"
+  },
+  {
+    "id": "value-single-asset",
+    "category": "value",
+    "op": "valueToCbor",
+    "input": {
+      "coin": "2000000",
+      "assets": [
+        {
+          "policyId": "00000000000000000000000000000000000000000000000000000000",
+          "assetName": "74657374",
+          "quantity": "42"
+        }
+      ]
+    },
+    "expected": "821a001e8480a1581c00000000000000000000000000000000000000000000000000000000a14474657374182a"
+  },
+  {
+    "id": "value-multi-asset",
+    "category": "value",
+    "op": "valueToCbor",
+    "input": {
+      "coin": "5000000",
+      "assets": [
+        {
+          "policyId": "11111111111111111111111111111111111111111111111111111111",
+          "assetName": "41",
+          "quantity": "1"
+        },
+        {
+          "policyId": "22222222222222222222222222222222222222222222222222222222",
+          "assetName": "42",
+          "quantity": "1000000000000"
+        }
+      ]
+    },
+    "expected": "821a004c4b40a2581c11111111111111111111111111111111111111111111111111111111a1414101581c22222222222222222222222222222222222222222222222222222222a141421b000000e8d4a51000"
+  },
+  {
+    "id": "plutus-int-zero",
+    "category": "plutus",
+    "op": "plutusInt",
+    "input": {
+      "n": 0
+    },
+    "expected": "00"
+  },
+  {
+    "id": "plutus-int-small",
+    "category": "plutus",
+    "op": "plutusInt",
+    "input": {
+      "n": 42
+    },
+    "expected": "182a"
+  },
+  {
+    "id": "plutus-int-negative",
+    "category": "plutus",
+    "op": "plutusInt",
+    "input": {
+      "n": -1
+    },
+    "expected": "20"
+  },
+  {
+    "id": "plutus-int-large",
+    "category": "plutus",
+    "op": "plutusInt",
+    "input": {
+      "n": 1234567890123456789
+    },
+    "expected": "1b112210f47de98115"
+  },
+  {
+    "id": "plutus-bytes",
+    "category": "plutus",
+    "op": "plutusBytes",
+    "input": {
+      "hexData": "deadbeef"
+    },
+    "expected": "44deadbeef"
+  },
+  {
+    "id": "plutus-bytes-empty",
+    "category": "plutus",
+    "op": "plutusBytes",
+    "input": {
+      "hexData": ""
+    },
+    "expected": "40"
+  },
+  {
+    "id": "plutus-constr-0",
+    "category": "plutus",
+    "op": "plutusConstr",
+    "input": {
+      "constructor": "0",
+      "fieldsCborHex": [
+        "182a"
+      ]
+    },
+    "expected": "d8799f182aff"
+  },
+  {
+    "id": "plutus-constr-1-empty",
+    "category": "plutus",
+    "op": "plutusConstr",
+    "input": {
+      "constructor": "1",
+      "fieldsCborHex": []
+    },
+    "expected": "d87a80"
+  },
+  {
+    "id": "plutus-list",
+    "category": "plutus",
+    "op": "plutusList",
+    "input": {
+      "itemsCborHex": [
+        "01",
+        "02"
+      ]
+    },
+    "expected": "9f0102ff"
+  },
+  {
+    "id": "witness-set-single",
+    "category": "witness",
+    "op": "witnessSet",
+    "input": {
+      "witnesses": [
+        {
+          "vkeyHex": "abababababababababababababababababababababababababababababababab",
+          "signatureHex": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+        }
+      ]
+    },
+    "expected": "a100d9010281825820abababababababababababababababababababababababababababababababab5840cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+  },
+  {
+    "id": "sign-data-cafe",
+    "category": "cose",
+    "op": "signData",
+    "input": {
+      "addressHex": "009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc",
+      "payloadHex": "cafe",
+      "signingKeyBech32": "xprv1hqf6v2lvhfn5mr3fe6g8ac6n8a3z6s0p24mg6kre8jadxulp530y07wjp2ml0zcz8gk0xc7zy96qp2xxtr0arjq9038k9dhkw3k3cswawhs4fkjp00kwc4wd6fynyaz5zw8ssggs9974apatyhs4ltg4puyevpgm"
+    },
+    "expected": "845846a2012767616464726573735839009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dca166686173686564f442cafe584015b0ecfddb72fa4d88921dc2ecc6248a7ea67047e929b5c49495b50924ab59c8bef74d5e163459c2decd6ae5df09fa45c43e5343a28c6857c0d1ccc66564b60e|a501010327048102200621582073fea80d424276ad0978d4fe5310e8bc2d485f5f6bb3bf87612989f112ad5a7d"
+  },
+  {
+    "id": "sign-message-cip8",
+    "category": "cose",
+    "op": "signMessage",
+    "input": {
+      "message": "48656c6c6f",
+      "signingKeyBech32": "xprv1hqf6v2lvhfn5mr3fe6g8ac6n8a3z6s0p24mg6kre8jadxulp530y07wjp2ml0zcz8gk0xc7zy96qp2xxtr0arjq9038k9dhkw3k3cswawhs4fkjp00kwc4wd6fynyaz5zw8ssggs9974apatyhs4ltg4puyevpgm",
+      "address": "addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp"
+    },
+    "expected": "a36a7075626c69635f6b6579784037336665613830643432343237366164303937386434666535333130653862633264343835663566366262336266383736313239383966313132616435613764697369676e617475726578806237633964336530373937396665623138343563653739313162383762303736343336633934326463353630616136326333336333306366353864313830323332613066313135336565306539666336396238393266316236393162356137343533666638353933393464316337313337393337653037376361343564303033676d6573736167656a34383635366336633666"
+  }
+]

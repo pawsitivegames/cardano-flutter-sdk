@@ -14,6 +14,26 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
+**Phase 6: Web (scoped) & Desktop — CONFORMANCE CORE COMPLETE; CML mapping +
+browser/macOS PENDING** 🟡 *(2026-06-04)*
+Web = a **second backend** (no Rust FFI on web; CML-JS via Dart JS interop —
+Rust→WASM stays banned). Shipped the linchpin: a **CSL↔CML golden-CBOR
+conformance suite** freezing the byte-for-byte contract both backends must meet.
+- `dart/lib/src/conformance/conformance.dart`: `ConformanceBackend` (deterministic
+  subset: key-deriv/address/value/plutus/witness/COSE), `runConformanceCase`
+  dispatcher, `NativeConformanceBackend` (CSL/FFI reference). Barrel-exported.
+- `dart/test/conformance/golden_cbor.json`: **23 frozen vectors** (from native via
+  `generate_golden.dart`); `dart/test/conformance_test.dart` = CI gate (native
+  reproduces every vector byte-for-byte + COSE sigs verify).
+- `dart/lib/src/conformance/cml_web_backend.dart`: `CmlWebBackend` scaffold
+  (`dart:js_interop` → `@dcspark/cardano-multiplatform-lib-browser`). **Browser-
+  verify pending**; unmapped ops `throw` (fail loud). NOT barrel-exported.
+- **Tests:** Dart **+4** conformance; analyze clean. Rust unchanged.
+- **Pending (honest):** finish CML mapping per scoped op; run `CmlWebBackend`
+  against full golden suite in a browser; web example build; macOS packaging
+  (needs trimmed example — many plugins mobile-only); Lace/Eternl cross-wallet
+  `verifyMessage` check. Design: `docs/web-backend.md`.
+
 **Phase 4.6: Foundation hygiene — COMPLETE** ✅ *(2026-06-04, PR #2)*
 CI badge + README de-stale (status → v0.9.0, fixed broken `docs/project-plan.md`
 links), `rust/Cargo.toml` version `0.1.0`→`0.9.0`. CI/pinned-FRB/CSL-metadata/

@@ -40,7 +40,11 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 4.3 — CIP-30 dApp connector | ✅ **Verified 2026-06-02** | v0.6.0 |
 | 4.4 — CIP-45 mobile connector | ✅ **Live-verified 2026-06-02** (iOS) | v0.7.0 |
 | 4.5 — Hardware wallets (Ledger) | 🟡 **Core done 2026-06-02**; on-device signing pending | v0.8.0 |
-| 5+ | Planned | — |
+| 4.6 — Foundation hygiene | ✅ **Complete 2026-06-04** | v0.8.1 |
+| 5a — HD multi-account | ✅ **Live-verified 2026-06-04** (iPhone 13) | v0.9.0 |
+| 5b — Seed encryption | 🟡 **Core done 2026-06-04**; on-device verify pending | v0.9.1 |
+| 6 — Web (scoped) & Desktop | 🟡 **Conformance core done 2026-06-04**; CML mapping + browser/macOS pending | v0.10.0 |
+| 7+ | Planned | — |
 
 **Phase 2 verification (2026-05-25):**
 - Rust 30/30 · Dart unit 22/22 · Dart FFI 13/13 · Live Blockfrost 1/1
@@ -348,30 +352,43 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 ---
 
-### Phase 6 — Web (scoped) & Desktop → v0.10.0
+### Phase 6 — Web (scoped) & Desktop → v0.10.0  🟡 conformance core done (2026-06-04)
 *Dependency: Phase 5b. Verifiable in a desktop browser + macOS — no phone needed.*
 
 > Web ≠ a recompile. No Rust FFI on web → a **CML-JS backend** must implement the
 > Dart API surface. Scope is deliberately reduced for the RC.
+> Full design: `docs/web-backend.md`.
 
 **Deliverables:**
-- **Web backend spike first:** does CML-npm satisfy the existing CSL-shaped Dart
-  API? Build a **CSL↔CML golden-CBOR conformance suite** (tx/value/witness/COSE).
-  This must run *before* any API freeze (it may force API changes).
-- Web (scoped): address derivation, balance/UTxO read, **CIP-30 connect** — *not*
-  full tx-building (deferred to a later web-parity track).
-- **macOS** plugin scaffolding: universal dylib (`lipo` arm64+x86_64), podspec
-  framework embedding, entitlements (network client), codesign. (Linux/Windows:
-  best-effort, CI-build only, no prebuilt artifacts.)
-- Performance: UTXO fetch <2s, TX build <500ms; memory-leak check under load.
+- ✅ **Web backend spike + CSL↔CML golden-CBOR conformance suite** — the contract
+  both backends must satisfy byte-for-byte, shipped *in the package* so it runs
+  in-browser against CML, not just in CI. `dart/lib/src/conformance/conformance.dart`
+  (`ConformanceBackend` interface, `runConformanceCase` dispatcher,
+  `NativeConformanceBackend`), 23 frozen golden vectors
+  (`test/conformance/golden_cbor.json`) across address/value/plutus/witness/COSE,
+  CI gate (`test/conformance_test.dart`), generator (`generate_golden.dart`).
+- ✅ **CML-JS web backend scaffold** (`cml_web_backend.dart`): `dart:js_interop`
+  bindings to `@dcspark/cardano-multiplatform-lib-browser` + `CmlWebBackend`.
+  **Browser-verify pending** — unmapped ops throw (fail loud, not silent). Not
+  exported from the barrel so native builds never link `dart:js_interop`.
+- 🅱️ Web (scoped): address derivation, balance/UTxO read, **CIP-30 connect** —
+  *not* full tx-building (deferred to a later web-parity track). **Pending**:
+  complete the CML mapping for every scoped op + run the example as a web build.
+- 🅱️ **macOS** plugin scaffolding (universal dylib + podspec + entitlements +
+  codesign). **Pending** — needs a trimmed desktop example (several example-app
+  plugins are mobile-only). CI `macos-build` stays informational until then.
+- ⏳ Performance: UTXO fetch <2s, TX build <500ms; memory-leak check under load.
 
 **Verification:**
-- Golden-CBOR suite: native (CSL) and web (CML) agree byte-for-byte where required
-- Scoped CIP-30 methods run in a desktop browser build
-- **Cross-wallet check vs Lace/Eternl** — note this depends on the web backend
-  existing first. Cheaper interop check available *today* with no web: confirm a
-  real Lace/Eternl-signed message **verifies** under our native `verifyMessage`.
-- macOS example app builds + runs a send tx on testnet
+- ✅ Golden-CBOR suite: native (CSL) reproduces all 23 vectors byte-for-byte;
+  COSE `signData` vectors verify under native `verifyData`. Dart **+4** conformance
+  tests; analyze clean. This is the frozen contract a web (CML) backend must meet.
+- 🅱️ `CmlWebBackend` passes the **full** golden suite in a real browser — pending.
+- 🅱️ Scoped CIP-30 methods run in a desktop browser build — pending.
+- 🅱️ **Cross-wallet check vs Lace/Eternl** — runnable *today* with no web (confirm
+  a real Lace/Eternl-signed message **verifies** under native `verifyMessage`);
+  still to be exercised.
+- 🅱️ macOS example app builds + runs a send tx on testnet — pending.
 
 ---
 

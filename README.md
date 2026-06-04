@@ -4,10 +4,12 @@
 
 A production-grade Flutter SDK for Cardano, built on Emurgo's Cardano Serialization Library (CSL) via Rust FFI.
 
-> **Status:** v0.9.0 — Phases 1–4.4 complete and verified; Phase 4.5 (hardware
-> wallets) core complete with on-device signing pending; Phase 5a (HD
-> multi-account) live-verified on iPhone 13. CIP-30/CIP-45 dApp connectors,
-> staking, minting, Plutus, and message signing all shipped. See
+> **Status:** v0.9.0 → working toward v0.10.0. Phases 1–4.4 complete and verified;
+> Phase 4.5 (hardware wallets) core complete with on-device signing pending; Phase
+> 5a (HD multi-account) live-verified on iPhone 13; Phase 5b (seed encryption) core
+> complete; Phase 6 (web) golden-CBOR conformance suite in place, CML-JS backend
+> scaffolded (browser-verify pending). CIP-30/CIP-45 dApp connectors, staking,
+> minting, Plutus, and message signing all shipped. See
 > [`docs/PLAN.md`](docs/PLAN.md) for the full roadmap and current phase gates.
 >
 > Pre-1.0: APIs may change. The hardware-wallet API is `@experimental`.
@@ -34,7 +36,23 @@ This SDK takes the correct approach: wrap `cardano-serialization-lib` (the canon
 └──────────────────────────────────────────┘
 ```
 
-Supports iOS, Android, macOS, Linux, Windows (native via FFI) + Web (via CML npm package).
+Native platforms (iOS, Android, macOS, Linux, Windows) run the Rust wrapper over
+CSL via FFI. Web has no Rust FFI (Rust→WASM is intentionally banned) and instead
+targets a **CML-JS backend** via Dart JS interop — a *second backend* held to the
+same bytes by a golden-CBOR conformance suite (see [`docs/web-backend.md`](docs/web-backend.md)).
+
+### Platform support
+
+| Platform | Backend | Status |
+|----------|---------|--------|
+| iOS | CSL / Rust FFI | ✅ Live-verified on device (iPhone 13) |
+| Android | CSL / Rust FFI | 🟡 Emulator-verified target; physical-device gated for v1.0 |
+| macOS | CSL / Rust FFI | 🟡 Desktop packaging pending (Phase 6) |
+| Linux / Windows | CSL / Rust FFI | 🟡 Best-effort, CI-build only |
+| Web | CML-JS interop | 🟡 Conformance suite in place; CML backend scaffolded, **browser-verify pending** |
+
+> "Verified on device" is never used for emulator-only results. The version string
+> never implies uniform readiness across platforms — this matrix is the source of truth.
 
 ## Project layout
 

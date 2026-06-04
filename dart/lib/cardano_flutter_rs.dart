@@ -47,6 +47,11 @@ export 'src/cip30/cip30_wallet.dart';
 // Phase 4.4: CIP-45 mobile dApp connector (transport-agnostic protocol core).
 export 'src/cip45/cip45.dart';
 
+// Phase 6: CSL↔CML cross-backend conformance harness. The deterministic
+// serialization/derivation contract both the native (CSL/FFI) and web (CML-JS)
+// backends must satisfy byte-for-byte. Golden vectors freeze the contract.
+export 'src/conformance/conformance.dart';
+
 // Phase 4.5: Hardware wallets (Ledger/Trezor).
 // Pure xpub-derivation + witness-assembly primitives, a device-agnostic
 // HardwareWallet interface, and a CIP-30-shaped HardwareCip30Wallet. The device
