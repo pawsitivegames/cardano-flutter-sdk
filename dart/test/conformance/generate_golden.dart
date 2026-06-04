@@ -183,28 +183,30 @@ void main() {
         id: 'plutus-int-zero',
         category: 'plutus',
         op: 'plutusInt',
-        input: {'n': 0},
+        // `n` stored as a STRING so it survives dart2js JSON parsing (a JSON
+        // number would be a lossy float64 on web). See ConformanceBackend.plutusDataInt.
+        input: {'n': '0'},
         expected: '',
       ),
       ConformanceCase(
         id: 'plutus-int-small',
         category: 'plutus',
         op: 'plutusInt',
-        input: {'n': 42},
+        input: {'n': '42'},
         expected: '',
       ),
       ConformanceCase(
         id: 'plutus-int-negative',
         category: 'plutus',
         op: 'plutusInt',
-        input: {'n': -1},
+        input: {'n': '-1'},
         expected: '',
       ),
       ConformanceCase(
         id: 'plutus-int-large',
         category: 'plutus',
         op: 'plutusInt',
-        input: {'n': 1234567890123456789},
+        input: {'n': '1234567890123456789'},
         expected: '',
       ),
       ConformanceCase(
@@ -227,7 +229,7 @@ void main() {
         op: 'plutusConstr',
         input: {
           'constructor': '0',
-          'fieldsCborHex': [backend.plutusDataInt(42)],
+          'fieldsCborHex': [backend.plutusDataInt(BigInt.from(42))],
         },
         expected: '',
       ),
@@ -244,8 +246,8 @@ void main() {
         op: 'plutusList',
         input: {
           'itemsCborHex': [
-            backend.plutusDataInt(1),
-            backend.plutusDataInt(2),
+            backend.plutusDataInt(BigInt.one),
+            backend.plutusDataInt(BigInt.two),
           ],
         },
         expected: '',

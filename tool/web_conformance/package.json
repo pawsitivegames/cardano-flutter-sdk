@@ -1,0 +1,18 @@
+{
+  "name": "cml-web-conformance",
+  "private": true,
+  "type": "module",
+  "description": "In-browser conformance harness: runs the Dart CmlWebBackend through all golden vectors against the live CML + message-signing browser WASM builds.",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "node serve.mjs",
+    "ci": "node run-headless.mjs"
+  },
+  "dependencies": {
+    "@dcspark/cardano-multiplatform-lib-browser": "6.2.0",
+    "@emurgo/cardano-message-signing-browser": "1.1.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^23.11.0"
+  }
+}

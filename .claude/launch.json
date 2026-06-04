@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-conformance",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["serve.mjs"],
+      "cwd": "tool/web_conformance",
+      "port": 8099
+    }
+  ]
+}

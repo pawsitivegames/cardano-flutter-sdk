@@ -1,0 +1,14 @@
+{
+  "name": "cml-conformance-spike",
+  "private": true,
+  "type": "module",
+  "description": "Node spike proving CML-JS reproduces the frozen CSL golden CBOR vectors byte-for-byte. Run `npm install && node harness.mjs` → expect PASS 24 FAIL 0.",
+  "scripts": {
+    "test": "node harness.mjs"
+  },
+  "dependencies": {
+    "@dcspark/cardano-multiplatform-lib-nodejs": "6.2.0",
+    "@emurgo/cardano-message-signing-nodejs": "1.1.0",
+    "bip39": "^3.1.0"
+  }
+}
