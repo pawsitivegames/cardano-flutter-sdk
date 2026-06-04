@@ -97,6 +97,40 @@ Future<String> deriveAccountKey({
   ));
 }
 
+/// Derives a base address (and its payment key hash) at a specific
+/// `(role, index)` within an account, from the account-level xprv
+/// ([KeyDerivationResult.accountKey]).
+///
+/// - [role]: 0 = external/receive chain, 1 = internal/change chain.
+/// - [index]: address index on that chain.
+/// - [networkId]: 0 = testnet, 1 = mainnet.
+///
+/// Used for HD multi-account discovery and BIP-44 gap-limit scanning
+/// (see [HdWalletDiscovery]). Every address in an account shares the account's
+/// single stake credential, per CIP-1852.
+///
+/// Example:
+/// ```dart
+/// final keys = await deriveKeysFromMnemonic(
+///   mnemonic: mnemonic, passphrase: '', accountIndex: 0, isTestnet: true);
+/// final receive0 = await deriveAddress(
+///   accountKey: keys.accountKey, role: 0, index: 0, networkId: 0);
+/// print(receive0.address); // addr_test1…
+/// ```
+Future<DerivedAddress> deriveAddress({
+  required String accountKey,
+  required int role,
+  required int index,
+  required int networkId,
+}) {
+  return Future.value(RustLib.instance.api.crateWalletDeriveAddress(
+    accountKey: accountKey,
+    role: role,
+    index: index,
+    networkId: networkId,
+  ));
+}
+
 /// Converts a Blockfrost [Utxo] to a [TxInput] for coin selection.
 ///
 /// Preserves all native token holdings from the UTXO. This is the correct

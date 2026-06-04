@@ -1,11 +1,11 @@
 # Hardware wallets (Ledger / Trezor) — Phase 4.5
 
-> **Status (2026-06-02):** Core protocol layer **complete & unit-tested**; example
-> Ledger BLE integration **code-complete (read path)**; **on-device signing
-> awaiting verification on a physical Ledger** (no device available yet). v1.0.0
-> is *not* published — the phase's v1.0 gate ("Ledger TX signing round-trip
-> verified on device") is intentionally still open. No "verified" claim is made
-> for anything that hasn't run on hardware.
+> **Status (2026-06-03):** Core protocol layer **complete & unit-tested**; example
+> Ledger BLE integration **code-complete, including transaction signing**; the
+> signing path is **awaiting verification on a physical Ledger** (no device
+> available yet). v1.0.0 is *not* published — the phase's v1.0 gate ("Ledger TX
+> signing round-trip verified on device") is intentionally still open. No
+> "verified" claim is made for anything that hasn't run on hardware.
 
 ## What ships in the core SDK (tested, device-agnostic)
 
@@ -16,6 +16,8 @@ witnesses. The SDK provides the pure primitives to make that usable:
 | Primitive | Purpose |
 |-----------|---------|
 | `xpubToAccount(accountXpubHex, networkId)` | Soft-derive base + reward addresses and payment/stake key hashes from the account xpub (CIP-1852 roles 0 & 2, index 0). No private keys — also serves watch-only wallets. |
+| `xpubDerivePublicKey(accountXpubHex, role, index)` | Soft-derive a single raw Ed25519 public key at `role`/`index`. Symmetric with `xpubToAccount`; used to rebuild a vkey witness from a device's `(path, signature)` pair (the device returns no public key). |
+| `decomposeTxBody(txBodyCborHex)` | CSL-parse a transaction body into device-signable primitives (inputs, outputs with ADA + native tokens, fee, ttl, validity start, network id) plus a `hasUnsupportedFeatures` flag. The device adapter maps these into its own structured signing request. |
 | `assembleVkeyWitnessSet(witnesses)` | Fold device `(publicKey, signature)` pairs into a CBOR `transaction_witness_set`. |
 | `extractVkeyWitnesses(witnessSetCborHex)` | Inverse of the above — pull raw pairs out of a witness set (partial-sign / multi-sig / cosigner merging). |
 | `HardwareWallet` (interface) | Device-agnostic contract: `getAccountXpub`, `signTransaction`. Implemented per device outside the core. |
@@ -41,15 +43,28 @@ Vespr's MIT-licensed [`ledger_cardano_plus`](https://github.com/vespr-wallet/led
 - `HardwareCip30Wallet.fromDevice` → derive base/reward addresses locally and
   query balance/UTxOs through Blockfrost.
 
-**Pending on-device verification:**
-- `LedgerHardwareWallet.signTransaction` currently throws. Reason: the Cardano
-  Ledger app does not sign raw CBOR — it must be handed a structured
-  `ParsedSigningRequest` (`ParsedTransaction`: inputs with their address
-  derivation params, outputs, fee, ttl, certificates, …), and it returns
-  `Witness(path, signatureHex)` pairs that carry **no public key**. Turning those
-  into `HardwareVkeyWitness` requires deriving each path's public key from the
-  account xpub. That structured mapping is error-prone and must be validated
-  against real hardware, so it is **not shipped unverified**.
+**Implemented, awaiting on-device verification:**
+- `LedgerHardwareWallet.signTransaction` is now implemented. The Cardano Ledger
+  app does not sign raw CBOR — it is handed a structured `ParsedSigningRequest`
+  (`ParsedTransaction`: inputs, outputs, fee, ttl, …) and returns
+  `Witness(path, signatureHex)` pairs that carry **no public key**. The adapter:
+  1. decomposes the SDK body with `decomposeTxBody` (authoritative CSL parse);
+  2. refuses bodies with `hasUnsupportedFeatures` (certs/withdrawals/mint/
+     collateral/reference inputs/votes) — only ordinary payments are mapped;
+  3. maps inputs/outputs/fee/ttl into `ParsedSigningRequest`. Plain outputs use
+     `ParsedOutput.alonzo` (legacy array format) to match CSL's serialization so
+     the device's recomputed body hash equals ours — **this format assumption is
+     the single most likely thing to need adjustment on real hardware**;
+  4. rebuilds each `HardwareVkeyWitness` by re-deriving the path's public key via
+     `xpubDerivePublicKey(accountXpub, role, index)`.
+- A device-free test (`hardware_test.dart` → "device witness reconstruction")
+  proves step 4 with a **real** software signature: it discards the pubkey, keeps
+  only `(path, signature)`, re-derives the pubkey from the xpub, and asserts the
+  assembled tx is **byte-identical** to the software-signed reference.
+- **Still unverified on hardware:** the `ParsedTransaction` ↔ CSL body byte
+  match (output format, multi-asset/canonical ordering), and the on-device UX.
+  The signing path therefore is **not** treated as verified until the checklist
+  below is run on a physical Ledger.
 
 ## Why Trezor is deferred
 
@@ -60,21 +75,24 @@ mobile hardware wallet, so v1.0 targets Ledger; Trezor is a future follow-up.
 
 ## On-device signing checklist (to close the v1.0 gate)
 
-When a physical Ledger (Nano X / Stax / Flex) is available:
+The mapping is implemented (`xpubDerivePublicKey` + `decomposeTxBody` in
+`rust/src/hardware.rs`; `LedgerHardwareWallet.signTransaction` in the example).
+When a physical Ledger (Nano X / Stax / Flex) is available, verify:
 
 1. **Read path** — scan → connect → confirm the derived base address matches the
    device's own `deriveReceiveAddress`/`deriveChangeAddress`. (Sanity-checks
    `xpubToAccount` against the device.)
-2. **Implement `signTransaction`** in `ledger_hardware_wallet.dart`:
-   - Map the SDK transaction → `ParsedSigningRequest`/`ParsedTransaction`.
-   - Call `_connection.signTransaction(parsed)`.
-   - For each returned `Witness`, derive its path's public key from the account
-     xpub (add a Rust `xpubDerivePublicKey(accountXpubHex, role, index)` helper
-     returning the 32-byte raw pubkey hex — symmetric with `xpubToAccount`),
-     then build `HardwareVkeyWitness(vkeyHex, signatureHex)`.
-   - `HardwareCip30Wallet.signTransaction` already assembles + returns the tx.
-3. **Round-trip** — build a small payment on **preview**, sign on device, submit,
-   and confirm on-chain. Capture the tx hash.
+2. **Round-trip** — use the example's **"Sign 1 ₳ → self"** button on the Ledger
+   screen: it builds a 1-ADA self-payment from the wallet's UTxOs on **preview**,
+   has the device sign, assembles, submits, and logs the tx hash. Confirm:
+   - the device displays the correct outputs/fee (the body decomposition is faithful);
+   - submission succeeds — i.e. the device-signed body hash matched ours (this is
+     where the `ParsedOutput.alonzo` / output-format assumption is validated; if
+     submission fails with a witness/hash error, the output format or canonical
+     ordering is the first suspect — see step "implemented" notes above);
+   - the tx confirms on-chain. Capture the tx hash.
+3. **Multi-asset** — repeat with an output carrying a native token to exercise the
+   `tokenBundle` mapping and asset-group ordering.
 4. **Update status** — only then mark the gate closed and the read+sign path
    "verified on device", and publish v1.0.0.
 

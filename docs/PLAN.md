@@ -192,13 +192,25 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 - iOS `web+cardano://` deep link (Info.plist + `app_links`) ✅
 - Builds for iOS simulator; deps confined to the example (core stays lean) ✅
 
+**Follow-ups shipped (2026-06-03, code-complete; device verify pending):**
+- Android `web+cardano://` `<intent-filter>` (singleTop `MainActivity` + `app_links`) ✅
+- In-wallet QR scanning of the connection URI (`mobile_scanner` + `qr_scanner_page.dart`,
+  camera permissions for both platforms) ✅ **verified on iPhone 13 (2026-06-03):
+  scan dApp QR → parse → CIP-45 connect → API handshake**
+- `WebrtcCip45Transport` — native (no-WebView) `flutter_webrtc` transport scaffold:
+  WebRTC negotiation + data-channel RPC implemented; bugout-compatibility seams
+  (`Cip45SignalingChannel` = WebTorrent tracker, `Cip45RpcCodec` = NaCl/bencode)
+  documented but not implemented 🟡 (see `docs/cip45-transport.md`)
+
 **Pending (needs live two-peer run on a device — see `docs/cip45-testing.md`):**
 - dApp page ↔ wallet connect over public trackers, RPC round-trip, signData/signTx
-- Android intent-filter + Android device run (iOS prioritized first)
+- Android-device run of the deep link + QR flow (iOS already live-verified)
+- A Dart WebTorrent tracker client + bugout framing to make the native WebRTC
+  transport talk to real bugout.js dApps
 
 ---
 
-### Phase 4.5 — Hardware Wallets → v0.8.0 → v1.0.0
+### Phase 4.5 — Hardware Wallets → v0.8.0 (core) → v1.1.0 (verified)
 *Dependency: Phase 4.3 complete. Can parallel with 4.4.*
 
 **Deliverables:**
@@ -206,66 +218,230 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
   `extractVkeyWitnesses`, `HardwareWallet` interface, `HardwareCip30Wallet`.
 - ✅ Ledger BLE adapter + screen (example): scan/connect, account xpub, address +
   balance/UTxO read path. (Vespr's MIT `ledger_cardano_plus`/`ledger_flutter_plus`.)
-- 🟡 Ledger transaction signing — assembly side done in SDK; device-side
-  `ParsedSigningRequest` mapping pending on-device verification (throws until then).
+- ✅ Ledger transaction signing — implemented (Rust `xpubDerivePublicKey` +
+  `decomposeTxBody`; example maps body → `ParsedSigningRequest`, re-derives witness
+  pubkeys, assembles a submittable tx). Code-complete.
 - ⏸️ Trezor signing — **deferred** (USB-only/no BLE; Trezor Connect impractical on mobile).
-- ⏳ Physical device verification (Ledger Nano X / Stax / Flex) — **blocked on hardware**.
-- ⏳ v1.0.0 published to pub.dev — gated on the device-verified signing round-trip.
+- 🅱️ Physical device verification — **moved to Track B (Phase H1); blocked on hardware**.
 
 **Verification:**
-- 🟡 Ledger TX signing round-trip verified on device — **OPEN** (no false claim until
-  it runs on hardware; see `docs/hardware-wallets.md` → on-device checklist).
-- ⏳ v1.0.0 published to pub.dev with full changelog.
+- 🅱️ Ledger TX signing round-trip on device — **deferred to Track B / Phase H1**.
+  The honesty rule stands: no "verified on device" claim until it runs on real
+  hardware (see `docs/hardware-wallets.md` → on-device checklist).
+- The public hardware-wallet API ships **`@experimental`** (loud dartdoc warning;
+  `signTransaction` unverified on hardware) for the entire 0.x and 1.0.x line, and
+  is promoted to stable only in v1.1.0 once an on-device round-trip passes.
 
-> Honesty note: this phase's v1.0 gate is intentionally still open. The core
-> protocol layer is complete and unit-tested (incl. a real-crypto byte-identical
-> assemble round-trip), but "verified on device" is reserved for actual hardware.
+> Honesty note: the core protocol layer is complete and unit-tested (incl. a
+> real-crypto byte-identical assemble round-trip) and the Ledger signing path is
+> implemented end-to-end in code. Only the *on-hardware* round-trip is outstanding.
+> See the restructure below for how this affects versioning (it does **not** gate
+> the feature-complete RC, but it **does** gate the bare `1.0.0` tag).
 
 ---
 
-### Phase 5 — Web, Desktop & Performance → v1.1.0
-*Dependency: v1.0.0 stable.*
+## Roadmap restructure v2 (2026-06-03, post critic review) — two tracks
+
+We have no Android phone and no spare Ledger (the maintainer's Ledger holds a live
+main account and must not be used for testing). The original plan gated **v1.0.0 on
+Ledger device verification** and made Phases 5–6 depend on v1.0 — a hardware
+deadlock. A first restructure split the work into tracks but was reviewed by three
+adversarial critics; this **v2** incorporates their findings. Key corrections vs v1:
+
+1. **Don't brand the hardware-unverified build `1.0.0`.** It ships as **`0.12.0`
+   (feature-complete RC)**. The bare **`1.0.0`** tag is reserved until **Android is
+   verified at least on an emulator (incl. the 16KB-page-size image)** — Android is
+   a *platform* (~70% of mobile), not an optional peripheral, so a "production"
+   claim cannot skip it. Hardware wallets (Ledger) *are* a peripheral and stay a
+   v1.1 fast-follow.
+2. **Android emulator counts as partial verification — labeled precisely.** A Mac
+   AVD verifies the app build, **Rust `.so` FFI load**, deep-link/QR flow, and
+   **16KB page-size compatibility** (Google ships a dedicated 16KB emulator image —
+   their recommended test path). It does **not** replace a physical-device + Play
+   Store check. We write "verified on Android emulator," never "verified on device."
+3. **Web is a second backend, not a checkbox.** Web has no Rust FFI (Rust→WASM is
+   banned) so it needs the crypto/tx/COSE/Plutus surface reimplemented against
+   **CML JS**. It is **scoped down** to a read-only + CIP-30-connect subset for the
+   RC, gated on a CSL↔CML golden-CBOR conformance suite. Full web tx-building is a
+   later track, *not* a 1.0 gate.
+4. **Seed encryption is a security subsystem** — its own phase, **Rust-side**
+   Argon2id + XChaCha20-Poly1305 (new FFI surface), threat model, secure-storage
+   (Keychain/Keystore), zeroization, + a security review. No hand-rolled Dart crypto.
+5. **CI + metadata hygiene move to the front** (cheap, hardware-free, unblock
+   everything). Security review moves *pre*-1.0. "Backend swap" specifically means a
+   **Pallas** evaluation (addresses the CSL-legacy strategic risk before API freeze).
+6. **Track B = genuinely device-blocked only.** The native-WebRTC bugout framing
+   (unbuilt Dart WebTorrent client + NaCl/bencode) is *unbuilt implementation*, part
+   of it hardware-free, so it lives in an explicit research bucket — not "parked
+   verification."
+
+---
+
+## Track A — Active (no Ledger; Android via emulator only)
+
+### Phase 4.6 — Foundation hygiene → v0.8.1
+*Dependency: none. Cheap, hardware-free, unblocks everything. Do first.*
 
 **Deliverables:**
-- Web platform: Dart JS interop → CML npm (no Rust→WASM)
-- macOS, Linux, Windows desktop builds
-- Performance: UTXO fetch <2s, TX build <500ms
-- Memory leak verification under sustained load
+- **CI** (GitHub Actions): `cargo test` + `clippy -D warnings`, `flutter analyze`,
+  `flutter test`, build iOS + macOS + web; status badge in README.
+- **Metadata hygiene** (blocks any pub.dev publish): `dart/pubspec.yaml` version,
+  `flutter_rust_bridge: =2.12.x` (pin — not `^2.0.0`), fix description ("CSL"
+  backend, not "CML"), real `homepage`/`repository` (drop `YOUR_HANDLE`); same in
+  `rust/Cargo.toml`.
+- Mark hardware-wallet public API `@experimental`.
 
 ---
 
-### Phase 6 — Advanced Features → v1.2.0
-*Dependency: v1.1.0 stable + user feedback.*
+### Phase 5a — HD multi-account → v0.9.0  ✅ complete & live-verified (iPhone 13)
+*Dependency: Phase 4.3. Pure Dart/Rust — verifiable on iPhone 13 + testnet.*
 
 **Deliverables:**
-- HD wallet multi-account management
-- Governance participation (CIP-36, SanchoNet)
-- Seed phrase encryption / backup
-- Optional: Swift SDK via UniFFI shared core
-- Optional: Kotlin SDK via UniFFI shared core
+- ✅ HD multi-account discovery (CIP-1852; stops at first empty account, gap=1)
+- ✅ Address gap-limit scanning (`HdWalletDiscovery`, default BIP-44 gap=20)
+- ✅ Rust `deriveAddress` (base address + payment key hash per role/index)
+- ✅ Blockfrost `fetchAddressMetadata` / `isAddressUsed` (`/addresses/{addr}/total`)
+- ✅ Example: "Accounts" screen (discover, used count, next receive, balance)
+
+**Verification:**
+- ✅ Account derivation matches CIP-1852 (account-0 ext-0 hash + base address
+  identical to the CIP-30 path); Rust 108 · Dart 155; clippy/fmt/analyze clean
+- ✅ Gap-limit + account-gap logic unit-tested with a deterministic fake lookup
+  over real FFI-derived addresses
+- ✅ **Live-verified on iPhone 13 (2026-06-04):** discovered account 0 (Active,
+  ~36,092 ₳) via real Blockfrost `/addresses/{addr}/total` queries — external 6
+  scanned (1 used at idx 0 + gap-limit 5 unused), change 5 scanned, stopped at the
+  first empty account (account 1). Next-receive = first unused external (idx 1).
 
 ---
 
-### Phase 7 — Maintenance (Ongoing)
+### Phase 5b — Seed encryption & backup (security subsystem) → v0.9.1
+*Dependency: Phase 5a. **Security-critical** — own phase, explicit design.*
+
+**Deliverables:**
+- **Rust-side** at-rest encryption: Argon2id KDF + XChaCha20-Poly1305 AEAD
+  (`encrypt_seed` / `decrypt_seed` FFI; new crates `argon2`, `chacha20poly1305`).
+- Key **zeroization** in Rust; integrate platform secure storage (iOS Keychain /
+  Android Keystore) for the wrapping key where available.
+- Written **threat model** (what it protects against; what it does not).
+
+**Verification:**
+- Encrypt → wipe → decrypt round-trip; wrong-password reject; tamper → AEAD-fail test
+- KDF params documented + benchmarked on iPhone 13
+- Security review of the at-rest format (see Phase 7 review, applied here too)
+
+---
+
+### Phase 6 — Web (scoped) & Desktop → v0.10.0
+*Dependency: Phase 5b. Verifiable in a desktop browser + macOS — no phone needed.*
+
+> Web ≠ a recompile. No Rust FFI on web → a **CML-JS backend** must implement the
+> Dart API surface. Scope is deliberately reduced for the RC.
+
+**Deliverables:**
+- **Web backend spike first:** does CML-npm satisfy the existing CSL-shaped Dart
+  API? Build a **CSL↔CML golden-CBOR conformance suite** (tx/value/witness/COSE).
+  This must run *before* any API freeze (it may force API changes).
+- Web (scoped): address derivation, balance/UTxO read, **CIP-30 connect** — *not*
+  full tx-building (deferred to a later web-parity track).
+- **macOS** plugin scaffolding: universal dylib (`lipo` arm64+x86_64), podspec
+  framework embedding, entitlements (network client), codesign. (Linux/Windows:
+  best-effort, CI-build only, no prebuilt artifacts.)
+- Performance: UTXO fetch <2s, TX build <500ms; memory-leak check under load.
+
+**Verification:**
+- Golden-CBOR suite: native (CSL) and web (CML) agree byte-for-byte where required
+- Scoped CIP-30 methods run in a desktop browser build
+- **Cross-wallet check vs Lace/Eternl** — note this depends on the web backend
+  existing first. Cheaper interop check available *today* with no web: confirm a
+  real Lace/Eternl-signed message **verifies** under our native `verifyMessage`.
+- macOS example app builds + runs a send tx on testnet
+
+---
+
+### Phase 7 — Governance, Security & Pre-1.0 Hardening → v0.11.0
+*Dependency: Phase 6.*
+
+**Deliverables:**
+- Governance: CIP-36 catalyst/vote key registration (SanchoNet/testnet)
+- **Security review pass** (pre-1.0, not post): secret handling, COSE/CIP-8
+  correctness, fee/coin-selection edge cases, seed-at-rest format
+- **Pallas backend evaluation** (the "backend swap" deliverable is specifically
+  CSL→Pallas feasibility — addresses CSL going legacy before the API freeze)
+- Fuzz/property tests on CBOR (de)serialization + witness assemble/extract
+- Documentation site live; API stability pass (semver freeze candidates)
+- >80% Dart coverage
+
+---
+
+### v0.12.0 — Feature-complete RC (iOS verified · macOS · Web scoped · Android emulator)
+*Gate: Track A 4.6–7 done. **NOT gated on Ledger or physical Android hardware.***
+
+Definition of Done (`0.12.0` RC):
+- [ ] Phases 0–4 (minus hardware verification) + Track A 4.6/5a/5b/6/7 complete
+- [ ] iOS passing CI + live-verified; macOS functional; Web (scoped) functional
+- [ ] Web scoped subset via Dart JS interop → CML (no WASM tunnel); golden-CBOR parity
+- [ ] **Android emulator-verified**: app + FFI `.so` load + deep-link/QR + **16KB
+      page-size image** all pass (labeled "emulator", not "device")
+- [ ] >80% Dart coverage; Rust wrapper + crypto coverage; fuzz suite green
+- [ ] Security review pass complete; no hardcoded secrets; clippy + analyze clean
+- [ ] Pallas backend-swap feasibility demonstrated
+- [ ] Hardware-wallet API marked `@experimental`; Android marked **supported
+      (emulator-verified)** in platform table
+- [ ] Published to pub.dev as `cardano_flutter_rs` (0.12.0 / `1.0.0-rc.1`)
+- [ ] Documentation site live; README platform-support matrix
+
+### v1.0.0 — Production release
+*Gate: 0.12.0 RC + **Android verified on a physical device** (incl. Play Store
+build acceptance). A used Pixel (~$150) is the cheap unblock — lower bar than a
+Ledger. Hardware-wallet (Ledger) support remains `@experimental` until v1.1.0.*
+
+> Note: "a real third-party dApp using the SDK in production" is a post-1.0 adoption
+> goal, not a gate (not on our timeline). The in-our-control external-interop signal
+> is the Lace/Eternl cross-wallet check in Phase 6 — keep it in the RC gate.
+
+---
+
+## Track B — Hardware-gated (parked until physical devices available)
+
+### Phase H1 — Ledger on-device verification → v1.1.0
+*Blocked on: a spare Ledger (Nano S Plus ≈ $80 — do NOT use the maintainer's
+main-account device).*
+- Verify TX signing round-trip on device (checklist: `docs/hardware-wallets.md`)
+- `decompose_tx_body` currently models **simple payments only** (certs/withdrawals/
+  mint/collateral/ref-inputs/votes are flagged unsupported), so expect on-hardware
+  work beyond the likely `alonzo`↔`babbage` output-format fix: full 5-segment BIP-32
+  paths, datum/script-ref outputs.
+- Promote the hardware-wallet API from `@experimental` to stable; publish in v1.1.0.
+
+### Phase H2 — Android physical-device verification → v1.1.0
+*Blocked on: a physical Android phone (Pixel 8a recommended).*
+- Deep link + QR connect flow on a real device (emulator already covers functional)
+- **Play Store build acceptance** (16KB already emulator-checked in the RC)
+- Real-device perf + OEM BLE behavior
+
+### Research bucket (not device-blocked) — native CIP-45 WebRTC transport
+*Not "verification" — unbuilt implementation. Mostly hardware-free; pursue
+independently of Track B if/when desired.*
+- A Dart **WebTorrent WSS tracker client** (none exists on pub.dev — multi-week,
+  standalone networking project).
+- **bugout framing**: bencode + NaCl (ed25519 sign / box encrypt) `BugoutCip45RpcCodec`
+  byte-matching bugout.js, for the documented `Cip45SignalingChannel` / `Cip45RpcCodec`
+  seams. Only then can a desktop browser act as the second peer.
+- Until then, `BugoutCip45Transport` (WebView, already live-verified) remains the
+  only supported CIP-45 path.
+
+### v1.1.0 — Hardware-verified release
+*Gate: H1 + H2 done.* Ledger signing + Android verified on real devices; changelog
+notes the hardware coverage now closed.
+
+---
+
+### Phase 8 — Maintenance (Ongoing)
 - Quarterly security audits
 - CSL/CML/Pallas version compatibility matrix
 - Community contributions + PR reviews
 - API stability guarantees (semver strict, v1.x = no breaking changes)
-
----
-
-## Definition of Done (v1.0.0)
-
-- [ ] Phases 0–4 complete, semver-stable public API
-- [ ] iOS + Android passing CI; Android 16KB page size verified
-- [ ] Web working via Dart JS interop (no WASM tunnel)
-- [ ] >80% Dart test coverage; Rust has CML coverage + wrapper tests
-- [ ] Backend swap demonstrated (CSL + one alternative)
-- [ ] Example app: full functional wallet (send, receive, stake, mint, connect dApp)
-- [ ] Published to pub.dev as `cardano_flutter_rs`
-- [ ] At least one real third-party dApp or wallet using the SDK in production
-- [ ] Documentation site live
-- [ ] No hardcoded secrets; clippy clean; flutter analyze clean
 
 ---
 

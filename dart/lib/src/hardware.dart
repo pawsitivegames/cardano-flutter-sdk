@@ -7,7 +7,7 @@ import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 /// Derive a wallet [`HardwareAccount`] from a BIP-32 account-level xpub.
 ///
@@ -24,6 +24,48 @@ HardwareAccount xpubToAccount(
         {required String accountXpubHex, required int networkId}) =>
     RustLib.instance.api.crateHardwareXpubToAccount(
         accountXpubHex: accountXpubHex, networkId: networkId);
+
+/// Soft-derive a single raw Ed25519 public key from an account xpub.
+///
+/// Symmetric with [`xpub_to_account`]: a hardware device returns each signature
+/// paired only with a BIP-32 *path* (no public key), so to turn a device
+/// `(path, signature)` into a vkey witness we re-derive that path's public key
+/// from the same account xpub the addresses were derived from.
+///
+/// `role`/`index` are the last two (non-hardened) segments of a CIP-1852 path —
+/// e.g. payment is `role = 0, index = 0`, stake is `role = 2, index = 0`.
+///
+/// # Arguments
+/// - `account_xpub_hex`: 128-char hex of the 64-byte account xpub
+/// - `role`: CIP-1852 role (0 = external/payment, 1 = change, 2 = stake)
+/// - `index`: address index within the role
+///
+/// Returns the 32-byte raw Ed25519 public key as 64 hex chars.
+String xpubDerivePublicKey(
+        {required String accountXpubHex,
+        required int role,
+        required int index}) =>
+    RustLib.instance.api.crateHardwareXpubDerivePublicKey(
+        accountXpubHex: accountXpubHex, role: role, index: index);
+
+/// Decompose a CBOR transaction **body** into device-signable primitives.
+///
+/// The inverse direction of assembly: the SDK builds a transaction body, this
+/// breaks it back into the structured inputs/outputs/fee/ttl a hardware device
+/// needs to reconstruct it. Parsing is delegated to CSL so the decomposition is
+/// authoritative.
+///
+/// Only the ordinary-payment shape is modelled today (inputs, outputs with ADA +
+/// native tokens, fee, ttl, validity start, network id). Bodies with
+/// certificates, withdrawals, mint, collateral, reference inputs, or governance
+/// votes set [`HardwareTxBody::has_unsupported_features`] so the caller can
+/// refuse rather than mis-sign.
+///
+/// # Arguments
+/// - `tx_body_cbor_hex`: CBOR hex of a `TransactionBody`
+HardwareTxBody decomposeTxBody({required String txBodyCborHex}) =>
+    RustLib.instance.api
+        .crateHardwareDecomposeTxBody(txBodyCborHex: txBodyCborHex);
 
 /// Assemble raw device vkey witnesses into a CBOR `transaction_witness_set`.
 ///
@@ -94,6 +136,161 @@ class HardwareAccount {
           rewardAddress == other.rewardAddress &&
           paymentKeyHash == other.paymentKeyHash &&
           stakeKeyHash == other.stakeKeyHash;
+}
+
+/// A native-asset entry inside a decomposed transaction output.
+class HardwareTxAsset {
+  /// 28-byte policy id, hex (56 chars).
+  final String policyIdHex;
+
+  /// Asset name bytes, hex (0–64 chars).
+  final String assetNameHex;
+
+  /// Quantity as a decimal string (u64).
+  final String amount;
+
+  const HardwareTxAsset({
+    required this.policyIdHex,
+    required this.assetNameHex,
+    required this.amount,
+  });
+
+  @override
+  int get hashCode =>
+      policyIdHex.hashCode ^ assetNameHex.hashCode ^ amount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HardwareTxAsset &&
+          runtimeType == other.runtimeType &&
+          policyIdHex == other.policyIdHex &&
+          assetNameHex == other.assetNameHex &&
+          amount == other.amount;
+}
+
+/// A transaction body decomposed into the primitives a hardware device needs to
+/// reconstruct, display, and sign it.
+///
+/// Hardware wallets (Ledger) do not sign raw CBOR — they are handed a structured
+/// description of the transaction, re-serialize it on-device, show it to the
+/// user, and sign the hash they compute. This is the SDK's authoritative
+/// (CSL-parsed) decomposition of a transaction body that a device adapter maps
+/// into its own wire types.
+class HardwareTxBody {
+  /// Inputs (UTxOs) the transaction spends.
+  final List<HardwareTxInput> inputs;
+
+  /// Outputs the transaction creates.
+  final List<HardwareTxOutput> outputs;
+
+  /// Fee in lovelace, as a decimal string (u64).
+  final String fee;
+
+  /// Time-to-live slot, if set (decimal string).
+  final String? ttl;
+
+  /// Validity-interval start slot, if set (decimal string).
+  final String? validityStart;
+
+  /// Network id carried in the body, if present (0 = testnet, 1 = mainnet).
+  final int? networkId;
+
+  /// `true` when the body carries features this decomposition does **not** yet
+  /// model (certificates, withdrawals, mint, collateral, reference inputs,
+  /// governance votes). A device adapter MUST refuse to sign in that case
+  /// rather than present the user an incomplete transaction.
+  final bool hasUnsupportedFeatures;
+
+  const HardwareTxBody({
+    required this.inputs,
+    required this.outputs,
+    required this.fee,
+    this.ttl,
+    this.validityStart,
+    this.networkId,
+    required this.hasUnsupportedFeatures,
+  });
+
+  @override
+  int get hashCode =>
+      inputs.hashCode ^
+      outputs.hashCode ^
+      fee.hashCode ^
+      ttl.hashCode ^
+      validityStart.hashCode ^
+      networkId.hashCode ^
+      hasUnsupportedFeatures.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HardwareTxBody &&
+          runtimeType == other.runtimeType &&
+          inputs == other.inputs &&
+          outputs == other.outputs &&
+          fee == other.fee &&
+          ttl == other.ttl &&
+          validityStart == other.validityStart &&
+          networkId == other.networkId &&
+          hasUnsupportedFeatures == other.hasUnsupportedFeatures;
+}
+
+/// A transaction input, in the device-friendly form a hardware wallet displays
+/// and witnesses (the UTxO it spends, without the resolved value).
+class HardwareTxInput {
+  /// 32-byte transaction id of the UTxO being spent, hex (64 chars).
+  final String txHashHex;
+
+  /// Output index within that transaction.
+  final int outputIndex;
+
+  const HardwareTxInput({
+    required this.txHashHex,
+    required this.outputIndex,
+  });
+
+  @override
+  int get hashCode => txHashHex.hashCode ^ outputIndex.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HardwareTxInput &&
+          runtimeType == other.runtimeType &&
+          txHashHex == other.txHashHex &&
+          outputIndex == other.outputIndex;
+}
+
+/// A transaction output in the device-friendly form a hardware wallet displays.
+class HardwareTxOutput {
+  /// Raw address bytes, hex — exactly what a device's "third-party address"
+  /// destination expects (not bech32, not CBOR-wrapped).
+  final String addressHex;
+
+  /// ADA amount (lovelace) as a decimal string (u64).
+  final String coin;
+
+  /// Native assets carried by the output.
+  final List<HardwareTxAsset> assets;
+
+  const HardwareTxOutput({
+    required this.addressHex,
+    required this.coin,
+    required this.assets,
+  });
+
+  @override
+  int get hashCode => addressHex.hashCode ^ coin.hashCode ^ assets.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HardwareTxOutput &&
+          runtimeType == other.runtimeType &&
+          addressHex == other.addressHex &&
+          coin == other.coin &&
+          assets == other.assets;
 }
 
 /// A single Ed25519 vkey witness as returned by a hardware device.

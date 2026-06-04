@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
 
 import 'cip45_transport.dart';
+import 'qr_scanner_page.dart';
 
 /// Phase 4.4 example: CIP-45 wallet endpoint.
 ///
@@ -125,6 +126,23 @@ class _Cip45ScreenState extends State<Cip45Screen> {
     }
   }
 
+  /// Open the camera, scan a `web+cardano://` QR code into the URI field, and
+  /// connect immediately on a successful scan.
+  Future<void> _scanQr() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => QrScannerPage(
+          title: 'Scan CIP-45 QR',
+          validate: (v) => v.trim().startsWith('web+cardano://'),
+        ),
+      ),
+    );
+    if (scanned == null || !mounted) return;
+    _uriController.text = scanned.trim();
+    setState(() => _error = null);
+    await _connect();
+  }
+
   Future<void> _disconnect() async {
     await _transport?.close();
     setState(() {
@@ -232,7 +250,15 @@ class _Cip45ScreenState extends State<Cip45Screen> {
                         ],
                       ),
                       const Spacer(),
-                      if (_transport == null)
+                      if (_transport == null) ...[
+                        OutlinedButton.icon(
+                          onPressed: _connecting ? null : _scanQr,
+                          icon: const Icon(Icons.qr_code_scanner, size: 16),
+                          label: const Text('Scan QR'),
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.deepPurple),
+                        ),
+                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           onPressed: _connecting ? null : _connect,
                           icon: _connecting
@@ -246,7 +272,8 @@ class _Cip45ScreenState extends State<Cip45Screen> {
                           style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.deepPurple,
                               foregroundColor: Colors.white),
-                        )
+                        ),
+                      ]
                       else
                         ElevatedButton.icon(
                           onPressed: _disconnect,

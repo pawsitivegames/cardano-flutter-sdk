@@ -8,6 +8,8 @@
 
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
+
 import '../cip30.dart';
 import '../tx.dart' show Value;
 import '../hardware.dart'
@@ -40,6 +42,11 @@ export '../hardware.dart' show HardwareAccount, HardwareVkeyWitness;
 /// ));
 /// final txId = await wallet.submitTx(signedTx);
 /// ```
+///
+/// > **Experimental.** Read paths (addresses, balance, UTxOs) are exercised, but
+/// > device signing is **unverified on physical hardware** and models simple
+/// > payments only. Not for production use until the v1.1.0 gate closes.
+@experimental
 class HardwareCip30Wallet {
   /// The underlying hardware device transport.
   final HardwareWallet device;
@@ -155,7 +162,16 @@ class HardwareCip30Wallet {
   /// `transaction_witness_set` ([assembleVkeyWitnessSet]) and combined with
   /// [HardwareSignRequest.txBodyCborHex] ([cip30AssembleTx]).
   Future<String> signTransaction(HardwareSignRequest request) async {
-    final witnesses = await device.signTransaction(request);
+    final witnesses = await device.signTransaction(
+      request.networkId == null
+          ? HardwareSignRequest(
+              txBodyCborHex: request.txBodyCborHex,
+              unsignedTxCborHex: request.unsignedTxCborHex,
+              signerPaths: request.signerPaths,
+              networkId: networkId,
+            )
+          : request,
+    );
     final witnessSetHex = assembleVkeyWitnessSet(witnesses: witnesses);
     return cip30AssembleTx(
       txBodyCborHex: request.txBodyCborHex,
@@ -175,6 +191,7 @@ class HardwareCip30Wallet {
     final witnesses = await device.signTransaction(HardwareSignRequest(
       txBodyCborHex: txBodyCborHex,
       signerPaths: signerPaths ?? [paymentPath],
+      networkId: networkId,
     ));
     return assembleVkeyWitnessSet(witnesses: witnesses);
   }

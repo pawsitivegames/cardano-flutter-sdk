@@ -149,6 +149,42 @@ class AccountInfo {
       'withdrawable: $withdrawableReward, pool: $poolId)';
 }
 
+/// On-chain usage summary for a single address, from Blockfrost
+/// `GET /addresses/{address}`.
+///
+/// Used for BIP-44 gap-limit scanning and HD account discovery: an address is
+/// "used" if it has ever appeared in a transaction ([txCount] > 0), even if its
+/// current UTxO balance is zero. A never-seen address returns 404 from
+/// Blockfrost, surfaced as `null` from [BlockfrostProvider.fetchAddressMetadata].
+class AddressMetadata {
+  /// The bech32 address this metadata describes.
+  final String address;
+
+  /// Number of transactions this address has appeared in. 0 means unused.
+  final int txCount;
+
+  /// Lifetime lovelace received by this address.
+  final BigInt totalReceived;
+
+  /// Lifetime lovelace sent from this address.
+  final BigInt totalSent;
+
+  const AddressMetadata({
+    required this.address,
+    required this.txCount,
+    required this.totalReceived,
+    required this.totalSent,
+  });
+
+  /// Whether this address has ever been used on-chain.
+  bool get isUsed => txCount > 0;
+
+  @override
+  String toString() =>
+      'AddressMetadata(address: $address, txCount: $txCount, '
+      'received: $totalReceived, sent: $totalSent)';
+}
+
 /// Information about a stake pool.
 class PoolInfo {
   /// Bech32 pool ID.
@@ -414,6 +450,54 @@ class BlockfrostProvider {
           BigInt.parse((json['withdrawable_amount'] as String?) ?? '0'),
       poolId: json['pool_id'] as String?,
     );
+  }
+
+  /// Fetches lifetime usage stats for an address via
+  /// `GET /addresses/{address}/total` (this is the endpoint that carries
+  /// `tx_count` — `/addresses/{address}` only returns the current balance).
+  ///
+  /// Returns `null` if the address has never been seen on-chain (Blockfrost
+  /// 404). Use [isAddressUsed] for a simple boolean, or this for the counts.
+  ///
+  /// Example:
+  /// ```dart
+  /// final meta = await provider.fetchAddressMetadata(addr);
+  /// final used = meta?.isUsed ?? false;
+  /// ```
+  Future<AddressMetadata?> fetchAddressMetadata(String address) async {
+    final uri = Uri.parse('${network.baseUrl}/addresses/$address/total');
+    final response = await _makeRequest('GET', uri);
+
+    if (response.statusCode == 404) return null;
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+
+    BigInt lovelaceOf(dynamic sumList) {
+      if (sumList is List) {
+        for (final entry in sumList) {
+          if (entry is Map && entry['unit'] == 'lovelace') {
+            return BigInt.parse((entry['quantity'] as String?) ?? '0');
+          }
+        }
+      }
+      return BigInt.zero;
+    }
+
+    return AddressMetadata(
+      address: json['address'] as String? ?? address,
+      txCount: json['tx_count'] as int? ?? 0,
+      totalReceived: lovelaceOf(json['received_sum']),
+      totalSent: lovelaceOf(json['sent_sum']),
+    );
+  }
+
+  /// Whether [address] has ever been used on-chain (`tx_count > 0`).
+  ///
+  /// A never-seen address (Blockfrost 404) counts as unused. This is the lookup
+  /// [HdWalletDiscovery] uses for gap-limit scanning; pass `provider.isAddressUsed`.
+  Future<bool> isAddressUsed(String address) async {
+    final meta = await fetchAddressMetadata(address);
+    return meta?.isUsed ?? false;
   }
 
   /// Fetches a page of active pool IDs (bech32 strings).

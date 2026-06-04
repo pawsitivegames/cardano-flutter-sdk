@@ -1,4 +1,4 @@
-# CIP-45 transport integration (deferred)
+# CIP-45 transport integration
 
 Phase 4.4 ships the **transport-agnostic CIP-45 protocol core** (tested):
 
@@ -6,48 +6,69 @@ Phase 4.4 ships the **transport-agnostic CIP-45 protocol core** (tested):
 - `Cip45WalletHandler` — bridge inbound RPC calls (CIP-30 method names) to a `Cip30Wallet`, and produce the API-announcement payload.
 - `Cip45Transport` — the interface a peer-to-peer backend implements.
 
-What remains to make CIP-45 usable end-to-end on devices (needs a real transport + platform config + two-device testing):
+The example ships two transports + full deep-link wiring (see status table at the
+end). Live-verified path: the bugout WebView transport. Native WebRTC transport:
+scaffold with documented seams.
 
 ## 1. Transport (WebTorrent discovery + WebRTC)
 
 Per [CIP-45](https://cips.cardano.org/cip/CIP-45), discovery uses WebTorrent
 trackers and the data channel uses WebRTC — the reference PoC uses
-[`bugout`](https://github.com/chr15m/bugout). For Flutter, the realistic options:
+[`bugout`](https://github.com/chr15m/bugout).
 
-- A Dart/native WebRTC stack (`flutter_webrtc`) plus a tracker client, or
-- A thin platform channel wrapping `bugout` in a WebView, or
-- A community Dart port if/when one exists.
+### 1a. `BugoutCip45Transport` — shipped & live-verified ✅
 
-Implement `Cip45Transport`:
+`example/lib/cip45_transport.dart` hosts the patched `bugout.min.js`
+(WebTorrent+WebRTC) inside a headless `flutter_inappwebview` WebView and bridges
+RPC frames to `Cip45WalletHandler`. This is the supported, live-verified path
+(iPhone ↔ desktop dApp; `getBalance`/`getUtxos`/`signData` round-tripped). Because
+it runs the real bugout.js, it is byte-compatible with bugout-based dApps.
 
-```dart
-class BugoutTransport implements Cip45Transport {
-  // generate/persist an Ed25519 peer-discovery keypair → its pubkey is the
-  // Cip45ConnectionUri identifier the dApp scans
-  @override Future<void> start() { /* announce on trackers, open WebRTC */ }
-  @override void onRequest(handler) { /* on inbound RPC frame: handler(method, params) → reply */ }
-  @override Future<void> close() { /* ... */ }
-}
-```
+### 1b. `WebrtcCip45Transport` — native scaffold (no WebView) 🟡
 
-Wire it to the handler:
+`example/lib/cip45_webrtc_transport.dart` runs the WebRTC half *natively* via
+`flutter_webrtc`, with **no WebView**. The WebRTC data-channel negotiation
+(offer/answer, trickled ICE, data-channel RPC serve loop) is fully implemented.
+Two bugout-specific pieces are factored out behind interfaces so they are
+explicit rather than faked:
+
+- **`Cip45SignalingChannel`** — peer DISCOVERY + SDP/ICE relay. In real CIP-45
+  this is bugout's WebTorrent layer (announce an infohash derived from the
+  identifier to WSS trackers; the swarm relays offers/answers). A Dart WebTorrent
+  WSS tracker client is the main remaining work — none exists on pub.dev today.
+- **`Cip45RpcCodec`** — on-wire framing of RPC over the data channel. bugout uses
+  bencode + NaCl (ed25519 sign / box encrypt) keyed by the address. The bundled
+  `JsonCip45RpcCodec` is plain JSON (fine native↔native); a `BugoutCip45RpcCodec`
+  is required to talk to a bugout.js dApp.
+
+So the WebRTC plumbing is real and exercised; bugout compatibility is the
+documented gap. Usage:
 
 ```dart
 final handler = Cip45WalletHandler(wallet: cip30Wallet, name: 'MyWallet');
-final transport = BugoutTransport(/* seed, trackers */);
+final transport = WebrtcCip45Transport(
+  identifier: uri.identifier,
+  signaling: myTrackerSignalingChannel,      // implement Cip45SignalingChannel
+  announcement: handler.apiAnnouncement(),
+  // codec: BugoutCip45RpcCodec(...),         // for bugout.js dApps
+);
 transport.onRequest(handler.handleRequest);
 await transport.start();
-// send handler.apiAnnouncement() to the dApp on connect
 ```
 
-## 2. Deep linking for `web+cardano://`
+## 2. Deep linking for `web+cardano://` — shipped ✅
 
-So a dApp link/QR opens the wallet:
+Both platforms open the wallet from a dApp link/QR; inbound URIs route to the
+CIP-45 screen via `app_links` → `Cip45ConnectionUri.parse`.
 
-- **iOS:** register the `web+cardano` URL scheme (or a universal link) in
-  `Info.plist`; handle inbound URLs (e.g. via `app_links`) → `Cip45ConnectionUri.parse`.
-- **Android:** add an `<intent-filter>` for the `web+cardano` scheme in
-  `AndroidManifest.xml`; handle the inbound intent → `Cip45ConnectionUri.parse`.
+- **iOS:** the `web+cardano` URL scheme is registered in `Info.plist`
+  (`CFBundleURLTypes`).
+- **Android:** a `VIEW`/`BROWSABLE` `<intent-filter>` for the `web+cardano`
+  scheme on the `singleTop` `MainActivity` in `AndroidManifest.xml`.
+
+In-wallet QR scanning of the connection URI is wired on the CIP-45 screen via
+`mobile_scanner` (`example/lib/qr_scanner_page.dart`); camera permission is
+declared for both platforms.
 
 ## 3. Verification (requires two devices / a peer dApp)
 
@@ -104,3 +125,20 @@ Also note: the wallet-side bridge wraps each handler result in an envelope
 (`{ok, result}` in `cip45_transport.dart`, unwrapped in `cip45_bridge.html`) so
 primitive results survive the Dart↔WebView (`flutter_inappwebview`) hop, which
 also mangles bare primitives. Both fixes are needed for `getNetworkId` to work.
+
+## Status (2026-06-03)
+
+| Item | Status |
+|------|--------|
+| Protocol core (`Cip45ConnectionUri` / `Cip45WalletHandler` / `Cip45Transport`) | ✅ shipped, unit-tested |
+| `BugoutCip45Transport` (WebView) | ✅ shipped, **live-verified** (iOS ↔ desktop dApp) |
+| iOS `web+cardano://` deep link | ✅ shipped |
+| Android `web+cardano://` intent-filter | ✅ shipped (Android-device verify pending) |
+| In-wallet QR scanning (`mobile_scanner`) | ✅ **verified on iPhone 13 (2026-06-03)** — scanned the dApp QR → parsed URI → CIP-45 connect → API handshake (`wallet connected: cardano_flutter_rs`) |
+| `WebrtcCip45Transport` (native, no WebView) | 🟡 scaffold — WebRTC done; bugout `Cip45SignalingChannel` (WebTorrent tracker) + `Cip45RpcCodec` (NaCl/bencode) seams documented, not implemented |
+| Two-device / Android-device live run | ⏳ pending hardware |
+
+The native WebRTC transport is intentionally a documented scaffold: a faithful
+bugout-compatible implementation needs a Dart WebTorrent WSS tracker client and
+bugout's NaCl/bencode framing, neither of which can be verified without two live
+peers. The bugout WebView transport remains the supported, verified path.
