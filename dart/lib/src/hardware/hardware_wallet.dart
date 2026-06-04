@@ -40,10 +40,18 @@ class HardwareSignRequest {
   /// path `[1852', 1815', account', 2, 0]`.
   final List<List<int>> signerPaths;
 
+  /// CIP-30 network id the transaction targets (0 = testnet, 1 = mainnet).
+  ///
+  /// Optional. A device that reconstructs the transaction (e.g. Ledger) needs to
+  /// know the network to validate addresses and pick protocol parameters; a
+  /// transaction body does not always carry a network id of its own.
+  final int? networkId;
+
   const HardwareSignRequest({
     required this.txBodyCborHex,
     this.unsignedTxCborHex,
     this.signerPaths = const [],
+    this.networkId,
   });
 }
 

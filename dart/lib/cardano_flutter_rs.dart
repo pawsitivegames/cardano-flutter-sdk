@@ -47,9 +47,15 @@ export 'src/hardware.dart'
     show
         HardwareAccount,
         HardwareVkeyWitness,
+        HardwareTxBody,
+        HardwareTxInput,
+        HardwareTxOutput,
+        HardwareTxAsset,
         xpubToAccount,
+        xpubDerivePublicKey,
         assembleVkeyWitnessSet,
-        extractVkeyWitnesses;
+        extractVkeyWitnesses,
+        decomposeTxBody;
 export 'src/hardware/hardware_cip30_wallet.dart';
 
 // Providers

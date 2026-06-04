@@ -102,15 +102,58 @@ class _LedgerScreenState extends State<LedgerScreen> {
     }
   }
 
-  Future<void> _trySign() async {
+  /// On-device signing round-trip (the v1.0 gate): build a minimal self-payment
+  /// from the wallet's own UTxOs, have the Ledger sign it, assemble, and submit.
+  ///
+  /// Until this has succeeded against a physical Ledger it is unverified — see
+  /// docs/hardware-wallets.md.
+  Future<void> _signAndSubmit() async {
     final wallet = _wallet;
     if (wallet == null) return;
-    // Demonstrates the device-signing entry point. Currently surfaces the
-    // pending-verification status rather than a fabricated signature.
+    setState(() => _busy = true);
     try {
-      await wallet.signTx('00');
+      final utxos = await widget.provider.fetchUtxos(wallet.baseAddress);
+      if (utxos.isEmpty) {
+        _logLine('No UTxOs — fund ${wallet.baseAddress} on preview first.');
+        return;
+      }
+
+      // Send 1 ADA back to ourselves; change returns to the same address.
+      final params = (await widget.provider.fetchProtocolParameters())
+          .toProtocolParams();
+      final txInputs = utxosToTxInputs(utxos);
+      final target = TxOutput(
+        address: wallet.baseAddress,
+        value: Value(coin: BigInt.from(1000000), assets: []),
+      );
+      final selection = await selectCoinsForTransaction(
+        availableUtxos: txInputs,
+        targetOutputs: [target],
+        changeAddress: wallet.baseAddress,
+        protocolParams: params,
+      );
+      final built = await buildTransaction(
+        inputs: selection.selectedInputs,
+        outputs: [target, ...selection.changeOutputs],
+        changeAddress: wallet.baseAddress,
+        ttl: null,
+        protocolParams: params,
+      );
+
+      _logLine('Built tx ${built.txHash} (fee ${built.fee} lovelace).');
+      _logLine('Confirm on the Ledger…');
+
+      final signedTx = await wallet.signTransaction(HardwareSignRequest(
+        txBodyCborHex: built.txBodyCborHex,
+        signerPaths: [wallet.paymentPath],
+      ));
+      _logLine('Device signed; submitting…');
+      final txId = await wallet.submitTx(signedTx);
+      _logLine('Submitted! tx: $txId');
     } catch (e) {
-      _logLine('signTx: $e');
+      _logLine('Sign/submit failed: $e');
+    } finally {
+      setState(() => _busy = false);
     }
   }
 
@@ -152,9 +195,9 @@ class _LedgerScreenState extends State<LedgerScreen> {
                   label: const Text('Balance / UTxOs'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: wallet == null || _busy ? null : _trySign,
+                  onPressed: wallet == null || _busy ? null : _signAndSubmit,
                   icon: const Icon(Icons.edit_document),
-                  label: const Text('Sign (status)'),
+                  label: const Text('Sign 1 ₳ → self'),
                 ),
               ],
             ),

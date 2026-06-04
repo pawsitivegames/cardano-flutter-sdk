@@ -1,5 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.cardano_flutter_rs_example">
+    <!-- Camera: in-wallet QR scanning of CIP-45 connection URIs. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- Bluetooth: Ledger hardware wallet over BLE (Phase 4.5). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30"/>
    <application
         android:label="Cardano Flutter RS Example"
         android:icon="@mipmap/ic_launcher">
@@ -14,6 +23,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- CIP-45: open web+cardano:// dApp connection deep links in-app.
+                 app_links delivers the URI to the running app via uriLinkStream;
+                 singleTop (above) routes it to the existing MainActivity. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="web+cardano"/>
             </intent-filter>
         </activity>
         <meta-data

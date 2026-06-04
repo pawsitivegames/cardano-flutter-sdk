@@ -22,6 +22,12 @@ dependencies:
   # the HardwareWallet adapter; the core SDK stays free of device transports.
   ledger_cardano_plus: ^0.5.9
   permission_handler: ^11.3.1
+  # In-wallet QR scanning of CIP-45 web+cardano:// connection URIs (example only).
+  mobile_scanner: ^5.2.3
+  # Native (no-WebView) CIP-45 transport scaffold: WebRTC peer connection + data
+  # channel. The WebTorrent-tracker discovery + bugout NaCl/bencode framing are
+  # provided via pluggable seams (see lib/cip45_webrtc_transport.dart).
+  flutter_webrtc: ^0.11.7
 
 dev_dependencies:
   flutter_test:

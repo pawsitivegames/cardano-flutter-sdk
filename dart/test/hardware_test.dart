@@ -298,6 +298,142 @@ void main() {
       expect(pairs, hasLength(1));
     });
   });
+
+  group('xpubDerivePublicKey', () {
+    test('role-0 pubkey matches the software payment witness pubkey', () async {
+      // Software-sign a tx, extract the payment vkey it used, and confirm the
+      // public soft-derivation at role 0/index 0 reproduces exactly that key.
+      final keys = await deriveKeysFromMnemonic(
+        mnemonic: testMnemonic,
+        passphrase: '',
+        accountIndex: 0,
+        isTestnet: true,
+      );
+      final base = computeBaseAddress(
+        paymentKeyHashHex: keys.paymentKeyHash,
+        stakeKeyHashHex: keys.stakeKeyHash,
+        networkId: 0,
+      );
+      final built = _buildSampleTx(base);
+      final signed = await signTransaction(
+        txBodyCborHex: built.txBodyCborHex,
+        paymentKeys: [keys.paymentSigningKey],
+      );
+      final softwarePubkey = extractVkeyWitnesses(
+        witnessSetCborHex: cip30SignTx(
+          txCborHex: signed.txCborHex,
+          signingKeysBech32: [keys.paymentSigningKey],
+        ),
+      ).first.vkeyHex;
+
+      final payPub = xpubDerivePublicKey(
+          accountXpubHex: testAccountXpub, role: 0, index: 0);
+      final stakePub = xpubDerivePublicKey(
+          accountXpubHex: testAccountXpub, role: 2, index: 0);
+      expect(payPub.length, 64); // 32-byte raw Ed25519 public key
+      expect(payPub, softwarePubkey);
+      // Stake key is a distinct soft-derivation.
+      expect(stakePub, isNot(payPub));
+    });
+
+    test('rejects a malformed xpub', () {
+      expect(
+        () => xpubDerivePublicKey(
+            accountXpubHex: 'deadbeef', role: 0, index: 0),
+        throwsA(anything),
+      );
+    });
+  });
+
+  group('decomposeTxBody', () {
+    test('breaks a payment body into device-signable parts', () async {
+      final keys = await deriveKeysFromMnemonic(
+        mnemonic: testMnemonic,
+        passphrase: '',
+        accountIndex: 0,
+        isTestnet: true,
+      );
+      final base = computeBaseAddress(
+        paymentKeyHashHex: keys.paymentKeyHash,
+        stakeKeyHashHex: keys.stakeKeyHash,
+        networkId: 0,
+      );
+      final built = _buildSampleTx(base);
+      final parts = decomposeTxBody(txBodyCborHex: built.txBodyCborHex);
+
+      expect(parts.inputs, hasLength(1));
+      expect(parts.inputs.first.txHashHex,
+          '0000000000000000000000000000000000000000000000000000000000000000');
+      expect(parts.inputs.first.outputIndex, 0);
+      expect(parts.outputs, isNotEmpty);
+      // Every output amount and the fee parse as integers.
+      expect(BigInt.parse(parts.outputs.first.coin), greaterThan(BigInt.zero));
+      expect(BigInt.parse(parts.fee), greaterThan(BigInt.zero));
+      // Plain payment carries no certs/withdrawals/mint/etc.
+      expect(parts.hasUnsupportedFeatures, isFalse);
+    });
+
+    test('rejects malformed CBOR', () {
+      expect(
+        () => decomposeTxBody(txBodyCborHex: '00'),
+        throwsA(anything),
+      );
+    });
+  });
+
+  // Simulates exactly what the Ledger adapter does on-device: the "device"
+  // returns each signature paired only with a derivation path, and the adapter
+  // re-derives the public key from the account xpub (xpubDerivePublicKey) to
+  // rebuild a full vkey witness. Using a real software signature, the assembled
+  // transaction must be byte-identical to the software-signed reference — so the
+  // adapter's witness-reconstruction logic is proven without a physical device.
+  group('device witness reconstruction (no device)', () {
+    test('path + re-derived pubkey + real signature → identical tx', () async {
+      final keys = await deriveKeysFromMnemonic(
+        mnemonic: testMnemonic,
+        passphrase: '',
+        accountIndex: 0,
+        isTestnet: true,
+      );
+      final base = computeBaseAddress(
+        paymentKeyHashHex: keys.paymentKeyHash,
+        stakeKeyHashHex: keys.stakeKeyHash,
+        networkId: 0,
+      );
+      final built = _buildSampleTx(base);
+      final signed = await signTransaction(
+        txBodyCborHex: built.txBodyCborHex,
+        paymentKeys: [keys.paymentSigningKey],
+      );
+      final softwareWitnessSet = cip30SignTx(
+        txCborHex: signed.txCborHex,
+        signingKeysBech32: [keys.paymentSigningKey],
+      );
+      final referenceTx = cip30AssembleTx(
+        txBodyCborHex: built.txBodyCborHex,
+        witnessSetCborHex: softwareWitnessSet,
+      );
+
+      // The device gives us only (path, signature) — discard the pubkey.
+      final deviceSig =
+          extractVkeyWitnesses(witnessSetCborHex: softwareWitnessSet)
+              .first
+              .signatureHex;
+      // Re-derive the payment pubkey from the xpub (path role 0, index 0).
+      final reconstructed = HardwareVkeyWitness(
+        vkeyHex: xpubDerivePublicKey(
+            accountXpubHex: testAccountXpub, role: 0, index: 0),
+        signatureHex: deviceSig,
+      );
+
+      final witnessSet = assembleVkeyWitnessSet(witnesses: [reconstructed]);
+      final assembled = cip30AssembleTx(
+        txBodyCborHex: built.txBodyCborHex,
+        witnessSetCborHex: witnessSet,
+      );
+      expect(assembled, referenceTx);
+    });
+  });
 }
 
 ProtocolParams _params() => ProtocolParams(

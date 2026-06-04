@@ -103,6 +103,192 @@ pub fn xpub_to_account(
     })
 }
 
+/// Soft-derive a single raw Ed25519 public key from an account xpub.
+///
+/// Symmetric with [`xpub_to_account`]: a hardware device returns each signature
+/// paired only with a BIP-32 *path* (no public key), so to turn a device
+/// `(path, signature)` into a vkey witness we re-derive that path's public key
+/// from the same account xpub the addresses were derived from.
+///
+/// `role`/`index` are the last two (non-hardened) segments of a CIP-1852 path —
+/// e.g. payment is `role = 0, index = 0`, stake is `role = 2, index = 0`.
+///
+/// # Arguments
+/// - `account_xpub_hex`: 128-char hex of the 64-byte account xpub
+/// - `role`: CIP-1852 role (0 = external/payment, 1 = change, 2 = stake)
+/// - `index`: address index within the role
+///
+/// Returns the 32-byte raw Ed25519 public key as 64 hex chars.
+#[frb(sync)]
+pub fn xpub_derive_public_key(
+    account_xpub_hex: String,
+    role: u32,
+    index: u32,
+) -> Result<String, CardanoError> {
+    let bytes = hex_to_bytes(&account_xpub_hex)?;
+    if bytes.len() != 64 {
+        return Err(CardanoError::InvalidKey(format!(
+            "Account xpub must be 64 bytes (got {})",
+            bytes.len()
+        )));
+    }
+    let xpub = csl::Bip32PublicKey::from_bytes(&bytes)
+        .map_err(|_| CardanoError::InvalidKey("Invalid BIP-32 account xpub".to_string()))?;
+    let derived = xpub
+        .derive(role)
+        .map_err(map_csl_error)?
+        .derive(index)
+        .map_err(map_csl_error)?;
+    Ok(hex::encode(derived.to_raw_key().as_bytes()))
+}
+
+/// A transaction input, in the device-friendly form a hardware wallet displays
+/// and witnesses (the UTxO it spends, without the resolved value).
+#[derive(Clone, Debug)]
+pub struct HardwareTxInput {
+    /// 32-byte transaction id of the UTxO being spent, hex (64 chars).
+    pub tx_hash_hex: String,
+    /// Output index within that transaction.
+    pub output_index: u32,
+}
+
+/// A native-asset entry inside a decomposed transaction output.
+#[derive(Clone, Debug)]
+pub struct HardwareTxAsset {
+    /// 28-byte policy id, hex (56 chars).
+    pub policy_id_hex: String,
+    /// Asset name bytes, hex (0–64 chars).
+    pub asset_name_hex: String,
+    /// Quantity as a decimal string (u64).
+    pub amount: String,
+}
+
+/// A transaction output in the device-friendly form a hardware wallet displays.
+#[derive(Clone, Debug)]
+pub struct HardwareTxOutput {
+    /// Raw address bytes, hex — exactly what a device's "third-party address"
+    /// destination expects (not bech32, not CBOR-wrapped).
+    pub address_hex: String,
+    /// ADA amount (lovelace) as a decimal string (u64).
+    pub coin: String,
+    /// Native assets carried by the output.
+    pub assets: Vec<HardwareTxAsset>,
+}
+
+/// A transaction body decomposed into the primitives a hardware device needs to
+/// reconstruct, display, and sign it.
+///
+/// Hardware wallets (Ledger) do not sign raw CBOR — they are handed a structured
+/// description of the transaction, re-serialize it on-device, show it to the
+/// user, and sign the hash they compute. This is the SDK's authoritative
+/// (CSL-parsed) decomposition of a transaction body that a device adapter maps
+/// into its own wire types.
+#[derive(Clone, Debug)]
+pub struct HardwareTxBody {
+    /// Inputs (UTxOs) the transaction spends.
+    pub inputs: Vec<HardwareTxInput>,
+    /// Outputs the transaction creates.
+    pub outputs: Vec<HardwareTxOutput>,
+    /// Fee in lovelace, as a decimal string (u64).
+    pub fee: String,
+    /// Time-to-live slot, if set (decimal string).
+    pub ttl: Option<String>,
+    /// Validity-interval start slot, if set (decimal string).
+    pub validity_start: Option<String>,
+    /// Network id carried in the body, if present (0 = testnet, 1 = mainnet).
+    pub network_id: Option<u8>,
+    /// `true` when the body carries features this decomposition does **not** yet
+    /// model (certificates, withdrawals, mint, collateral, reference inputs,
+    /// governance votes). A device adapter MUST refuse to sign in that case
+    /// rather than present the user an incomplete transaction.
+    pub has_unsupported_features: bool,
+}
+
+/// Decompose a CBOR transaction **body** into device-signable primitives.
+///
+/// The inverse direction of assembly: the SDK builds a transaction body, this
+/// breaks it back into the structured inputs/outputs/fee/ttl a hardware device
+/// needs to reconstruct it. Parsing is delegated to CSL so the decomposition is
+/// authoritative.
+///
+/// Only the ordinary-payment shape is modelled today (inputs, outputs with ADA +
+/// native tokens, fee, ttl, validity start, network id). Bodies with
+/// certificates, withdrawals, mint, collateral, reference inputs, or governance
+/// votes set [`HardwareTxBody::has_unsupported_features`] so the caller can
+/// refuse rather than mis-sign.
+///
+/// # Arguments
+/// - `tx_body_cbor_hex`: CBOR hex of a `TransactionBody`
+#[frb(sync)]
+pub fn decompose_tx_body(tx_body_cbor_hex: String) -> Result<HardwareTxBody, CardanoError> {
+    let body = csl::TransactionBody::from_bytes(hex_to_bytes(&tx_body_cbor_hex)?)
+        .map_err(|_| CardanoError::InvalidCbor("Invalid tx body CBOR".to_string()))?;
+
+    let mut inputs = Vec::new();
+    let ins = body.inputs();
+    for i in 0..ins.len() {
+        let inp = ins.get(i);
+        inputs.push(HardwareTxInput {
+            tx_hash_hex: hex::encode(inp.transaction_id().to_bytes()),
+            output_index: inp.index(),
+        });
+    }
+
+    let mut outputs = Vec::new();
+    let outs = body.outputs();
+    for i in 0..outs.len() {
+        let out = outs.get(i);
+        let val = out.amount();
+        let mut assets = Vec::new();
+        if let Some(ma) = val.multiasset() {
+            let policies = ma.keys();
+            for p in 0..policies.len() {
+                let policy = policies.get(p);
+                if let Some(asset_map) = ma.get(&policy) {
+                    let names = asset_map.keys();
+                    for n in 0..names.len() {
+                        let name = names.get(n);
+                        if let Some(qty) = asset_map.get(&name) {
+                            assets.push(HardwareTxAsset {
+                                policy_id_hex: hex::encode(policy.to_bytes()),
+                                asset_name_hex: hex::encode(name.name()),
+                                amount: qty.to_str(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        outputs.push(HardwareTxOutput {
+            address_hex: hex::encode(out.address().to_bytes()),
+            coin: val.coin().to_str(),
+            assets,
+        });
+    }
+
+    let has_unsupported_features = body.certs().is_some()
+        || body.withdrawals().is_some()
+        || body.mint().is_some()
+        || body.collateral().is_some()
+        || body.reference_inputs().is_some()
+        || body.voting_procedures().is_some();
+
+    let network_id = body.network_id().map(|n| match n.kind() {
+        csl::NetworkIdKind::Testnet => 0u8,
+        csl::NetworkIdKind::Mainnet => 1u8,
+    });
+
+    Ok(HardwareTxBody {
+        inputs,
+        outputs,
+        fee: body.fee().to_str(),
+        ttl: body.ttl_bignum().map(|t| t.to_str()),
+        validity_start: body.validity_start_interval_bignum().map(|t| t.to_str()),
+        network_id,
+        has_unsupported_features,
+    })
+}
+
 /// Assemble raw device vkey witnesses into a CBOR `transaction_witness_set`.
 ///
 /// Hardware wallets return `(public_key, signature)` pairs rather than a CBOR
@@ -240,6 +426,108 @@ mod tests {
         let ws = csl::TransactionWitnessSet::new();
         let hex_ws = hex::encode(ws.to_bytes());
         assert!(extract_vkey_witnesses(hex_ws).unwrap().is_empty());
+    }
+
+    #[test]
+    fn xpub_derive_public_key_matches_account_hashes() {
+        // The payment pubkey (role 0, index 0) must hash to the same payment key
+        // hash xpub_to_account produces — proving the device-witness pubkey
+        // derivation is consistent with the address derivation.
+        let pay_pub_hex = xpub_derive_public_key(TEST_ACCT_XPUB.to_string(), 0, 0).unwrap();
+        let pay_pub = csl::PublicKey::from_bytes(&hex::decode(&pay_pub_hex).unwrap()).unwrap();
+        assert_eq!(hex::encode(pay_pub.hash().to_bytes()), EXPECTED_PAY_HASH);
+
+        let stake_pub_hex = xpub_derive_public_key(TEST_ACCT_XPUB.to_string(), 2, 0).unwrap();
+        let stake_pub = csl::PublicKey::from_bytes(&hex::decode(&stake_pub_hex).unwrap()).unwrap();
+        assert_eq!(
+            hex::encode(stake_pub.hash().to_bytes()),
+            EXPECTED_STAKE_HASH
+        );
+    }
+
+    #[test]
+    fn xpub_derive_public_key_rejects_wrong_length() {
+        assert!(xpub_derive_public_key("abcd".to_string(), 0, 0).is_err());
+    }
+
+    #[test]
+    fn decompose_tx_body_roundtrips_payment() {
+        // Build a minimal body with CSL: one input, one output (ADA), fee, ttl.
+        let mut body_inputs = csl::TransactionInputs::new();
+        let tx_hash = csl::TransactionHash::from_bytes(vec![7u8; 32]).unwrap();
+        body_inputs.add(&csl::TransactionInput::new(&tx_hash, 1));
+
+        let addr = csl::Address::from_bech32(
+            "addr_test1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg57c2qv",
+        )
+        .unwrap();
+        let mut body_outputs = csl::TransactionOutputs::new();
+        body_outputs.add(&csl::TransactionOutput::new(
+            &addr,
+            &csl::Value::new(&csl::BigNum::from(1_500_000u64)),
+        ));
+
+        let mut body = csl::TransactionBody::new_tx_body(
+            &body_inputs,
+            &body_outputs,
+            &csl::BigNum::from(170_000u64),
+        );
+        body.set_ttl(&csl::BigNum::from(99_000_000u64));
+
+        let parts = decompose_tx_body(hex::encode(body.to_bytes())).unwrap();
+        assert_eq!(parts.inputs.len(), 1);
+        assert_eq!(parts.inputs[0].tx_hash_hex, hex::encode([7u8; 32]));
+        assert_eq!(parts.inputs[0].output_index, 1);
+        assert_eq!(parts.outputs.len(), 1);
+        assert_eq!(parts.outputs[0].coin, "1500000");
+        assert!(parts.outputs[0].assets.is_empty());
+        // address_hex is the raw address bytes (matches the bech32 we built from).
+        assert_eq!(parts.outputs[0].address_hex, hex::encode(addr.to_bytes()));
+        assert_eq!(parts.fee, "170000");
+        assert_eq!(parts.ttl.as_deref(), Some("99000000"));
+        assert!(!parts.has_unsupported_features);
+    }
+
+    #[test]
+    fn decompose_tx_body_flags_certificates() {
+        // A body carrying a stake registration certificate must be flagged so a
+        // device adapter refuses rather than mis-signing.
+        let mut body_inputs = csl::TransactionInputs::new();
+        let tx_hash = csl::TransactionHash::from_bytes(vec![3u8; 32]).unwrap();
+        body_inputs.add(&csl::TransactionInput::new(&tx_hash, 0));
+        let addr = csl::Address::from_bech32(
+            "addr_test1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg57c2qv",
+        )
+        .unwrap();
+        let mut body_outputs = csl::TransactionOutputs::new();
+        body_outputs.add(&csl::TransactionOutput::new(
+            &addr,
+            &csl::Value::new(&csl::BigNum::from(1_000_000u64)),
+        ));
+        let mut body = csl::TransactionBody::new_tx_body(
+            &body_inputs,
+            &body_outputs,
+            &csl::BigNum::from(170_000u64),
+        );
+
+        let stake_pub_hex = xpub_derive_public_key(TEST_ACCT_XPUB.to_string(), 2, 0).unwrap();
+        let stake_hash = csl::PublicKey::from_bytes(&hex::decode(&stake_pub_hex).unwrap())
+            .unwrap()
+            .hash();
+        let cred = csl::Credential::from_keyhash(&stake_hash);
+        let mut certs = csl::Certificates::new();
+        certs.add(&csl::Certificate::new_stake_registration(
+            &csl::StakeRegistration::new(&cred),
+        ));
+        body.set_certs(&certs);
+
+        let parts = decompose_tx_body(hex::encode(body.to_bytes())).unwrap();
+        assert!(parts.has_unsupported_features);
+    }
+
+    #[test]
+    fn decompose_tx_body_rejects_bad_cbor() {
+        assert!(decompose_tx_body("00".to_string()).is_err());
     }
 
     #[test]

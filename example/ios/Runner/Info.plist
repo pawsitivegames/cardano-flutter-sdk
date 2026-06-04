@@ -29,6 +29,9 @@
 	<string>Connect to a Ledger hardware wallet over Bluetooth to view your account and sign transactions.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>Connect to a Ledger hardware wallet over Bluetooth to view your account and sign transactions.</string>
+	<!-- In-wallet QR scanning of CIP-45 connection URIs -->
+	<key>NSCameraUsageDescription</key>
+	<string>Scan a dApp’s CIP-45 connection QR code to connect your wallet.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

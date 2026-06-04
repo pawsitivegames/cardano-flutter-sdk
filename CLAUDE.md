@@ -139,11 +139,18 @@ Decisions made:
 - **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
 
 When you start a session, the next phase is:
-- **Close the Phase 4.5 v1.0 gate:** implement + verify Ledger `signTransaction`
-  on a physical device (Nano X / Stax / Flex), then publish v1.0.0. Checklist:
+- **Close the Phase 4.5 v1.0 gate:** Ledger `signTransaction` is now **implemented**
+  (Rust `xpubDerivePublicKey`+`decomposeTxBody`; example adapter maps→`ParsedSigningRequest`,
+  re-derives witness pubkeys) but **unverified on hardware** — needs a physical
+  device (Nano X / Stax / Flex) round-trip, then publish v1.0.0. Checklist:
   `docs/hardware-wallets.md`. Needs hardware the maintainer must supply.
-- Optional CIP-45 follow-ups: Android intent-filter + Android-device verify;
-  in-wallet QR scanning; a `flutter_webrtc`-native transport as a bugout fallback.
+- CIP-45 follow-ups (2026-06-03): Android `web+cardano://` intent-filter ✅
+  (Android-device verify pending), in-wallet QR scanning (`mobile_scanner`) ✅
+  **verified on iPhone 13** (scan dApp QR → parse → CIP-45 connect → API handshake),
+  `flutter_webrtc`-native transport **scaffold** (`WebrtcCip45Transport`) — WebRTC
+  done; bugout seams (`Cip45SignalingChannel`=WebTorrent tracker, `Cip45RpcCodec`=
+  NaCl/bencode) documented, not implemented. Remaining: a Dart WebTorrent tracker
+  client + bugout framing, plus Android-device live run.
 - Done: 4.1 Staking (v0.4.0) · 4.2 Message Signing CIP-8 (v0.5.0) · 4.3 CIP-30 (v0.6.0)
   · 4.4 CIP-45 (v0.7.0, live-verified on iOS) · 4.5 Hardware-wallet **core**
   (v0.8.0; xpub→account, witness assemble/extract, `HardwareCip30Wallet`,

@@ -155,7 +155,16 @@ class HardwareCip30Wallet {
   /// `transaction_witness_set` ([assembleVkeyWitnessSet]) and combined with
   /// [HardwareSignRequest.txBodyCborHex] ([cip30AssembleTx]).
   Future<String> signTransaction(HardwareSignRequest request) async {
-    final witnesses = await device.signTransaction(request);
+    final witnesses = await device.signTransaction(
+      request.networkId == null
+          ? HardwareSignRequest(
+              txBodyCborHex: request.txBodyCborHex,
+              unsignedTxCborHex: request.unsignedTxCborHex,
+              signerPaths: request.signerPaths,
+              networkId: networkId,
+            )
+          : request,
+    );
     final witnessSetHex = assembleVkeyWitnessSet(witnesses: witnesses);
     return cip30AssembleTx(
       txBodyCborHex: request.txBodyCborHex,
@@ -175,6 +184,7 @@ class HardwareCip30Wallet {
     final witnesses = await device.signTransaction(HardwareSignRequest(
       txBodyCborHex: txBodyCborHex,
       signerPaths: signerPaths ?? [paymentPath],
+      networkId: networkId,
     ));
     return assembleVkeyWitnessSet(witnesses: witnesses);
   }
