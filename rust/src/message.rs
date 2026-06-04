@@ -1,10 +1,26 @@
 //! CIP-8 message signing and verification.
 //!
 //! Provides functions to sign arbitrary messages with payment or stake keys
-//! and verify signatures following the CIP-8 specification (COSESign1).
+//! and verify signatures.
 //!
-//! The COSE Sign1 structure is a compact signing envelope defined in RFC 9052
-//! and adopted by Cardano for dApp authentication flows.
+//! # ⚠️ Legacy — prefer [`crate::cip30`] for new code
+//!
+//! These functions emit a **custom, non-COSE** CBOR map
+//! (`{public_key, signature, message}`), **not** a spec `COSE_Sign1` array, so
+//! they are *not interoperable* with browser wallets (Lace/Eternl/Nami). For
+//! CIP-30 `signData`/CIP-8 interop use [`crate::cip30::cip30_sign_data`] /
+//! [`crate::cip30::cip30_verify_data`], which are built on Emurgo's reference
+//! `cardano-message-signing` library.
+//!
+//! # Identity binding (security)
+//!
+//! A bare "this is a valid Ed25519 signature by *some* key" check is a forgery
+//! oracle: an attacker can keep a victim's `address` while supplying their own
+//! `public_key` + a signature they made with their own key. To prevent this,
+//! [`verify_message`] **cryptographically binds** the signing public key to the
+//! claimed address — the Blake2b-224 hash of `public_key_hex` must equal a
+//! credential inside the address before the signature is trusted. See
+//! [`verify_message_internal`].
 
 use crate::error::CardanoError;
 use blake2::Blake2b;
@@ -103,18 +119,22 @@ pub fn sign_message_internal(
 
 /// Verify a CIP-8 signed message.
 ///
-/// Reconstructs the message hash, extracts the public key from the signature,
-/// and verifies that the signature is valid.
+/// Verifies that the signature is a valid Ed25519 signature over the message
+/// **and**, when an address is involved, that the signing public key actually
+/// owns that address (identity binding — see the module docs).
 ///
 /// # Arguments
 /// * `signed_message` - The [SignedMessage] to verify
-/// * `expected_address` - Optional: if provided, the address in the message must match
+/// * `expected_address` - Optional: if provided, must equal `signed_message.address`,
+///   and the signing key must hash to a credential in that address.
 ///
 /// # Returns
-/// `true` if the signature is valid, `false` otherwise.
+/// `true` if the signature is valid (and identity-bound, when an address is
+/// present); `false` otherwise.
 ///
 /// # Errors
 /// * `InvalidCbor` - If the COSE Sign1 structure is malformed
+/// * `InvalidAddress` - If a claimed/expected address cannot be parsed
 #[frb(sync)]
 pub fn verify_message(
     signed_message: SignedMessage,
@@ -127,9 +147,10 @@ pub fn verify_message_internal(
     signed_message: SignedMessage,
     expected_address: Option<String>,
 ) -> Result<bool, CardanoError> {
-    // Check address match if required
-    if let Some(expected) = expected_address {
-        if signed_message.address.as_ref() != Some(&expected) {
+    // Check address match if required (the caller's expected address must equal
+    // the one the signer claimed).
+    if let Some(expected) = expected_address.as_ref() {
+        if signed_message.address.as_ref() != Some(expected) {
             return Ok(false); // Address mismatch
         }
     }
@@ -167,10 +188,47 @@ pub fn verify_message_internal(
     let signature = csl::Ed25519Signature::from_bytes(signature_bytes)
         .map_err(|_| CardanoError::InvalidCbor("Invalid signature format".to_string()))?;
 
+    // ── Identity binding ──────────────────────────────────────────────────────
+    // If the signer claimed an address (or the caller pinned one), the signing
+    // public key MUST hash to a credential inside that address. Without this a
+    // valid signature by *any* key would satisfy a claim about *someone else's*
+    // address — the forgery oracle this fix closes.
+    //
+    // The address to bind against is the one the signer embedded. (`expected`
+    // has already been required to equal it above, so checking either is
+    // equivalent.) A bech32-prefixed value is treated as a real Cardano address
+    // and parsed; anything else is rejected as an invalid address rather than
+    // silently skipping the binding.
+    if let Some(address) = signed_message.address.as_ref() {
+        if !public_key_owns_address(&public_key, address)? {
+            return Ok(false);
+        }
+    }
+
     // Verify the signature
     let is_valid = public_key.verify(&hash, &signature);
 
     Ok(is_valid)
+}
+
+/// Return `true` if the Blake2b-224 hash of `public_key` matches a credential
+/// (payment or stake) inside the bech32 `address`.
+///
+/// Used to bind a signing key to a claimed address so that a valid signature
+/// cannot be replayed as if it came from an address the key does not control.
+///
+/// # Errors
+/// * `InvalidAddress` - If `address` is not a parseable bech32 Cardano address.
+fn public_key_owns_address(
+    public_key: &csl::PublicKey,
+    address: &str,
+) -> Result<bool, CardanoError> {
+    let addr = csl::Address::from_bech32(address)
+        .map_err(|_| CardanoError::InvalidAddress(format!("Invalid bech32 address: {address}")))?;
+    let pk_hash = public_key.hash().to_bytes();
+    Ok(crate::cip30::address_credential_hashes(&addr)
+        .iter()
+        .any(|cred| cred == &pk_hash))
 }
 
 /// Internal COSE Sign1 structure for serialization.
@@ -227,6 +285,18 @@ mod tests {
         stake_key.to_bech32()
     }
 
+    /// A real testnet base address controlled by the given account's payment key.
+    fn account_base_address(account_index: u32) -> String {
+        let k = crate::wallet::derive_keys_from_mnemonic_internal(
+            TEST_MNEMONIC,
+            "",
+            account_index,
+            true,
+        )
+        .unwrap();
+        crate::cip30::compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap()
+    }
+
     #[test]
     fn test_sign_and_verify_message_with_payment_key() {
         let payment_key = derive_payment_key();
@@ -263,11 +333,10 @@ mod tests {
         let message_hex = hex::encode(message);
 
         let signed =
-            sign_message_internal(message_hex, payment_key, Some("addr_test1qz0".to_string()))
-                .unwrap();
+            sign_message_internal(message_hex, payment_key, Some(account_base_address(0))).unwrap();
 
-        // Verify with different address should fail
-        let is_valid = verify_message_internal(signed, Some("addr_test1qz1".to_string())).unwrap();
+        // Verify pinned to a different address should fail (string mismatch).
+        let is_valid = verify_message_internal(signed, Some(account_base_address(1))).unwrap();
         assert!(!is_valid, "Signature should not verify for wrong address");
     }
 
@@ -276,14 +345,54 @@ mod tests {
         let payment_key = derive_payment_key();
         let message = "Test message".as_bytes();
         let message_hex = hex::encode(message);
-        let expected_addr = "addr_test1qz0".to_string();
+        let expected_addr = account_base_address(0);
 
         let signed =
             sign_message_internal(message_hex, payment_key, Some(expected_addr.clone())).unwrap();
 
-        // Verify with same address should succeed
+        // Verify with same address (and a key that owns it) should succeed.
         let is_valid = verify_message_internal(signed, Some(expected_addr)).unwrap();
         assert!(is_valid, "Signature should verify for matching address");
+    }
+
+    #[test]
+    fn test_verify_rejects_forged_identity() {
+        // The forgery oracle this hardening closes: the attacker signs with
+        // their OWN key but claims the victim's address. The signature is a
+        // genuine Ed25519 signature, yet it must NOT verify as the victim.
+        let attacker_key = {
+            // Account 1 payment key — a key the victim (account 0) does not own.
+            let mnemonic_obj = bip39::Mnemonic::parse(TEST_MNEMONIC).expect("Valid mnemonic");
+            let entropy = mnemonic_obj.to_entropy();
+            let root_key = csl::Bip32PrivateKey::from_bip39_entropy(&entropy, b"");
+            let account_key = root_key
+                .derive(1852 | 0x80000000)
+                .derive(1815 | 0x80000000)
+                .derive(1 | 0x80000000);
+            account_key.derive(0).derive(0).to_bech32()
+        };
+        let victim_addr = account_base_address(0);
+        let message_hex = hex::encode("I authorize this".as_bytes());
+
+        // Attacker signs but stamps the victim's address as context.
+        let forged =
+            sign_message_internal(message_hex, attacker_key, Some(victim_addr.clone())).unwrap();
+
+        // Pinning to the victim address must reject — the attacker key does not
+        // hash to the victim address's credential.
+        let pinned = verify_message_internal(forged.clone(), Some(victim_addr)).unwrap();
+        assert!(
+            !pinned,
+            "forged identity must be rejected when address pinned"
+        );
+
+        // Even without an explicit expected_address, the embedded claimed
+        // address binds: the attacker's key does not own it → reject.
+        let unpinned = verify_message_internal(forged, None).unwrap();
+        assert!(
+            !unpinned,
+            "forged identity must be rejected via the embedded address binding"
+        );
     }
 
     #[test]

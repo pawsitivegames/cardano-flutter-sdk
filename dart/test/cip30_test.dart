@@ -168,6 +168,53 @@ void main() {
         isFalse,
       );
     });
+
+    test('rejects forged identity (attacker key, victim address)', () async {
+      // Victim = account 0, attacker = account 1 (a key the victim does not own).
+      final victim = await deriveKeysFromMnemonic(
+        mnemonic: testMnemonic,
+        passphrase: '',
+        accountIndex: 0,
+        isTestnet: true,
+      );
+      final attacker = await deriveKeysFromMnemonic(
+        mnemonic: testMnemonic,
+        passphrase: '',
+        accountIndex: 1,
+        isTestnet: true,
+      );
+      final victimAddrHex = addressToHex(
+        addressBech32: computeBaseAddress(
+          paymentKeyHashHex: victim.paymentKeyHash,
+          stakeKeyHashHex: victim.stakeKeyHash,
+          networkId: 0,
+        ),
+      );
+      final payload = utf8Hex('Withdraw all funds');
+
+      // Attacker produces a *valid* signature but stamps the victim's address.
+      final forged = cip30SignData(
+        addressHex: victimAddrHex,
+        payloadHex: payload,
+        signingKeyBech32: attacker.paymentSigningKey,
+      );
+
+      // Identity binding must reject it: the COSE_Key does not own the address.
+      expect(
+        cip30VerifyData(dataSignature: forged, expectedPayloadHex: payload),
+        isFalse,
+        reason: 'forged identity must not verify',
+      );
+      // Pinning the victim address makes the rejection explicit too.
+      expect(
+        cip30VerifyData(
+          dataSignature: forged,
+          expectedPayloadHex: payload,
+          expectedAddressHex: victimAddrHex,
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('Cip30Wallet', () {

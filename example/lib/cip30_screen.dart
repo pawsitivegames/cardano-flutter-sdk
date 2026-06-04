@@ -242,9 +242,13 @@ class _Cip30ScreenState extends State<Cip30Screen> {
           .map((b) => b.toRadixString(16).padLeft(2, '0'))
           .join();
       final sig = await w.signData(payloadHex);
+      // Pin verification to this wallet's address: a true result then means
+      // "the owner of this address signed this payload" (identity binding),
+      // not merely "some key produced a valid signature".
       final valid = cip30VerifyData(
         dataSignature: sig,
         expectedPayloadHex: payloadHex,
+        expectedAddressHex: addressToHex(addressBech32: w.baseAddress),
       );
       _add(
         'signData("$message")',

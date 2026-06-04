@@ -252,6 +252,33 @@ fn map_cms_err<E: std::fmt::Debug>(e: E) -> CardanoError {
     CardanoError::InvalidCbor(format!("COSE decode error: {:?}", e))
 }
 
+/// Collect the key-hash credentials (payment and/or stake) embedded in an
+/// address. Returns the raw 28-byte Blake2b-224 hashes.
+///
+/// Used to bind a signing public key to a claimed address: the signer's key
+/// hash must appear here for the signature to be attributable to that address.
+/// Script credentials are intentionally excluded — a vkey signature can only be
+/// owned by a key credential.
+pub(crate) fn address_credential_hashes(addr: &csl::Address) -> Vec<Vec<u8>> {
+    let mut creds = Vec::new();
+    let mut push = |cred: csl::Credential| {
+        if let Some(kh) = cred.to_keyhash() {
+            creds.push(kh.to_bytes());
+        }
+    };
+    if let Some(base) = csl::BaseAddress::from_address(addr) {
+        push(base.payment_cred());
+        push(base.stake_cred());
+    } else if let Some(reward) = csl::RewardAddress::from_address(addr) {
+        push(reward.payment_cred());
+    } else if let Some(ent) = csl::EnterpriseAddress::from_address(addr) {
+        push(ent.payment_cred());
+    } else if let Some(ptr) = csl::PointerAddress::from_address(addr) {
+        push(ptr.payment_cred());
+    }
+    creds
+}
+
 /// CBOR label for the COSE `address` protected header (CIP-30 / CIP-8).
 fn address_label() -> Label {
     Label::new_text("address".to_string())
@@ -320,16 +347,31 @@ pub fn cip30_sign_data(
 /// `Sig_structure`, and verifies the Ed25519 signature against the public key
 /// embedded in the `COSE_Key`.
 ///
+/// # Identity binding (security)
+///
+/// A bare signature check answers only "is this a valid signature by the key in
+/// this `COSE_Key`?" — and the caller supplies that `COSE_Key`, so on its own it
+/// does **not** prove the owner of the signer `address` signed anything. To
+/// close that gap, this function additionally requires the `COSE_Key` public key
+/// to hash to a credential inside the `address` carried in the `COSE_Sign1`
+/// protected header (always, when that header is present). Pass
+/// `expected_address_hex` to further pin verification to a specific address.
+///
 /// # Arguments
 /// - `data_signature`: the [`DataSignature`] to verify
 /// - `expected_payload_hex`: if provided, the embedded payload must match it
+/// - `expected_address_hex`: if provided, the protected-header `address` must
+///   equal these raw address bytes (hex). The key→address binding is enforced
+///   regardless.
 ///
 /// # Returns
-/// `true` if the signature is valid (and the payload matches, if given).
+/// `true` if the signature is valid, the signing key owns the header address,
+/// and the payload/address match any expectations supplied.
 #[frb(sync)]
 pub fn cip30_verify_data(
     data_signature: DataSignature,
     expected_payload_hex: Option<String>,
+    expected_address_hex: Option<String>,
 ) -> Result<bool, CardanoError> {
     let cose_sign1 =
         COSESign1::from_bytes(hex_to_bytes(&data_signature.signature)?).map_err(map_cms_err)?;
@@ -361,6 +403,41 @@ pub fn cip30_verify_data(
         .map_err(|_| CardanoError::InvalidKey("Invalid public key bytes".to_string()))?;
     let signature = csl::Ed25519Signature::from_bytes(signature_bytes)
         .map_err(|_| CardanoError::InvalidCbor("Invalid signature bytes".to_string()))?;
+
+    // ── Identity binding ──────────────────────────────────────────────────────
+    // Read the signer address from the protected header. CIP-30 `signData`
+    // always sets it; if present we require the COSE_Key public key to hash to
+    // one of its credentials, so a valid signature cannot be passed off as
+    // coming from an address the key does not control.
+    let header_address_bytes = cose_sign1
+        .headers()
+        .protected()
+        .deserialized_headers()
+        .header(&address_label())
+        .and_then(|v| v.as_bytes());
+
+    if let Some(addr_bytes) = header_address_bytes {
+        // Optionally pin to a specific expected address.
+        if let Some(expected_hex) = expected_address_hex.as_ref() {
+            if hex_to_bytes(expected_hex)? != addr_bytes {
+                return Ok(false);
+            }
+        }
+
+        let addr = csl::Address::from_bytes(addr_bytes.clone()).map_err(|_| {
+            CardanoError::InvalidAddress("Invalid header address bytes".to_string())
+        })?;
+        let pk_hash = public_key.hash().to_bytes();
+        let owns = address_credential_hashes(&addr)
+            .iter()
+            .any(|cred| cred == &pk_hash);
+        if !owns {
+            return Ok(false);
+        }
+    } else if expected_address_hex.is_some() {
+        // Caller demanded a specific address but the signature carries none.
+        return Ok(false);
+    }
 
     Ok(public_key.verify(&to_verify, &signature))
 }
@@ -494,11 +571,11 @@ mod tests {
         assert!(!sig.signature.is_empty());
         assert!(!sig.key.is_empty());
 
-        let ok = cip30_verify_data(sig.clone(), Some(payload)).unwrap();
+        let ok = cip30_verify_data(sig.clone(), Some(payload), None).unwrap();
         assert!(ok, "data signature should verify");
 
         // No expected payload also verifies.
-        let ok2 = cip30_verify_data(sig, None).unwrap();
+        let ok2 = cip30_verify_data(sig, None, None).unwrap();
         assert!(ok2);
     }
 
@@ -561,7 +638,7 @@ mod tests {
         let payload = hex::encode("original");
         let sig = cip30_sign_data(address_hex, payload, k.payment_signing_key).unwrap();
 
-        let ok = cip30_verify_data(sig, Some(hex::encode("tampered"))).unwrap();
+        let ok = cip30_verify_data(sig, Some(hex::encode("tampered")), None).unwrap();
         assert!(!ok, "verification must fail for a different payload");
     }
 
@@ -580,8 +657,95 @@ mod tests {
         bytes[last] ^= 0xff;
         sig.signature = hex::encode(bytes);
 
-        let ok = cip30_verify_data(sig, Some(payload)).unwrap();
+        let ok = cip30_verify_data(sig, Some(payload), None).unwrap();
         assert!(!ok, "tampered signature must not verify");
+    }
+
+    fn attacker_keys() -> crate::wallet::KeyDerivationResult {
+        // A different account → a different key the victim does not control.
+        derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 1, true).unwrap()
+    }
+
+    #[test]
+    fn test_verify_data_rejects_forged_identity() {
+        // Forgery: the attacker signs with THEIR OWN key but stamps the VICTIM's
+        // address into the protected header, then hands over their own COSE_Key.
+        // The Ed25519 signature is genuine, so a naive "valid sig by some key"
+        // check would return true. Identity binding must reject it.
+        let victim = keys();
+        let attacker = attacker_keys();
+
+        let victim_addr_hex = address_to_hex(
+            compute_base_address(victim.payment_key_hash, victim.stake_key_hash, 0).unwrap(),
+        )
+        .unwrap();
+        let payload = hex::encode("Withdraw all funds");
+
+        // Attacker produces a perfectly valid signature claiming the victim addr.
+        let forged = cip30_sign_data(
+            victim_addr_hex.clone(),
+            payload.clone(),
+            attacker.payment_signing_key,
+        )
+        .unwrap();
+
+        let ok = cip30_verify_data(forged, Some(payload), None).unwrap();
+        assert!(
+            !ok,
+            "signature by attacker key must NOT verify against victim address"
+        );
+    }
+
+    #[test]
+    fn test_verify_data_expected_address_pins_signer() {
+        // Attacker honestly signs with their own key AND their own address (this
+        // is internally consistent and binds correctly). But a verifier that
+        // pins the victim's address must still reject it.
+        let victim = keys();
+        let attacker = attacker_keys();
+
+        let victim_addr_hex = address_to_hex(
+            compute_base_address(victim.payment_key_hash, victim.stake_key_hash, 0).unwrap(),
+        )
+        .unwrap();
+        let attacker_addr_hex = address_to_hex(
+            compute_base_address(attacker.payment_key_hash, attacker.stake_key_hash, 0).unwrap(),
+        )
+        .unwrap();
+        let payload = hex::encode("login");
+
+        let sig = cip30_sign_data(
+            attacker_addr_hex.clone(),
+            payload.clone(),
+            attacker.payment_signing_key,
+        )
+        .unwrap();
+
+        // Self-consistent: verifies against the attacker's own address.
+        assert!(
+            cip30_verify_data(sig.clone(), Some(payload.clone()), Some(attacker_addr_hex)).unwrap()
+        );
+        // But not when the verifier requires the victim's address.
+        assert!(
+            !cip30_verify_data(sig, Some(payload), Some(victim_addr_hex)).unwrap(),
+            "must reject when pinned address differs from header address"
+        );
+    }
+
+    #[test]
+    fn test_verify_data_expected_address_matches() {
+        let k = keys();
+        let addr_hex =
+            address_to_hex(compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap())
+                .unwrap();
+        let payload = hex::encode("ok");
+        let sig =
+            cip30_sign_data(addr_hex.clone(), payload.clone(), k.payment_signing_key).unwrap();
+
+        assert!(
+            cip30_verify_data(sig, Some(payload), Some(addr_hex)).unwrap(),
+            "honest signature must verify when the pinned address matches"
+        );
     }
 
     #[test]
@@ -603,5 +767,138 @@ mod tests {
         let k = keys();
         let res = cip30_sign_tx("deadbeef".to_string(), vec![k.payment_signing_key]);
         assert!(matches!(res, Err(CardanoError::InvalidCbor(_))));
+    }
+
+    // ── Cross-implementation interop vectors ────────────────────────────────
+    //
+    // These `COSE_Sign1` + `COSE_Key` blobs were produced OUTSIDE this crate by
+    // Emurgo's `@emurgo/cardano-message-signing-nodejs` (the reference COSE/CIP-8
+    // WASM library that Lace / Eternl / Nami / MeshJS use) signing with keys
+    // derived by `@emurgo/cardano-serialization-lib-nodejs` from the shared test
+    // mnemonic. They are frozen here as a regression gate: our hardened
+    // `cip30_verify_data` (CSL-based identity binding) must ACCEPT a genuine
+    // wallet-shaped signature for both address forms a wallet emits —
+    //   • a base address signed by the payment key (dApp login), and
+    //   • a reward (stake) address signed by the stake key.
+    // Generation is reproducible via tools/cose-interop/gen.js (see docs).
+
+    // base address signed by the payment key.
+    const EXT_BASE_ADDRESS_HEX: &str = "009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc";
+    const EXT_BASE_PAYLOAD_HEX: &str =
+        "4c6f67696e20746f204578616d706c654441707020617420323032362d30362d3034";
+    const EXT_BASE_SIG_HEX: &str = "845846a2012767616464726573735839009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dca166686173686564f458224c6f67696e20746f204578616d706c654441707020617420323032362d30362d30345840c98ec88a85c603c66ba729e92b0fdef7c6c0c484b1474c64584eec2456f228b459ed5685a7f5d7063ddcf78ffe71f9de121cf408e4ecf98eeedd33f5e7677b04";
+    const EXT_BASE_KEY_HEX: &str = "a501010327048102200621582073fea80d424276ad0978d4fe5310e8bc2d485f5f6bb3bf87612989f112ad5a7d";
+
+    // reward (stake) address signed by the stake key.
+    const EXT_REWARD_ADDRESS_HEX: &str =
+        "e032c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc";
+    const EXT_REWARD_PAYLOAD_HEX: &str = "50726f7665207374616b65206b6579206f776e657273686970";
+    const EXT_REWARD_SIG_HEX: &str = "84582aa201276761646472657373581de032c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dca166686173686564f4581950726f7665207374616b65206b6579206f776e65727368697058408a52ad61150efd36d7e830cb8641faba7757a36686f2cb6f503ca3a8f0dad7209d89f2f92dd4fe2f95bf580424d4b6436130b00ccfe4c2e50287ac977256c707";
+    const EXT_REWARD_KEY_HEX: &str = "a50101032704810220062158202c041c9c6a676ac54d25e2fdce44c56581e316ae43adc4c7bf17f23214d8d892";
+
+    #[test]
+    fn test_interop_external_base_address_vector_verifies() {
+        // The external lib derived the same base address we do — ties the foreign
+        // vector to our own derivation.
+        let k = keys();
+        let ours =
+            address_to_hex(compute_base_address(k.payment_key_hash, k.stake_key_hash, 0).unwrap())
+                .unwrap();
+        assert_eq!(
+            ours, EXT_BASE_ADDRESS_HEX,
+            "external base address must match ours"
+        );
+
+        let sig = DataSignature {
+            signature: EXT_BASE_SIG_HEX.to_string(),
+            key: EXT_BASE_KEY_HEX.to_string(),
+        };
+        assert!(
+            cip30_verify_data(
+                sig,
+                Some(EXT_BASE_PAYLOAD_HEX.to_string()),
+                Some(EXT_BASE_ADDRESS_HEX.to_string()),
+            )
+            .unwrap(),
+            "wallet-shaped base-address signature must verify with identity binding"
+        );
+    }
+
+    #[test]
+    fn test_interop_external_reward_address_vector_verifies() {
+        // Exercises the RewardAddress branch of the credential binding: the stake
+        // key signs and the stake (reward) address sits in the header.
+        let sig = DataSignature {
+            signature: EXT_REWARD_SIG_HEX.to_string(),
+            key: EXT_REWARD_KEY_HEX.to_string(),
+        };
+        assert!(
+            cip30_verify_data(
+                sig,
+                Some(EXT_REWARD_PAYLOAD_HEX.to_string()),
+                Some(EXT_REWARD_ADDRESS_HEX.to_string()),
+            )
+            .unwrap(),
+            "wallet-shaped reward-address signature must verify with identity binding"
+        );
+    }
+
+    #[test]
+    fn test_interop_external_vector_rejects_swapped_key() {
+        // Take the genuine base-address signature but present the OTHER vector's
+        // COSE_Key. The key no longer hashes to the header address → reject,
+        // proving the binding guards the externally-produced signature too.
+        let forged = DataSignature {
+            signature: EXT_BASE_SIG_HEX.to_string(),
+            key: EXT_REWARD_KEY_HEX.to_string(),
+        };
+        assert!(
+            !cip30_verify_data(forged, Some(EXT_BASE_PAYLOAD_HEX.to_string()), None).unwrap(),
+            "a mismatched COSE_Key must not verify against the header address"
+        );
+    }
+
+    // ── Live wallet vector ──────────────────────────────────────────────────
+    //
+    // Captured from the real **Eternl** browser extension (mainnet) signing
+    // "cardano-flutter-sdk COSE interop check" over its own base address via the
+    // CIP-30 `signData` API (tools/cose-interop/wallet-capture.html). Note the
+    // COSE_Key here is `a4…` (no `key_ops` entry) — a different encoding from the
+    // `a5…` our signer emits — so this also guards against over-strict COSE_Key
+    // parsing. The hardened verifier must accept it with the address bound.
+    const ETERNL_ADDRESS_HEX: &str = "0110997ab1d79815c41244f70195ec41ebbcb9698d023465a397353fa083d566cb6d70811839d998f40393fb43132688164423842135f8b20b";
+    const ETERNL_PAYLOAD_HEX: &str =
+        "63617264616e6f2d666c75747465722d73646b20434f534520696e7465726f7020636865636b";
+    const ETERNL_SIG_HEX: &str = "845846a20127676164647265737358390110997ab1d79815c41244f70195ec41ebbcb9698d023465a397353fa083d566cb6d70811839d998f40393fb43132688164423842135f8b20ba166686173686564f4582663617264616e6f2d666c75747465722d73646b20434f534520696e7465726f7020636865636b58402304c4d20e247c1ebb958359e418eb6b90d5571977990528c947f6d363d65f8b0d1da8daaed3597eae30c045e0c4c3427b68bb8d4c2706db2e48529b83108b0a";
+    const ETERNL_KEY_HEX: &str =
+        "a40101032720062158205af41bc80e360f15d611eb610fd3f12903a920dc0a49901e29de261c881e50fa";
+
+    #[test]
+    fn test_interop_live_eternl_mainnet_vector_verifies() {
+        let sig = DataSignature {
+            signature: ETERNL_SIG_HEX.to_string(),
+            key: ETERNL_KEY_HEX.to_string(),
+        };
+        assert!(
+            cip30_verify_data(
+                sig,
+                Some(ETERNL_PAYLOAD_HEX.to_string()),
+                Some(ETERNL_ADDRESS_HEX.to_string()),
+            )
+            .unwrap(),
+            "a real Eternl signData signature must verify with identity binding"
+        );
+    }
+
+    #[test]
+    fn test_interop_live_eternl_vector_rejects_wrong_payload() {
+        let sig = DataSignature {
+            signature: ETERNL_SIG_HEX.to_string(),
+            key: ETERNL_KEY_HEX.to_string(),
+        };
+        assert!(
+            !cip30_verify_data(sig, Some(hex::encode("not what was signed")), None).unwrap(),
+            "the real signature must not verify for a different payload"
+        );
     }
 }

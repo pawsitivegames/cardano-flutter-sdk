@@ -1,0 +1,11 @@
+{
+  "name": "cose-interop",
+  "private": true,
+  "description": "Generates cross-implementation CIP-30 signData vectors for the SDK's COSE identity-binding regression tests.",
+  "scripts": { "gen": "node gen.js" },
+  "dependencies": {
+    "@emurgo/cardano-message-signing-nodejs": "^1.0.1",
+    "@emurgo/cardano-serialization-lib-nodejs": "^15.0.0",
+    "bip39": "^3.1.0"
+  }
+}

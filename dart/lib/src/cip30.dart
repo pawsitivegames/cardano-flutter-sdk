@@ -8,7 +8,7 @@ import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'tx.dart';
 
-// These functions are ignored because they are not marked as `pub`: `address_label`, `blake2b_256`, `csl_value_to_value`, `map_cms_err`
+// These functions are ignored because they are not marked as `pub`: `address_credential_hashes`, `address_label`, `blake2b_256`, `csl_value_to_value`, `map_cms_err`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
 /// Compute a bech32 base address from payment and stake key hashes.
@@ -117,16 +117,34 @@ DataSignature cip30SignData(
 /// `Sig_structure`, and verifies the Ed25519 signature against the public key
 /// embedded in the `COSE_Key`.
 ///
+/// # Identity binding (security)
+///
+/// A bare signature check answers only "is this a valid signature by the key in
+/// this `COSE_Key`?" — and the caller supplies that `COSE_Key`, so on its own it
+/// does **not** prove the owner of the signer `address` signed anything. To
+/// close that gap, this function additionally requires the `COSE_Key` public key
+/// to hash to a credential inside the `address` carried in the `COSE_Sign1`
+/// protected header (always, when that header is present). Pass
+/// `expected_address_hex` to further pin verification to a specific address.
+///
 /// # Arguments
 /// - `data_signature`: the [`DataSignature`] to verify
 /// - `expected_payload_hex`: if provided, the embedded payload must match it
+/// - `expected_address_hex`: if provided, the protected-header `address` must
+///   equal these raw address bytes (hex). The key→address binding is enforced
+///   regardless.
 ///
 /// # Returns
-/// `true` if the signature is valid (and the payload matches, if given).
+/// `true` if the signature is valid, the signing key owns the header address,
+/// and the payload/address match any expectations supplied.
 bool cip30VerifyData(
-        {required DataSignature dataSignature, String? expectedPayloadHex}) =>
+        {required DataSignature dataSignature,
+        String? expectedPayloadHex,
+        String? expectedAddressHex}) =>
     RustLib.instance.api.crateCip30Cip30VerifyData(
-        dataSignature: dataSignature, expectedPayloadHex: expectedPayloadHex);
+        dataSignature: dataSignature,
+        expectedPayloadHex: expectedPayloadHex,
+        expectedAddressHex: expectedAddressHex);
 
 /// A CIP-30 `DataSignature`: a COSE_Sign1 signature plus its COSE_Key.
 ///
