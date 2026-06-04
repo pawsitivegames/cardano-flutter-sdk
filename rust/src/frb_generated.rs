@@ -1714,12 +1714,14 @@ fn wire__crate__sign__sign_tx_with_metadata_impl(
             let api_tx_body_cbor_hex = <String>::sse_decode(&mut deserializer);
             let api_payment_keys_hex = <Vec<String>>::sse_decode(&mut deserializer);
             let api_aux_data_cbor_hex = <Option<String>>::sse_decode(&mut deserializer);
+            let api_base_witness_set_cbor_hex = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, String>((move || {
                 let output_ok = crate::sign::sign_tx_with_metadata(
                     api_tx_body_cbor_hex,
                     api_payment_keys_hex,
                     api_aux_data_cbor_hex,
+                    api_base_witness_set_cbor_hex,
                 )?;
                 Ok(output_ok)
             })())
@@ -1751,6 +1753,7 @@ fn wire__crate__sign__sign_tx_with_metadata_internal_impl(
             let api_tx_body_cbor_hex = <String>::sse_decode(&mut deserializer);
             let api_payment_keys_hex = <Vec<String>>::sse_decode(&mut deserializer);
             let api_aux_data_cbor_hex = <Option<String>>::sse_decode(&mut deserializer);
+            let api_base_witness_set_cbor_hex = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::error::CardanoError>((move || {
@@ -1758,6 +1761,7 @@ fn wire__crate__sign__sign_tx_with_metadata_internal_impl(
                         api_tx_body_cbor_hex,
                         api_payment_keys_hex,
                         api_aux_data_cbor_hex,
+                        api_base_witness_set_cbor_hex,
                     )?;
                     Ok(output_ok)
                 })())
@@ -2120,11 +2124,13 @@ impl SseDecode for crate::minting::BuiltMintTx {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_txBodyCborHex = <String>::sse_decode(deserializer);
         let mut var_auxDataCborHex = <Option<String>>::sse_decode(deserializer);
+        let mut var_witnessSetCborHex = <Option<String>>::sse_decode(deserializer);
         let mut var_txHash = <String>::sse_decode(deserializer);
         let mut var_fee = <u64>::sse_decode(deserializer);
         return crate::minting::BuiltMintTx {
             tx_body_cbor_hex: var_txBodyCborHex,
             aux_data_cbor_hex: var_auxDataCborHex,
+            witness_set_cbor_hex: var_witnessSetCborHex,
             tx_hash: var_txHash,
             fee: var_fee,
         };
@@ -2996,6 +3002,7 @@ impl flutter_rust_bridge::IntoDart for crate::minting::BuiltMintTx {
         [
             self.tx_body_cbor_hex.into_into_dart().into_dart(),
             self.aux_data_cbor_hex.into_into_dart().into_dart(),
+            self.witness_set_cbor_hex.into_into_dart().into_dart(),
             self.tx_hash.into_into_dart().into_dart(),
             self.fee.into_into_dart().into_dart(),
         ]
@@ -3649,6 +3656,7 @@ impl SseEncode for crate::minting::BuiltMintTx {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.tx_body_cbor_hex, serializer);
         <Option<String>>::sse_encode(self.aux_data_cbor_hex, serializer);
+        <Option<String>>::sse_encode(self.witness_set_cbor_hex, serializer);
         <String>::sse_encode(self.tx_hash, serializer);
         <u64>::sse_encode(self.fee, serializer);
     }

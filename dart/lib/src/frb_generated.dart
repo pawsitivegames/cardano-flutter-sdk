@@ -302,12 +302,14 @@ abstract class RustLibApi extends BaseApi {
   SignedTx crateSignSignTxWithMetadata(
       {required String txBodyCborHex,
       required List<String> paymentKeysHex,
-      String? auxDataCborHex});
+      String? auxDataCborHex,
+      String? baseWitnessSetCborHex});
 
   Future<SignedTx> crateSignSignTxWithMetadataInternal(
       {required String txBodyCborHex,
       required List<String> paymentKeysHex,
-      String? auxDataCborHex});
+      String? auxDataCborHex,
+      String? baseWitnessSetCborHex});
 
   Value crateCip30SumValues({required List<Value> values});
 
@@ -1759,13 +1761,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SignedTx crateSignSignTxWithMetadata(
       {required String txBodyCborHex,
       required List<String> paymentKeysHex,
-      String? auxDataCborHex}) {
+      String? auxDataCborHex,
+      String? baseWitnessSetCborHex}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(txBodyCborHex, serializer);
         sse_encode_list_String(paymentKeysHex, serializer);
         sse_encode_opt_String(auxDataCborHex, serializer);
+        sse_encode_opt_String(baseWitnessSetCborHex, serializer);
         return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 48)!;
       },
       codec: SseCodec(
@@ -1773,7 +1777,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: sse_decode_String,
       ),
       constMeta: kCrateSignSignTxWithMetadataConstMeta,
-      argValues: [txBodyCborHex, paymentKeysHex, auxDataCborHex],
+      argValues: [
+        txBodyCborHex,
+        paymentKeysHex,
+        auxDataCborHex,
+        baseWitnessSetCborHex
+      ],
       apiImpl: this,
     ));
   }
@@ -1781,20 +1790,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateSignSignTxWithMetadataConstMeta =>
       const TaskConstMeta(
         debugName: "sign_tx_with_metadata",
-        argNames: ["txBodyCborHex", "paymentKeysHex", "auxDataCborHex"],
+        argNames: [
+          "txBodyCborHex",
+          "paymentKeysHex",
+          "auxDataCborHex",
+          "baseWitnessSetCborHex"
+        ],
       );
 
   @override
   Future<SignedTx> crateSignSignTxWithMetadataInternal(
       {required String txBodyCborHex,
       required List<String> paymentKeysHex,
-      String? auxDataCborHex}) {
+      String? auxDataCborHex,
+      String? baseWitnessSetCborHex}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(txBodyCborHex, serializer);
         sse_encode_list_String(paymentKeysHex, serializer);
         sse_encode_opt_String(auxDataCborHex, serializer);
+        sse_encode_opt_String(baseWitnessSetCborHex, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
             funcId: 49, port: port_);
       },
@@ -1803,7 +1819,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateSignSignTxWithMetadataInternalConstMeta,
-      argValues: [txBodyCborHex, paymentKeysHex, auxDataCborHex],
+      argValues: [
+        txBodyCborHex,
+        paymentKeysHex,
+        auxDataCborHex,
+        baseWitnessSetCborHex
+      ],
       apiImpl: this,
     ));
   }
@@ -1811,7 +1832,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateSignSignTxWithMetadataInternalConstMeta =>
       const TaskConstMeta(
         debugName: "sign_tx_with_metadata_internal",
-        argNames: ["txBodyCborHex", "paymentKeysHex", "auxDataCborHex"],
+        argNames: [
+          "txBodyCborHex",
+          "paymentKeysHex",
+          "auxDataCborHex",
+          "baseWitnessSetCborHex"
+        ],
       );
 
   @override
@@ -2137,13 +2163,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BuiltMintTx dco_decode_built_mint_tx(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return BuiltMintTx(
       txBodyCborHex: dco_decode_String(arr[0]),
       auxDataCborHex: dco_decode_opt_String(arr[1]),
-      txHash: dco_decode_String(arr[2]),
-      fee: dco_decode_u_64(arr[3]),
+      witnessSetCborHex: dco_decode_opt_String(arr[2]),
+      txHash: dco_decode_String(arr[3]),
+      fee: dco_decode_u_64(arr[4]),
     );
   }
 
@@ -2795,11 +2822,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_txBodyCborHex = sse_decode_String(deserializer);
     var var_auxDataCborHex = sse_decode_opt_String(deserializer);
+    var var_witnessSetCborHex = sse_decode_opt_String(deserializer);
     var var_txHash = sse_decode_String(deserializer);
     var var_fee = sse_decode_u_64(deserializer);
     return BuiltMintTx(
         txBodyCborHex: var_txBodyCborHex,
         auxDataCborHex: var_auxDataCborHex,
+        witnessSetCborHex: var_witnessSetCborHex,
         txHash: var_txHash,
         fee: var_fee);
   }
@@ -3517,6 +3546,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.txBodyCborHex, serializer);
     sse_encode_opt_String(self.auxDataCborHex, serializer);
+    sse_encode_opt_String(self.witnessSetCborHex, serializer);
     sse_encode_String(self.txHash, serializer);
     sse_encode_u_64(self.fee, serializer);
   }

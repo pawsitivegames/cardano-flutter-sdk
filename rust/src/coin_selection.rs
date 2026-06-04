@@ -186,6 +186,14 @@ pub fn largest_first(
             }
             selected.push(utxo.clone());
             accumulated_coin += utxo.value.coin;
+            // Account for any native assets this dust-fixing input carries.
+            // Omitting them here would drop them from `change_assets` below,
+            // producing a value-unbalanced selection (assets spent as inputs but
+            // never returned as change) — silent token loss / a rejected tx.
+            for asset in &utxo.value.assets {
+                let key = (asset.policy_id.clone(), asset.asset_name.clone());
+                *accumulated_assets.entry(key).or_insert(0) += asset.quantity;
+            }
             let new_fee = estimate_fee_for_inputs(selected.len(), est_num_outputs, &params);
             let new_change = accumulated_coin - target_coin - new_fee;
             if new_change >= min_ada_for_change {

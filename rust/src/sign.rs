@@ -37,15 +37,24 @@ pub fn sign_tx_with_metadata(
     tx_body_cbor_hex: String,
     payment_keys_hex: Vec<String>,
     aux_data_cbor_hex: Option<String>,
+    base_witness_set_cbor_hex: Option<String>,
 ) -> Result<SignedTx, String> {
-    sign_tx_with_metadata_internal(tx_body_cbor_hex, payment_keys_hex, aux_data_cbor_hex)
-        .map_err(|e| e.to_string())
+    sign_tx_with_metadata_internal(
+        tx_body_cbor_hex,
+        payment_keys_hex,
+        aux_data_cbor_hex,
+        base_witness_set_cbor_hex,
+    )
+    .map_err(|e| e.to_string())
 }
 
 pub fn sign_tx_with_metadata_internal(
     tx_body_cbor_hex: String,
     payment_keys_hex: Vec<String>,
     aux_data_cbor_hex: Option<String>,
+    // Optional pre-built witness set (e.g. from `build_mint_tx`) carrying native
+    // scripts. Vkey witnesses are merged into it so the policy script survives.
+    base_witness_set_cbor_hex: Option<String>,
 ) -> Result<SignedTx, CardanoError> {
     // Validate all keys before doing any work.
     for key_str in &payment_keys_hex {
@@ -72,7 +81,18 @@ pub fn sign_tx_with_metadata_internal(
         let vkey = csl::Vkey::new(&public_key);
         witnesses.add(&csl::Vkeywitness::new(&vkey, &signature));
     }
-    let mut witness_set = csl::TransactionWitnessSet::new();
+    // Start from the builder's witness set (which already holds native/Plutus
+    // scripts) when provided, so we don't drop the minting policy script; then
+    // merge in the freshly-produced vkey witnesses.
+    let mut witness_set = match base_witness_set_cbor_hex {
+        Some(ref ws_hex) => {
+            let ws_bytes = hex::decode(ws_hex)
+                .map_err(|_| CardanoError::InvalidCbor("Invalid witness set hex".to_string()))?;
+            csl::TransactionWitnessSet::from_bytes(ws_bytes)
+                .map_err(|_| CardanoError::InvalidCbor("Invalid witness set CBOR".to_string()))?
+        }
+        None => csl::TransactionWitnessSet::new(),
+    };
     witness_set.set_vkeys(&witnesses);
 
     let aux_data: Option<csl::AuxiliaryData> = if let Some(ref aux_hex) = aux_data_cbor_hex {

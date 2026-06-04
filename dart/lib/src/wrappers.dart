@@ -526,6 +526,10 @@ Future<SignedTx> signMintTransaction({
       txBodyCborHex: builtMintTx.txBodyCborHex,
       paymentKeysHex: paymentKeys,
       auxDataCborHex: builtMintTx.auxDataCborHex,
+      // Carry the builder's witness set (with the minting policy's native
+      // script) into signing so the script isn't dropped — otherwise the tx is
+      // rejected on submission with MissingScriptWitnessesUTXOW.
+      baseWitnessSetCborHex: builtMintTx.witnessSetCborHex,
     ),
   );
 }

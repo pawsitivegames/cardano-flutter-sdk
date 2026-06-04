@@ -1,7 +1,7 @@
 use crate::error::CardanoError;
-use blake2::Blake2b512;
+use blake2::Blake2b;
 use cardano_serialization_lib as csl;
-use digest::Digest;
+use digest::{consts::U32, Digest};
 use flutter_rust_bridge::frb;
 
 /// Represents a single transaction input (UTxO).
@@ -104,11 +104,14 @@ pub(crate) fn value_to_csl(value: &Value) -> Result<csl::Value, CardanoError> {
 
             let amount = csl::BigNum::from(asset.quantity);
 
-            multi_asset.insert(&policy_id, &{
-                let mut assets = csl::Assets::new();
-                assets.insert(&asset_name, &amount);
-                assets
-            });
+            // Merge into any existing Assets under this policy. `MultiAsset::insert`
+            // REPLACES the whole policy entry, so building a fresh `Assets` per
+            // asset would drop all but the last asset name sharing a policy id
+            // (e.g. CIP-68 (100)/(222) pairs) — producing a value-unbalanced tx
+            // rejected on-chain with `ValueNotConservedUTxO`.
+            let mut assets = multi_asset.get(&policy_id).unwrap_or_default();
+            assets.insert(&asset_name, &amount);
+            multi_asset.insert(&policy_id, &assets);
         }
 
         Ok(csl::Value::new_with_assets(
@@ -234,13 +237,14 @@ pub fn build_tx(
 
     let body = tx.body();
 
-    // Compute the transaction hash using Blake2b-256
-    let mut hasher = Blake2b512::new();
+    // Canonical Cardano transaction id: Blake2b-256 over the body CBOR (matches
+    // CSL's internal `blake2b256` and `sign.rs`'s signing hash). NOTE: Blake2b-256
+    // is NOT the first 32 bytes of Blake2b-512 — the digest length is mixed into
+    // Blake2b's parameter block — so truncating Blake2b-512 (the old code) yielded
+    // an id that never matched the one the node computes on submission.
+    let mut hasher = Blake2b::<U32>::new();
     hasher.update(body.to_bytes());
-    let hash_result = hasher.finalize();
-    // Blake2b-512 produces 64 bytes, we take first 32 for Blake2b-256
-    let tx_hash_bytes: Vec<u8> = hash_result[..32].to_vec();
-    let tx_hash_hex = hex::encode(&tx_hash_bytes);
+    let tx_hash_hex = hex::encode(hasher.finalize());
 
     // Serialize the body
     let body_bytes = body.to_bytes();
@@ -384,6 +388,43 @@ mod tests {
         assert!(result.is_ok(), "pure ADA value conversion should work");
     }
 
+    /// Regression: two asset names under the SAME policy in one value must both
+    /// survive (CSL `MultiAsset::insert` replaces the policy entry, so a naive
+    /// per-asset insert would drop all but the last → `ValueNotConservedUTxO`).
+    #[test]
+    fn test_value_to_csl_merges_same_policy_assets() {
+        let policy = "29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418".to_string();
+        let value = Value {
+            coin: 2_000_000,
+            assets: vec![
+                NativeAsset {
+                    policy_id: policy.clone(),
+                    asset_name: hex::encode(b"AAA"),
+                    quantity: 3,
+                },
+                NativeAsset {
+                    policy_id: policy.clone(),
+                    asset_name: hex::encode(b"BBB"),
+                    quantity: 7,
+                },
+            ],
+        };
+
+        let csl_val = value_to_csl(&value).unwrap();
+        let ma = csl_val.multiasset().expect("should have multiasset");
+        let policy_hash = csl::ScriptHash::from_bytes(hex::decode(&policy).unwrap()).unwrap();
+        let assets = ma.get(&policy_hash).expect("policy present");
+        assert_eq!(
+            assets.len(),
+            2,
+            "both asset names under the policy must survive"
+        );
+        let a = csl::AssetName::new(hex::decode(hex::encode(b"AAA")).unwrap()).unwrap();
+        let b = csl::AssetName::new(hex::decode(hex::encode(b"BBB")).unwrap()).unwrap();
+        assert_eq!(assets.get(&a).unwrap().to_str(), "3");
+        assert_eq!(assets.get(&b).unwrap().to_str(), "7");
+    }
+
     #[test]
     fn test_invalid_parameter_error_on_empty_inputs() {
         let params = test_protocol_params();
@@ -435,5 +476,61 @@ mod tests {
             Err(CardanoError::InvalidParameter { field, .. }) if field == "outputs" => {}
             _ => panic!("Expected InvalidParameter for outputs"),
         }
+    }
+
+    /// Regression: the returned `tx_hash` must be the canonical Blake2b-256 of
+    /// the body CBOR — NOT the first 32 bytes of Blake2b-512 (which is a
+    /// different value, since Blake2b mixes the digest length into its state).
+    #[test]
+    fn test_tx_hash_is_blake2b256_not_truncated_blake2b512() {
+        use blake2::Blake2b512;
+
+        let params = test_protocol_params();
+        let addr = "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz";
+        let built = build_tx(
+            vec![TxInput {
+                tx_hash: "00".repeat(32),
+                output_index: 0,
+                address: addr.to_string(),
+                value: Value {
+                    coin: 5_000_000,
+                    assets: vec![],
+                },
+            }],
+            vec![TxOutput {
+                address: addr.to_string(),
+                value: Value {
+                    coin: 1_000_000,
+                    assets: vec![],
+                },
+            }],
+            addr.to_string(),
+            None,
+            params,
+        )
+        .expect("build_tx should succeed");
+
+        // 32-byte hash → 64 hex chars.
+        assert_eq!(built.tx_hash.len(), 64);
+
+        let body_bytes = hex::decode(&built.tx_body_cbor_hex).unwrap();
+
+        // Correct canonical id: Blake2b-256 of the body.
+        let mut h256 = Blake2b::<U32>::new();
+        h256.update(&body_bytes);
+        let expected = hex::encode(h256.finalize());
+        assert_eq!(
+            built.tx_hash, expected,
+            "tx_hash must be Blake2b-256 of the body CBOR"
+        );
+
+        // The old buggy value (truncated Blake2b-512) must differ.
+        let mut h512 = Blake2b512::new();
+        h512.update(&body_bytes);
+        let truncated = hex::encode(&h512.finalize()[..32]);
+        assert_ne!(
+            built.tx_hash, truncated,
+            "tx_hash must not be the first 32 bytes of Blake2b-512"
+        );
     }
 }
