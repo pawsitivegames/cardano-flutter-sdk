@@ -151,11 +151,13 @@ When you start a session, the next phase is:
   (GitHub Actions: cargo test/clippy, analyze, flutter test, build iOS/macOS/web),
   pubspec/Cargo metadata hygiene (pin `flutter_rust_bridge: =2.12.x`, fix "CSL" not
   "CML" in description, drop `YOUR_HANDLE`), mark hardware-wallet API `@experimental`.
-- Then **5a** HD multi-account (CIP-1852 + gap scan) → **5b** seed encryption
-  (Rust Argon2id + XChaCha20-Poly1305, threat model, security review — NOT pure-Dart
-  crypto) → **6** Web *scoped* (CML-JS backend = second backend; golden-CBOR
-  CSL↔CML conformance suite; macOS packaging) → **7** CIP-36 governance + security
-  review + Pallas eval + fuzzing → **0.12.0 RC**.
+- **5a** HD multi-account (CIP-1852 discovery + gap scan) ✅ **code-complete (v0.9.0)** —
+  `deriveAddress`, `HdWalletDiscovery`, Blockfrost `isAddressUsed`, Accounts screen;
+  Rust 108 · Dart 155. Remaining: live-testnet run on iPhone 13.
+- Next: **5b** seed encryption (Rust Argon2id + XChaCha20-Poly1305, threat model,
+  security review — NOT pure-Dart crypto) → **6** Web *scoped* (CML-JS backend =
+  second backend; golden-CBOR CSL↔CML conformance suite; macOS packaging) → **7**
+  CIP-36 governance + security review + Pallas eval + fuzzing → **0.12.0 RC**.
 - **Android emulator IS valid partial verification** (app + FFI `.so` load + 16KB
   page-size image, Google's recommended test) — label "emulator", never "device".
 - **Track B (physical-device-gated → v1.1.0):** H1 Ledger TX signing on a *spare*

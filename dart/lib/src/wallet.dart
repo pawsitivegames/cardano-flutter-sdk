@@ -7,7 +7,7 @@ import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
 KeyDerivationResult deriveKeysFromMnemonic(
         {required String mnemonic,
@@ -40,6 +40,59 @@ Future<String> deriveAccountKeyInternal(
         {required String accountKey, required int role, required int index}) =>
     RustLib.instance.api.crateWalletDeriveAccountKeyInternal(
         accountKey: accountKey, role: role, index: index);
+
+/// Derive a base address from an account-level xprv (the `account_key` field of
+/// [KeyDerivationResult]), combining the payment key at `(role, index)` with the
+/// account's stake key (`m/.../account'/2/0`).
+///
+/// - `role`: 0 = external/receive chain, 1 = internal/change chain.
+/// - `index`: address index on that chain.
+/// - `network_id`: 0 = testnet, 1 = mainnet.
+///
+/// Deriving the stake credential internally means every address in an account
+/// shares one stake key (one reward address per account), matching CIP-1852.
+DerivedAddress deriveAddress(
+        {required String accountKey,
+        required int role,
+        required int index,
+        required int networkId}) =>
+    RustLib.instance.api.crateWalletDeriveAddress(
+        accountKey: accountKey, role: role, index: index, networkId: networkId);
+
+Future<DerivedAddress> deriveAddressInternal(
+        {required String accountKey,
+        required int role,
+        required int index,
+        required int networkId}) =>
+    RustLib.instance.api.crateWalletDeriveAddressInternal(
+        accountKey: accountKey, role: role, index: index, networkId: networkId);
+
+/// A base address derived at a specific (role, index) within an account, plus the
+/// payment key hash for that slot. Used for HD multi-account discovery and
+/// BIP-44 gap-limit address scanning (Phase 5a).
+class DerivedAddress {
+  /// bech32 base address (`addr…` mainnet / `addr_test…` testnet).
+  final String address;
+
+  /// Blake2b-224 hash (56 hex chars) of the payment public key at this slot.
+  final String paymentKeyHash;
+
+  const DerivedAddress({
+    required this.address,
+    required this.paymentKeyHash,
+  });
+
+  @override
+  int get hashCode => address.hashCode ^ paymentKeyHash.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DerivedAddress &&
+          runtimeType == other.runtimeType &&
+          address == other.address &&
+          paymentKeyHash == other.paymentKeyHash;
+}
 
 class KeyDerivationResult {
   final String accountKey;

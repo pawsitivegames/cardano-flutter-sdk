@@ -3,6 +3,21 @@
 All notable changes to `cardano_flutter_rs` are documented here.
 This project follows [Semantic Versioning](https://semver.org). Pre-1.0 = `0.x.y`.
 
+## 0.9.0 — HD multi-account discovery (Phase 5a)
+
+- **Rust:** `deriveAddress(accountKey, role, index, networkId)` → `DerivedAddress`
+  (bech32 base address + payment key hash) for arbitrary CIP-1852 slots.
+- **Blockfrost:** `fetchAddressMetadata` / `isAddressUsed` via
+  `GET /addresses/{address}/total` (the endpoint carrying `tx_count`), plus an
+  `AddressMetadata` type.
+- **`HdWalletDiscovery`:** BIP-44 gap-limit address scanning (`scanChain`),
+  per-account scanning (`scanAccount`), and `discoverAccounts` — stops at the
+  first empty account (account gap = 1); account 0 always included.
+  `HdAccount` / `HdAddress` expose used addresses, next receive address, activity.
+- **Example:** "Accounts" screen — discover accounts, per-account used count, next
+  receive address, aggregated ADA balance.
+- Tests: Rust 108 · Dart 155.
+
 ## 0.8.1
 
 - **Foundation hygiene (Phase 4.6).** CI hardened to a real gate (Rust tests +

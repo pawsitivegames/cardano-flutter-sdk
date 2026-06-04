@@ -14,9 +14,10 @@ build/
 pubspec.lock
 
 # flutter_rust_bridge
-**/bridge_generated.io.dart
-**/bridge_generated.web.dart
-**/frb_generated*
+# NOTE: the generated Dart bindings (frb_generated*.dart) ARE committed — a
+# pub.dev package must ship all its Dart source (you can't run Rust→Dart codegen
+# at pub-get time), and CI builds from a clean checkout. Regenerate with
+# `flutter_rust_bridge_codegen generate` after any Rust API change.
 
 # iOS
 **/ios/Pods/

@@ -293,19 +293,24 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 ---
 
-### Phase 5a — HD multi-account → v0.9.0
+### Phase 5a — HD multi-account → v0.9.0  ✅ code-complete (live-testnet run pending)
 *Dependency: Phase 4.3. Pure Dart/Rust — verifiable on iPhone 13 + testnet.*
 
 **Deliverables:**
-- HD multi-account management (CIP-1852 account discovery; N accounts per seed)
-- Address gap-limit scanning (BIP-44 gap=20) for used/unused discovery
-- Example: "Accounts" screen (add/switch account, per-account balance)
+- ✅ HD multi-account discovery (CIP-1852; stops at first empty account, gap=1)
+- ✅ Address gap-limit scanning (`HdWalletDiscovery`, default BIP-44 gap=20)
+- ✅ Rust `deriveAddress` (base address + payment key hash per role/index)
+- ✅ Blockfrost `fetchAddressMetadata` / `isAddressUsed` (`/addresses/{addr}/total`)
+- ✅ Example: "Accounts" screen (discover, used count, next receive, balance)
 
 **Verification:**
-- Account derivation matches CIP-1852 vectors; Rust + Dart unit tests
-- Testnet: derive account #1, receive, send — confirmed on-chain from the phone
-- Note: gap scanning depends on the **provider's** address-history semantics +
-  rate limits — test against Blockfrost with backoff.
+- ✅ Account derivation matches CIP-1852 (account-0 ext-0 hash + base address
+  identical to the CIP-30 path); Rust 108 · Dart 155; clippy/fmt/analyze clean
+- ✅ Gap-limit + account-gap logic unit-tested with a deterministic fake lookup
+  over real FFI-derived addresses
+- ⏳ Live-testnet run on iPhone 13 (real Blockfrost address-usage queries) — the
+  remaining quick on-device check; gap scanning relies on the provider's
+  address-history semantics + rate limits (handled by existing backoff).
 
 ---
 

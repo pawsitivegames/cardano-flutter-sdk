@@ -90,6 +90,67 @@ pub fn derive_account_key_internal(
     Ok(derived_key.to_public().to_bech32())
 }
 
+/// A base address derived at a specific (role, index) within an account, plus the
+/// payment key hash for that slot. Used for HD multi-account discovery and
+/// BIP-44 gap-limit address scanning (Phase 5a).
+#[derive(Clone, Debug)]
+pub struct DerivedAddress {
+    /// bech32 base address (`addr…` mainnet / `addr_test…` testnet).
+    pub address: String,
+    /// Blake2b-224 hash (56 hex chars) of the payment public key at this slot.
+    pub payment_key_hash: String,
+}
+
+/// Derive a base address from an account-level xprv (the `account_key` field of
+/// [KeyDerivationResult]), combining the payment key at `(role, index)` with the
+/// account's stake key (`m/.../account'/2/0`).
+///
+/// - `role`: 0 = external/receive chain, 1 = internal/change chain.
+/// - `index`: address index on that chain.
+/// - `network_id`: 0 = testnet, 1 = mainnet.
+///
+/// Deriving the stake credential internally means every address in an account
+/// shares one stake key (one reward address per account), matching CIP-1852.
+#[frb(sync)]
+pub fn derive_address(
+    account_key: String,
+    role: u32,
+    index: u32,
+    network_id: u8,
+) -> Result<DerivedAddress, String> {
+    derive_address_internal(&account_key, role, index, network_id).map_err(|e| e.to_string())
+}
+
+pub fn derive_address_internal(
+    account_key: &str,
+    role: u32,
+    index: u32,
+    network_id: u8,
+) -> Result<DerivedAddress, CardanoError> {
+    let key = csl::Bip32PrivateKey::from_bech32(account_key)
+        .map_err(|_| CardanoError::InvalidKey("Invalid account key format".to_string()))?;
+
+    let payment_pub = key.derive(role).derive(index).to_public();
+    let stake_pub = key.derive(2).derive(0).to_public();
+
+    let pay_hash = payment_pub.to_raw_key().hash();
+    let stake_hash = stake_pub.to_raw_key().hash();
+
+    let pay_cred = csl::Credential::from_keyhash(&pay_hash);
+    let stake_cred = csl::Credential::from_keyhash(&stake_hash);
+
+    let base = csl::BaseAddress::new(network_id, &pay_cred, &stake_cred);
+    let address = base
+        .to_address()
+        .to_bech32(None)
+        .map_err(|e| CardanoError::SerializationError(e.to_string()))?;
+
+    Ok(DerivedAddress {
+        address,
+        payment_key_hash: hex::encode(pay_hash.to_bytes()),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,5 +216,58 @@ mod tests {
         let result = derive_account_key_internal(&account_key, 0, 0);
         assert!(result.is_ok());
         assert!(!result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_derive_address_external_index0_matches_known_hash() {
+        // Account 0, external role 0, index 0 must reproduce the canonical payment
+        // key hash and a valid testnet base address.
+        let keys = derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 0, false).unwrap();
+        let d = derive_address_internal(&keys.account_key, 0, 0, 0).unwrap();
+        assert_eq!(
+            d.payment_key_hash,
+            "9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e"
+        );
+        assert!(d.address.starts_with("addr_test1"));
+        // Same payment credential + stake credential as the CIP-30 base address.
+        let expected =
+            crate::cip30::compute_base_address(keys.payment_key_hash, keys.stake_key_hash, 0)
+                .unwrap();
+        assert_eq!(d.address, expected);
+    }
+
+    #[test]
+    fn test_derive_address_distinct_per_index_and_role() {
+        let keys = derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 0, false).unwrap();
+        let ext0 = derive_address_internal(&keys.account_key, 0, 0, 0).unwrap();
+        let ext1 = derive_address_internal(&keys.account_key, 0, 1, 0).unwrap();
+        let chg0 = derive_address_internal(&keys.account_key, 1, 0, 0).unwrap();
+        // Different indices and different roles yield different addresses/hashes.
+        assert_ne!(ext0.payment_key_hash, ext1.payment_key_hash);
+        assert_ne!(ext0.payment_key_hash, chg0.payment_key_hash);
+        assert_ne!(ext0.address, ext1.address);
+        assert_ne!(ext0.address, chg0.address);
+    }
+
+    #[test]
+    fn test_derive_address_mainnet_prefix() {
+        let keys = derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 0, false).unwrap();
+        let d = derive_address_internal(&keys.account_key, 0, 0, 1).unwrap();
+        assert!(d.address.starts_with("addr1"));
+    }
+
+    #[test]
+    fn test_derive_address_accounts_differ() {
+        // Different accounts must produce different external index-0 addresses.
+        let k0 = derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 0, false).unwrap();
+        let k1 = derive_keys_from_mnemonic_internal(TEST_MNEMONIC, "", 1, false).unwrap();
+        let a0 = derive_address_internal(&k0.account_key, 0, 0, 0).unwrap();
+        let a1 = derive_address_internal(&k1.account_key, 0, 0, 0).unwrap();
+        assert_ne!(a0.address, a1.address);
+    }
+
+    #[test]
+    fn test_derive_address_bad_key() {
+        assert!(derive_address_internal("not-a-key", 0, 0, 0).is_err());
     }
 }

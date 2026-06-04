@@ -11,6 +11,7 @@ import 'message_screen.dart';
 import 'ledger_screen.dart';
 import 'cip30_screen.dart';
 import 'cip45_screen.dart';
+import 'accounts_screen.dart';
 
 // Compile-time Flutter version injected via --dart-define (optional).
 // Falls back to a placeholder if not provided.
@@ -289,6 +290,36 @@ class _MyAppState extends State<MyApp> {
           myAddress: testnetAddress,
           paymentSigningKey: _derivedKeys!.paymentSigningKey,
           stakeSigningKey: _derivedKeys!.stakeSigningKey,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToAccountsScreen() {
+    if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please set BLOCKFROST_PROJECT_ID environment variable or run with --dart-define=BLOCKFROST_PROJECT_ID=your_id',
+          ),
+        ),
+      );
+      return;
+    }
+
+    const testMnemonic =
+        'test walk nut penalty hip pave soap entry language right filter choice';
+
+    final provider = BlockfrostProvider(
+      projectId: _blockfrostProjectId!,
+      network: Network.testnetPreview,
+    );
+
+    _navigatorKey.currentState!.push(
+      MaterialPageRoute(
+        builder: (ctx) => AccountsScreen(
+          provider: provider,
+          mnemonic: testMnemonic,
         ),
       ),
     );
@@ -666,6 +697,20 @@ class _MyAppState extends State<MyApp> {
                             color: Colors.white, size: 16),
                         label: const Text(
                           'Ledger',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed:
+                            _libInitialized ? _navigateToAccountsScreen : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.cyan,
+                        ),
+                        icon: const Icon(Icons.account_tree,
+                            color: Colors.white, size: 16),
+                        label: const Text(
+                          'Accounts',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),

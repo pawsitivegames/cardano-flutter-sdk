@@ -9,8 +9,11 @@ export 'src/error.dart';
 export 'src/wrappers.dart';
 
 // Wallet and key derivation types (not functions, to avoid duplicate exports)
-export 'src/wallet.dart' show KeyDerivationResult;
+export 'src/wallet.dart' show KeyDerivationResult, DerivedAddress;
 export 'src/address.dart' show AddressInfo;
+
+// Phase 5a: HD multi-account discovery + BIP-44 gap-limit address scanning.
+export 'src/hd/hd_wallet.dart';
 
 // Transaction building, signing, and coin selection
 export 'src/tx.dart';
