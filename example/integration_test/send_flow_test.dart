@@ -1,3 +1,6 @@
+// Integration-test harness logs progress to stdout; print is appropriate here.
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';

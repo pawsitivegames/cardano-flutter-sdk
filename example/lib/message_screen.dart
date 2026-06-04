@@ -14,11 +14,11 @@ class MessageScreen extends StatefulWidget {
   final String stakeSigningKey;
 
   const MessageScreen({
-    Key? key,
+    super.key,
     required this.myAddress,
     required this.paymentSigningKey,
     required this.stakeSigningKey,
-  }) : super(key: key);
+  });
 
   @override
   State<MessageScreen> createState() => _MessageScreenState();

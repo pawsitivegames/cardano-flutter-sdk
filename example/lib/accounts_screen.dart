@@ -13,10 +13,10 @@ class AccountsScreen extends StatefulWidget {
   final String mnemonic;
 
   const AccountsScreen({
-    Key? key,
+    super.key,
     required this.provider,
     required this.mnemonic,
-  }) : super(key: key);
+  });
 
   @override
   State<AccountsScreen> createState() => _AccountsScreenState();

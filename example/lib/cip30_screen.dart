@@ -14,10 +14,10 @@ class Cip30Screen extends StatefulWidget {
   final String mnemonic;
 
   const Cip30Screen({
-    Key? key,
+    super.key,
     required this.provider,
     required this.mnemonic,
-  }) : super(key: key);
+  });
 
   @override
   State<Cip30Screen> createState() => _Cip30ScreenState();

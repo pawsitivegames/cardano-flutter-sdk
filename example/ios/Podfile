@@ -40,4 +40,36 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
   end
+
+  # Apply pod-wide build-setting overrides across EVERY generated project. We
+  # iterate `installer.generated_projects` (not just `pods_project.targets`)
+  # because CocoaPods 1.16 places pod library targets in sub-projects, which
+  # `pods_project.targets` misses — so settings applied there silently don't
+  # reach the framework targets.
+  installer.generated_projects.each do |project|
+    # CocoaPods stamps a stale LastUpgradeCheck (1600 / Xcode 16) into the
+    # generated Pods project, so newer Xcode shows "Update to recommended
+    # settings" on every regeneration. Re-stamp it to match current Xcode so the
+    # cosmetic prompt stays gone. (We can't fix it via the UI — pod install would
+    # overwrite the change next run.)
+    project.root_object.attributes['LastUpgradeCheck'] = 2620
+    project.targets.each do |target|
+      target.build_configurations.each do |config|
+        # Silence deprecated-API / nullability warnings from third-party pods.
+        # Only touches Pods (never the Runner app), so our own warnings surface.
+        config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+        config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
+        # Disable the module verifier: a separate clang pass that compiles each
+        # framework's headers in isolation. On these old Google/Flutter pods it
+        # FAILS the build ("could not build module", "Flutter/Flutter.h not
+        # found", quoted-include errors) because the headers aren't self-
+        # contained. We can't patch upstream headers; disabling verification is
+        # the standard CocoaPods + Xcode 16/26 fix.
+        config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+        config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+        # Keep pods at the project's minimum deployment target.
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      end
+    end
+  end
 end
