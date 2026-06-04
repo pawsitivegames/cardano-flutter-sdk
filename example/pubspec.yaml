@@ -28,6 +28,10 @@ dependencies:
   # channel. The WebTorrent-tracker discovery + bugout NaCl/bencode framing are
   # provided via pluggable seams (see lib/cip45_webrtc_transport.dart).
   flutter_webrtc: ^0.11.7
+  # Phase 5b seed-vault demo: hardware-backed storage (iOS Keychain / Android
+  # Keystore) for the wrapping secret that composes with the user password.
+  # Example-only — the core SDK ships just the Rust crypto primitives.
+  flutter_secure_storage: ^9.2.2
 
 dev_dependencies:
   flutter_test:

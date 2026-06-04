@@ -14,6 +14,28 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 ## Current state
 
+**Phase 4.6: Foundation hygiene — COMPLETE** ✅ *(2026-06-04, PR #2)*
+CI badge + README de-stale (status → v0.9.0, fixed broken `docs/project-plan.md`
+links), `rust/Cargo.toml` version `0.1.0`→`0.9.0`. CI/pinned-FRB/CSL-metadata/
+`@experimental` had landed earlier in `258348d`. Web CI build deferred to Phase 6
+(no web backend yet).
+
+**Phase 5b: Seed encryption — CORE COMPLETE; on-device verify PENDING** 🟡 *(2026-06-04)*
+At-rest encryption for recovery secrets, **all crypto in Rust** (no Dart crypto):
+- `rust/src/seed.rs`: Argon2id KDF + XChaCha20-Poly1305 AEAD. FFI `encrypt_seed`,
+  `encrypt_seed_with_params`, `decrypt_seed`, `benchmark_kdf`, `default_kdf_params`.
+  Self-describing versioned `CFS1` hex container; KDF params embedded + **AAD-bound**
+  (KDF-downgrade-resistant); `Zeroizing` of derived key + plaintext. Default cost
+  64 MiB / t=3 / p=1 (~101 ms dev Mac). Crates: `argon2`, `chacha20poly1305`, `zeroize`.
+- Dart: generated `src/seed.dart` (sync fns + `EncryptedSeed`/`KdfParams`), exported.
+- Example **Seed Vault screen** (`seed_vault_screen.dart`, `flutter_secure_storage`):
+  random wrapping secret in Keychain/Keystore composed with the user password
+  (input composition only) → stolen blob useless without the device.
+- **Tests:** Rust 119/119 (+11), Dart 167/167 (+12); clippy/fmt/analyze clean.
+- **Threat model:** `docs/seed-encryption.md`. **Pending:** iPhone 13 benchmark +
+  Keychain round-trip (needs iOS framework rebuilt with seed symbols); security
+  review folded into Phase 7.
+
 **Phase 4.5: Hardware Wallets — Core Complete; On-Device Signing PENDING** 🟡 *(2026-06-02)*
 
 Honest status: core protocol layer done + tested; example Ledger BLE read path

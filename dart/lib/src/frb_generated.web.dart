@@ -20,6 +20,7 @@ import 'metadata.dart';
 import 'minting.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 import 'plutus.dart';
+import 'seed.dart';
 import 'sign.dart';
 import 'staking.dart';
 import 'tx.dart';
@@ -94,6 +95,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DerivedAddress dco_decode_derived_address(dynamic raw);
 
   @protected
+  EncryptedSeed dco_decode_encrypted_seed(dynamic raw);
+
+  @protected
   HardwareAccount dco_decode_hardware_account(dynamic raw);
 
   @protected
@@ -116,6 +120,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
+
+  @protected
+  KdfParams dco_decode_kdf_params(dynamic raw);
 
   @protected
   KeyDerivationResult dco_decode_key_derivation_result(dynamic raw);
@@ -284,6 +291,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DerivedAddress sse_decode_derived_address(SseDeserializer deserializer);
 
   @protected
+  EncryptedSeed sse_decode_encrypted_seed(SseDeserializer deserializer);
+
+  @protected
   HardwareAccount sse_decode_hardware_account(SseDeserializer deserializer);
 
   @protected
@@ -307,6 +317,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
+  KdfParams sse_decode_kdf_params(SseDeserializer deserializer);
 
   @protected
   KeyDerivationResult sse_decode_key_derivation_result(
@@ -484,6 +497,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       DerivedAddress self, SseSerializer serializer);
 
   @protected
+  void sse_encode_encrypted_seed(EncryptedSeed self, SseSerializer serializer);
+
+  @protected
   void sse_encode_hardware_account(
       HardwareAccount self, SseSerializer serializer);
 
@@ -512,6 +528,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_kdf_params(KdfParams self, SseSerializer serializer);
 
   @protected
   void sse_encode_key_derivation_result(

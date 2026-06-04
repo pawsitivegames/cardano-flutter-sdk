@@ -180,8 +180,7 @@ class AddressMetadata {
   bool get isUsed => txCount > 0;
 
   @override
-  String toString() =>
-      'AddressMetadata(address: $address, txCount: $txCount, '
+  String toString() => 'AddressMetadata(address: $address, txCount: $txCount, '
       'received: $totalReceived, sent: $totalSent)';
 }
 

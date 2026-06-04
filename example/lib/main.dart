@@ -12,6 +12,7 @@ import 'ledger_screen.dart';
 import 'cip30_screen.dart';
 import 'cip45_screen.dart';
 import 'accounts_screen.dart';
+import 'seed_vault_screen.dart';
 
 // Compile-time Flutter version injected via --dart-define (optional).
 // Falls back to a placeholder if not provided.
@@ -411,6 +412,13 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  void _navigateToSeedVaultScreen() {
+    // Self-contained demo — no provider or mnemonic args needed.
+    _navigatorKey.currentState!.push(
+      MaterialPageRoute(builder: (ctx) => const SeedVaultScreen()),
+    );
+  }
+
   void _navigateToSendScreen() {
     if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -711,6 +719,20 @@ class _MyAppState extends State<MyApp> {
                             color: Colors.white, size: 16),
                         label: const Text(
                           'Accounts',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed:
+                            _libInitialized ? _navigateToSeedVaultScreen : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                        ),
+                        icon: const Icon(Icons.enhanced_encryption,
+                            color: Colors.white, size: 16),
+                        label: const Text(
+                          'Seed Vault',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),

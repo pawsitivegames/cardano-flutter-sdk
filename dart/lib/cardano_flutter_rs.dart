@@ -15,6 +15,11 @@ export 'src/address.dart' show AddressInfo;
 // Phase 5a: HD multi-account discovery + BIP-44 gap-limit address scanning.
 export 'src/hd/hd_wallet.dart';
 
+// Phase 5b: at-rest seed encryption (Argon2id KDF + XChaCha20-Poly1305 AEAD).
+// Password-based primitives; the platform secure-storage (Keychain/Keystore)
+// wrapping-key composition is demonstrated in the example app.
+export 'src/seed.dart';
+
 // Transaction building, signing, and coin selection
 export 'src/tx.dart';
 export 'src/coin_selection.dart';

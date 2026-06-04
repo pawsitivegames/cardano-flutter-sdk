@@ -320,20 +320,31 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 ---
 
-### Phase 5b — Seed encryption & backup (security subsystem) → v0.9.1
+### Phase 5b — Seed encryption & backup (security subsystem) → v0.9.1  🟡 core complete (2026-06-04)
 *Dependency: Phase 5a. **Security-critical** — own phase, explicit design.*
+*Design + threat model: `docs/seed-encryption.md`.*
 
 **Deliverables:**
-- **Rust-side** at-rest encryption: Argon2id KDF + XChaCha20-Poly1305 AEAD
-  (`encrypt_seed` / `decrypt_seed` FFI; new crates `argon2`, `chacha20poly1305`).
-- Key **zeroization** in Rust; integrate platform secure storage (iOS Keychain /
-  Android Keystore) for the wrapping key where available.
-- Written **threat model** (what it protects against; what it does not).
+- ✅ **Rust-side** at-rest encryption (`rust/src/seed.rs`): Argon2id KDF +
+  XChaCha20-Poly1305 AEAD. FFI: `encrypt_seed`, `encrypt_seed_with_params`,
+  `decrypt_seed`, `benchmark_kdf`, `default_kdf_params`. Self-describing,
+  versioned `CFS1` container (hex); KDF params embedded + AAD-bound (downgrade-
+  resistant). Crates: `argon2`, `chacha20poly1305`, `zeroize`.
+- ✅ Key **zeroization** in Rust (derived key + plaintext via `Zeroizing`).
+- ✅ Platform secure storage **integrated in the example** (`seed_vault_screen.dart`,
+  `flutter_secure_storage`): random wrapping secret in Keychain/Keystore composed
+  with the user password (input composition only — crypto stays in Rust), so an
+  exfiltrated blob is useless without the device. Core SDK stays dependency-lean.
+- ✅ Written **threat model** (`docs/seed-encryption.md`) — in/out of scope stated.
 
 **Verification:**
-- Encrypt → wipe → decrypt round-trip; wrong-password reject; tamper → AEAD-fail test
-- KDF params documented + benchmarked on iPhone 13
-- Security review of the at-rest format (see Phase 7 review, applied here too)
+- ✅ Encrypt → drop key → decrypt round-trip; wrong-password reject; tamper (ct +
+  KDF-param) → AEAD fail; distinct salt/nonce per call; bad-magic/non-hex reject.
+  Rust **119/119** (+11 seed), Dart **167/167** (+12 seed); clippy/fmt/analyze clean.
+- ✅ KDF default params documented + benchmarked on dev hardware (~101 ms @ 64 MiB/t=3).
+- 🅱️ **Pending on-device:** iPhone 13 `benchmark_kdf` figure + Keychain round-trip
+  (needs the iOS framework rebuilt with the seed symbols, then a device run).
+- ⏳ Security review of the at-rest format folded into the Phase 7 review pass.
 
 ---
 

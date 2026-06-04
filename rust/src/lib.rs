@@ -20,6 +20,7 @@ pub mod message;
 pub mod metadata;
 pub mod minting;
 pub mod plutus;
+pub mod seed;
 pub mod sign;
 pub mod staking;
 pub mod tx;
@@ -43,6 +44,10 @@ pub use minting::{
 pub use plutus::{
     build_script_tx, plutus_data_bytes, plutus_data_constr, plutus_data_int, plutus_data_list,
     validate_plutus_data, PlutusInput, PlutusScriptVersion,
+};
+pub use seed::{
+    benchmark_kdf, decrypt_seed, default_kdf_params, encrypt_seed, encrypt_seed_with_params,
+    EncryptedSeed, KdfParams,
 };
 pub use sign::{sign_tx, sign_tx_with_metadata, SignedTx};
 pub use staking::{
