@@ -209,8 +209,15 @@ for (final c in parseConformanceCases(goldenJson)) {
 
 ## macOS / desktop note
 
-macOS plugin scaffolding (universal `lipo` arm64+x86_64 dylib, podspec framework
-embedding, entitlements, codesign) is part of Phase 6 but is tracked separately:
-several example-app plugins (Ledger BLE, WebRTC, secure storage, in-app WebView)
-are mobile-only, so a desktop build target needs a trimmed example. Until that
-lands, the CI `macos-build` job stays informational (see `.github/workflows/ci.yml`).
+macOS desktop packaging is **done and verified** — see `docs/macos-packaging.md`.
+Summary: `dart/macos/` is a real FFI plugin (podspec + symbol-forcing stub) that
+vendors a universal (arm64 + x86_64) `cardano_flutter_rs.framework` built by
+`dart/macos/build_macos_framework.sh`; `example/macos/` is scaffolded with App
+Sandbox + `network.client` entitlements. The `macos-build` CI job is now a **hard
+gate**: it rebuilds the framework, does a release `flutter build macos` (compile +
+link + codesign + entitlements), and runs an integration test inside the built
+`.app` that loads the embedded framework via the FRB loader and exercises FFI.
+
+The "trimmed example" worry turned out moot: all seven example plugins (Ledger BLE,
+WebRTC, secure storage, in-app WebView, QR scanner, app_links, permission_handler)
+ship macOS implementations, so the full example builds and runs on macOS unchanged.

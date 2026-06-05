@@ -15,7 +15,7 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 ## Current state
 
 **Phase 6: Web (scoped) & Desktop — WEB BACKEND VERIFIED IN-BROWSER; macOS
-PENDING** 🟢 *(2026-06-04)*
+PACKAGED & VERIFIED** 🟢 *(2026-06-04)*
 Web = a **second backend** (no Rust FFI on web; CML-JS via Dart JS interop —
 Rust→WASM stays banned). Shipped the linchpin: a **CSL↔CML golden-CBOR
 conformance suite** freezing the byte-for-byte contract both backends must meet.
@@ -53,9 +53,20 @@ conformance suite** freezing the byte-for-byte contract both backends must meet.
   **headless Chromium** (Puppeteer) on each PR (`tool/web_conformance/run-headless.mjs`,
   `npm run ci`); fails the build on any CML↔CSL byte divergence. Reproduces the
   manual harness, just automated.
-- **Pending (honest):** web example app build; macOS packaging (needs trimmed
-  example — many plugins mobile-only); Lace/Eternl cross-wallet `verifyMessage`
-  check; `CmlWebBackend.verifyData` mapping. Design: `docs/web-backend.md`.
+- **macOS desktop — PACKAGED & VERIFIED (NEW):** `dart/macos/` is a real FFI
+  plugin (podspec + symbol-forcing stub) vendoring a universal arm64+x86_64
+  `cardano_flutter_rs.framework` (versioned bundle, built by
+  `dart/macos/build_macos_framework.sh`); `example/macos/` scaffolded with
+  App-Sandbox + `network.client` entitlements. Release `flutter build macos`
+  compiles/links/codesigns clean (deep `codesign -v` OK); a packaging integration
+  test (`example/integration_test/macos_packaging_test.dart`, run with `-d macos`)
+  loads the **embedded** framework via the FRB loader and round-trips FFI key
+  derivation (**+1**). `macos-build` CI job is now a HARD gate (rebuild framework →
+  release build → integration test). "Trimmed example" proved unnecessary — all 7
+  example plugins ship macOS impls. Doc: `docs/macos-packaging.md`.
+- **Pending (honest):** web example app build; Lace/Eternl cross-wallet
+  `verifyMessage` check; `CmlWebBackend.verifyData` mapping. Design:
+  `docs/web-backend.md`.
 
 **Phase 4.6: Foundation hygiene — COMPLETE** ✅ *(2026-06-04, PR #2)*
 CI badge + README de-stale (status → v0.9.0, fixed broken `docs/project-plan.md`
