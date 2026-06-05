@@ -154,16 +154,23 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Setup Rust macOS targets
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-      # macOS desktop plugin scaffolding lands in Phase 6. Until example/macos
-      # exists this job is informational (does not gate). Re-enable as a hard
-      # gate once the macOS plugin (universal dylib + podspec + entitlements) ships.
-      - name: Build macOS example
-        run: |
-          if [ -d example/macos ]; then
-            cd example && flutter build macos --release
-          else
-            echo "example/macos not scaffolded yet (Phase 6) — skipping."
-          fi
+      # Rebuild the universal (arm64 + x86_64) Rust framework from source so the
+      # vendored copy is always current with the crate (the committed framework is
+      # for turnkey consumer builds; CI never trusts it). Mirrors the script the
+      # dart/macos podspec vendors.
+      - name: Build universal macOS Rust framework
+        run: bash dart/macos/build_macos_framework.sh
+      - name: Get Dart dependencies
+        run: cd example && flutter pub get
+      # Hard gate: a release build compiles + links the FFI plugin, embeds the
+      # universal framework, and codesigns the app + framework under the App
+      # Sandbox entitlements (incl. network.client).
+      - name: Build macOS example (release)
+        run: cd example && flutter build macos --release
+      # Runtime proof the unit suite can't give: drive the built .app and load the
+      # embedded framework via the FRB loader, then exercise FFI deterministically.
+      - name: Verify embedded FFI loads at runtime (integration test)
+        run: cd example && flutter test integration_test/macos_packaging_test.dart -d macos
 
   android-build:
     runs-on: ubuntu-latest
