@@ -57,7 +57,8 @@ globalThis.CONFORMANCE_RESULT = '(harness did not run)';
 `;
 writeFileSync(new URL('data.js', build), data);
 
-// 3. Stage the loader page.
+// 3. Stage the loader pages (conformance + WebCip30Wallet harnesses).
 copyFileSync(new URL('index.html', here), new URL('index.html', build));
+copyFileSync(new URL('wallet_index.html', here), new URL('wallet_index.html', build));
 
 console.log('Staged build/. Serve it and open index.html (see README.md).');

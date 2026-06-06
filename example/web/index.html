@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Cardano Flutter RS — scoped web CIP-30 demo">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="cardano_flutter_rs_example">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Cardano Flutter RS — Web (scoped CIP-30)</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!--
+    Web has no Rust FFI (Rust→WASM is banned by project policy). The scoped web
+    backend (CmlWebBackend / WebCip30Wallet) is satisfied by CML compiled to
+    JS/WASM via Dart JS interop. We instantiate the CML + cardano-message-signing
+    browser WASM builds onto globalThis.CML / globalThis.MS, install the BIP-39
+    `mnemonic -> entropy` bridge on globalThis.CFL_mnemonicToEntropy, and ONLY
+    THEN boot Flutter — so the wallet finds its backend ready.
+
+    The wasm/*.{js,wasm} files are staged from the npm browser builds; see
+    web/wasm/README.md.
+  -->
+  <script type="module">
+    async function instantiate(bgUrl, wasmUrl, globalName) {
+      const bg = await import(bgUrl);
+      const resp = await fetch(wasmUrl);
+      const bytes = await resp.arrayBuffer();
+      const module = await WebAssembly.compile(bytes);
+      const imports = {};
+      for (const imp of WebAssembly.Module.imports(module)) {
+        imports[imp.module] = bg;
+      }
+      const instance = await WebAssembly.instantiate(module, imports);
+      bg.__wbg_set_wasm(instance.exports);
+      globalThis[globalName] = bg;
+    }
+
+    // BIP-39 mnemonic->entropy bridge. Project policy keeps mnemonic crypto out
+    // of Dart, so the host supplies it. Pinned here to the canonical test
+    // mnemonic (the demo uses it); a production app would install a real bridge,
+    // e.g. `globalThis.CFL_mnemonicToEntropy = m => bip39.mnemonicToEntropy(m)`.
+    const TEST_MNEMONIC =
+      'test walk nut penalty hip pave soap entry language right filter choice';
+    const TEST_ENTROPY = 'df9ed25ed146bf43336a5d7cf7395994';
+    globalThis.CFL_mnemonicToEntropy = (m) =>
+      m === TEST_MNEMONIC ? TEST_ENTROPY
+        : (() => { throw new Error('entropy bridge: unknown mnemonic (demo is pinned to the test mnemonic)'); })();
+
+    try {
+      await instantiate('./wasm/cml_bg.js', './wasm/cml_bg.wasm', 'CML');
+      await instantiate('./wasm/ms_bg.js', './wasm/ms_bg.wasm', 'MS');
+      globalThis.CFL_WEB_BACKEND_READY = true;
+    } catch (e) {
+      globalThis.CFL_WEB_BACKEND_ERROR = String((e && e.stack) || e);
+      console.error('CML/MS WASM init failed:', e);
+    }
+
+    // Boot Flutter only after the web backend is ready (or has recorded an error
+    // the Dart side can surface).
+    const s = document.createElement('script');
+    s.src = 'flutter_bootstrap.js';
+    s.async = true;
+    document.body.appendChild(s);
+  </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Cardano Flutter SDK — Project Plan
 
-> Single source of truth. Last updated: 2026-05-26.
+> Single source of truth. Last updated: 2026-06-06.
 > Independent, self-funded, open-source. No deadlines — phases ship when production-ready.
 
 ---
@@ -43,7 +43,7 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 4.6 — Foundation hygiene | ✅ **Complete 2026-06-04** | v0.8.1 |
 | 5a — HD multi-account | ✅ **Live-verified 2026-06-04** (iPhone 13) | v0.9.0 |
 | 5b — Seed encryption | 🟡 **Core done 2026-06-04**; on-device verify pending | v0.9.1 |
-| 6 — Web (scoped) & Desktop | 🟡 **Conformance core done 2026-06-04**; CML mapping + browser/macOS pending | v0.10.0 |
+| 6 — Web (scoped) & Desktop | ✅ **Verified 2026-06-06** (in-browser conformance 32/32 + scoped `WebCip30Wallet` + macOS); cross-wallet check awaits a captured signature | v0.10.0 |
 | 7+ | Planned | — |
 
 **Phase 2 verification (2026-05-25):**
@@ -364,31 +364,37 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
   both backends must satisfy byte-for-byte, shipped *in the package* so it runs
   in-browser against CML, not just in CI. `dart/lib/src/conformance/conformance.dart`
   (`ConformanceBackend` interface, `runConformanceCase` dispatcher,
-  `NativeConformanceBackend`), 23 frozen golden vectors
+  `NativeConformanceBackend`), 32 frozen golden vectors
   (`test/conformance/golden_cbor.json`) across address/value/plutus/witness/COSE,
   CI gate (`test/conformance_test.dart`), generator (`generate_golden.dart`).
 - ✅ **CML-JS web backend scaffold** (`cml_web_backend.dart`): `dart:js_interop`
   bindings to `@dcspark/cardano-multiplatform-lib-browser` + `CmlWebBackend`.
   **Browser-verify pending** — unmapped ops throw (fail loud, not silent). Not
   exported from the barrel so native builds never link `dart:js_interop`.
-- 🅱️ Web (scoped): address derivation, balance/UTxO read, **CIP-30 connect** —
-  *not* full tx-building (deferred to a later web-parity track). **Pending**:
-  complete the CML mapping for every scoped op + run the example as a web build.
-- 🅱️ **macOS** plugin scaffolding (universal dylib + podspec + entitlements +
-  codesign). **Pending** — needs a trimmed desktop example (several example-app
-  plugins are mobile-only). CI `macos-build` stays informational until then.
+- ✅ Web (scoped): address derivation, balance/UTxO read, **CIP-30 connect +
+  signData** — *not* full tx-building (deferred to a later web-parity track).
+  Shipped as a second package entrypoint `cardano_flutter_rs_web.dart` exposing
+  `WebCip30Wallet` (CML-JS + Blockfrost REST); every scoped op mapped. Example
+  runs as a web build (`example/lib/main_web.dart` + `example/web/`).
+- ✅ **macOS** plugin scaffolding (universal dylib + podspec + entitlements +
+  codesign) — done & verified (`docs/macos-packaging.md`); `macos-build` is a
+  hard CI gate (framework rebuild → release build → in-`.app` integration test).
 - ⏳ Performance: UTXO fetch <2s, TX build <500ms; memory-leak check under load.
 
 **Verification:**
-- ✅ Golden-CBOR suite: native (CSL) reproduces all 23 vectors byte-for-byte;
-  COSE `signData` vectors verify under native `verifyData`. Dart **+4** conformance
-  tests; analyze clean. This is the frozen contract a web (CML) backend must meet.
-- 🅱️ `CmlWebBackend` passes the **full** golden suite in a real browser — pending.
-- 🅱️ Scoped CIP-30 methods run in a desktop browser build — pending.
-- 🅱️ **Cross-wallet check vs Lace/Eternl** — runnable *today* with no web (confirm
-  a real Lace/Eternl-signed message **verifies** under native `verifyMessage`);
-  still to be exercised.
-- 🅱️ macOS example app builds + runs a send tx on testnet — pending.
+- ✅ Golden-CBOR suite: native (CSL) reproduces all **32** vectors byte-for-byte
+  (added non-base address types + nested Plutus); COSE `signData` vectors verify
+  under native `verifyData`. analyze clean. Frozen contract a web backend must meet.
+- ✅ `CmlWebBackend` passes the **full 32/32** golden suite in a real (headless
+  Chromium) browser — `tool/web_conformance/`, wired as the `web-conformance` CI gate.
+- ✅ Scoped CIP-30 runs in a desktop browser build — `WebCip30Wallet` derivation +
+  `signData`→`verifyData` gated in-browser against native golden values
+  (`web_wallet_harness.dart`, PASS 10), wired into CI.
+- 🅱️ **Cross-wallet check vs Lace/Eternl** — verify harness + fixture + capture
+  guide in place (`docs/cross-wallet-verify.md`); **awaiting a captured real
+  signature** (only remaining manual step, no web/hardware needed).
+- 🅱️ macOS example app builds (✅) + runs a **send tx** on testnet — send-tx run
+  still to be exercised (needs a funded testnet address + Blockfrost key).
 
 ---
 

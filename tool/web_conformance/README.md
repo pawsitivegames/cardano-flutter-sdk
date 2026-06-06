@@ -8,7 +8,7 @@ cardano-message-signing browser WASM builds**, in a real browser.
 This is the gate that the Node spike (`tool/cml_conformance_spike/`) could not
 close: the spike proved the *libraries* agree; this proves **this Dart
 JS-interop binding + the actual browser WASM build** reproduce the frozen CSL
-bytes. Expected result: **`PASS 28 FAIL 0`**.
+bytes. Expected result: **`PASS 32 FAIL 0`**.
 
 ## Run
 
@@ -24,22 +24,44 @@ node build.mjs
 
 # 3a. Headless (what CI runs) — drives the page in headless Chromium and exits
 #     non-zero on any divergence:
-node run-headless.mjs   # → "✓ in-browser conformance clean: PASS 28 FAIL 0 …"
+node run-headless.mjs   # → "✓ in-browser conformance clean: PASS 32 FAIL 0 …"
 
 # 3b. Or serve and open in a real browser to inspect manually:
 node serve.mjs          # http://localhost:8099
 ```
 
-Open the URL; the page prints `PASS 28 FAIL 0` (green) when the backend
+Open the URL; the page prints `PASS 32 FAIL 0` (green) when the backend
 reproduces every vector. For automated/headless checks, `run-headless.mjs`
 (Puppeteer) waits for `globalThis.HARNESS_DONE`, parses
 `globalThis.CONFORMANCE_RESULT`, and fails on any `FAIL` or accounting mismatch.
 
+## WebCip30Wallet gate (scoped web CIP-30)
+
+A second harness proves the **scoped web wallet** (`WebCip30Wallet`, the public
+web API in `cardano_flutter_rs_web.dart`) derives + signs correctly in a real
+browser. It drives the wallet's offline ops — key/address derivation, reward
+address, `signData`→`verifyData` (accept + tamper-reject) — and asserts each
+result equals the frozen **native CSL** golden value. Network ops
+(`getUtxos`/`getBalance`) are excluded here to keep the gate deterministic and
+key-free (their value-CBOR assembly is already covered by the conformance gate
+above; the REST provider is covered by the native live tests).
+
+```bash
+# (after `npm install` in this dir)
+cd dart
+dart compile js web/web_wallet_harness.dart -o ../tool/web_conformance/build/wallet_harness.js -O2
+cd ../tool/web_conformance
+node build.mjs
+node run-headless-wallet.mjs   # → "✓ in-browser WebCip30Wallet clean: PASS 10 FAIL 0 / 10"
+```
+
 ## CI
 
-The `web-conformance` job in `.github/workflows/ci.yml` runs steps 1–3a on every
-PR (headless Chromium via Puppeteer) and **gates** the build — a CML↔CSL byte
-divergence in the web backend now fails CI, not just a manual harness run.
+The `web-conformance` job in `.github/workflows/ci.yml` runs the conformance gate
+(steps 1–3a) **and** the WebCip30Wallet gate on every PR (headless Chromium via
+Puppeteer) and **gates** the build — a CML↔CSL byte divergence in the web backend,
+or a derivation/signing regression in the scoped wallet, now fails CI rather than
+only showing up in a manual run.
 
 ## How the WASM is wired (no bundler)
 
@@ -54,9 +76,11 @@ namespace as its import object, call `__wbg_set_wasm`, and expose the result on
 
 | File | Role |
 |------|------|
-| `dart/web/conformance_harness.dart` | Dart entrypoint (compiled to `build/harness.js`) |
-| `build.mjs` | Stages `build/`: copies WASM, embeds golden + entropy bridge, copies the page |
-| `index.html` | Instantiates the WASM, runs the harness, renders the result |
+| `dart/web/conformance_harness.dart` | Conformance Dart entrypoint (compiled to `build/harness.js`) |
+| `dart/web/web_wallet_harness.dart` | WebCip30Wallet Dart entrypoint (compiled to `build/wallet_harness.js`) |
+| `build.mjs` | Stages `build/`: copies WASM, embeds golden + entropy bridge, copies both pages |
+| `index.html` / `wallet_index.html` | Instantiate the WASM, run a harness, render the result |
+| `run-headless.mjs` / `run-headless-wallet.mjs` | Puppeteer CI drivers for the two gates |
 | `serve.mjs` | Static server with correct wasm/js MIME types |
 
 `build/` and `node_modules/` are git-ignored — regenerate with the steps above.

@@ -111,12 +111,14 @@ jobs:
         run: cd dart && flutter pub get
       # Compile the dart2js harness that drives CmlWebBackend through the SAME
       # golden vectors the native CI gate uses.
-      - name: Compile in-browser harness (dart2js)
+      - name: Compile in-browser harnesses (dart2js)
         run: |
           cd dart
           mkdir -p ../tool/web_conformance/build
           dart compile js web/conformance_harness.dart \
             -o ../tool/web_conformance/build/harness.js -O2
+          dart compile js web/web_wallet_harness.dart \
+            -o ../tool/web_conformance/build/wallet_harness.js -O2
       # Pulls the CML + message-signing browser WASM builds AND Puppeteer
       # (which downloads a pinned Chromium for the headless run).
       - name: Install web harness deps
@@ -128,6 +130,10 @@ jobs:
       # on any FAIL or an accounting mismatch.
       - name: Run in-browser conformance (headless Chromium)
         run: cd tool/web_conformance && node run-headless.mjs
+      # Scoped web CIP-30: WebCip30Wallet must derive + sign correctly in-browser,
+      # matching the frozen native CSL golden values. Fails on any regression.
+      - name: Run in-browser WebCip30Wallet gate (headless Chromium)
+        run: cd tool/web_conformance && node run-headless-wallet.mjs
 
   ios-build:
     runs-on: macos-latest

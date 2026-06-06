@@ -1,0 +1,3 @@
+# Large staged WASM binaries — regenerate via web/wasm/README.md
+*.wasm
+*.js

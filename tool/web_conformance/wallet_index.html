@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>WebCip30Wallet in-browser harness</title>
+  <style>
+    body { font: 14px/1.5 ui-monospace, monospace; padding: 1.5rem; }
+    #out { white-space: pre-wrap; }
+    .pass { color: #0a0; } .fail { color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>WebCip30Wallet ↔ native golden (live CML WASM)</h1>
+  <div id="out">running…</div>
+
+  <!-- golden vectors + entropy bridge (CFL_mnemonicToEntropy) -->
+  <script src="data.js"></script>
+
+  <script type="module">
+    async function instantiate(bgUrl, wasmUrl, globalName) {
+      const bg = await import(bgUrl);
+      const resp = await fetch(wasmUrl);
+      const bytes = await resp.arrayBuffer();
+      const module = await WebAssembly.compile(bytes);
+      const imports = {};
+      for (const imp of WebAssembly.Module.imports(module)) {
+        imports[imp.module] = bg;
+      }
+      const instance = await WebAssembly.instantiate(module, imports);
+      bg.__wbg_set_wasm(instance.exports);
+      globalThis[globalName] = bg;
+    }
+
+    const out = document.getElementById('out');
+    try {
+      await instantiate('./cml_bg.js', './cml_bg.wasm', 'CML');
+      await instantiate('./ms_bg.js', './ms_bg.wasm', 'MS');
+
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = './wallet_harness.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('failed to load wallet_harness.js'));
+        document.head.appendChild(s);
+      });
+
+      // The dart2js main() is async; poll for completion.
+      await new Promise((resolve) => {
+        const t = setInterval(() => {
+          if (globalThis.WALLET_DONE === true) { clearInterval(t); resolve(); }
+        }, 50);
+      });
+
+      const result = String(globalThis.WALLET_RESULT);
+      out.textContent = result;
+      out.className = /\bFAIL 0\b/.test(result) ? 'pass' : 'fail';
+    } catch (e) {
+      out.textContent = 'HARNESS ERROR: ' + (e && e.stack || e);
+      out.className = 'fail';
+      globalThis.WALLET_RESULT = 'HARNESS ERROR: ' + e;
+      globalThis.WALLET_DONE = true;
+    }
+  </script>
+</body>
+</html>

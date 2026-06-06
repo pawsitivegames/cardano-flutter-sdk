@@ -7,6 +7,12 @@
       "runtimeArgs": ["serve.mjs"],
       "cwd": "tool/web_conformance",
       "port": 8099
+    },
+    {
+      "name": "example-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "example/build/web"],
+      "port": 8765
     }
   ]
 }

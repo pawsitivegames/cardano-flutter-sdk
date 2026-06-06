@@ -59,6 +59,30 @@ void main() {
       signingKeyBech32: keys.paymentSigningKey,
     );
 
+    // Non-base address types (CIP-19) for addressToHex parse parity. The base
+    // vectors above only ever decode type-0 addresses; these cover enterprise
+    // (type 6), reward/stake (type 14), and a script-payment-credential base
+    // address (type 1) — decode paths a key-cred base address never touches.
+    const enterpriseTestnet =
+        'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
+    const rewardTestnet =
+        'stake_test1uqevw2xnsc0pvn9t9r9c7qryfqfeerchgrlm3ea2nefr9hqp8n5xl';
+    // Type-1 base address (script payment credential + key stake credential),
+    // testnet. Deterministic: script hash 0x00*28, the test account's stake hash.
+    const scriptBaseTestnet =
+        'addr_test1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'
+        'pjcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq82pdzx';
+
+    // Nested Plutus: constr(2)[ list[ constr(0)[int 42], int 7 ], bytes deadbeef ].
+    // Exercises RECURSIVE Cardano-node CBOR (indefinite-length constr/list arrays
+    // nested inside one another) — a divergence-prone CSL/CML area the flat
+    // single-level plutus vectors above cannot detect.
+    final nestedInnerConstr = backend.plutusDataConstr(
+        BigInt.zero, [backend.plutusDataInt(BigInt.from(42))]);
+    final nestedInnerList = backend.plutusDataList(
+        [nestedInnerConstr, backend.plutusDataInt(BigInt.from(7))]);
+    final nestedFields = [nestedInnerList, backend.plutusDataBytes('deadbeef')];
+
     final cases = <ConformanceCase>[
       ConformanceCase(
         id: 'key-derivation-acct0-testnet',
@@ -147,6 +171,27 @@ void main() {
         category: 'address',
         op: 'addressToHex',
         input: {'addressBech32': addr0.address},
+        expected: '',
+      ),
+      ConformanceCase(
+        id: 'address-to-hex-enterprise',
+        category: 'address',
+        op: 'addressToHex',
+        input: {'addressBech32': enterpriseTestnet},
+        expected: '',
+      ),
+      ConformanceCase(
+        id: 'address-to-hex-reward',
+        category: 'address',
+        op: 'addressToHex',
+        input: {'addressBech32': rewardTestnet},
+        expected: '',
+      ),
+      ConformanceCase(
+        id: 'address-to-hex-script-base',
+        category: 'address',
+        op: 'addressToHex',
+        input: {'addressBech32': scriptBaseTestnet},
         expected: '',
       ),
       ConformanceCase(
@@ -266,6 +311,16 @@ void main() {
             backend.plutusDataInt(BigInt.one),
             backend.plutusDataInt(BigInt.two),
           ],
+        },
+        expected: '',
+      ),
+      ConformanceCase(
+        id: 'plutus-nested-constr-list-constr',
+        category: 'plutus',
+        op: 'plutusConstr',
+        input: {
+          'constructor': '2',
+          'fieldsCborHex': nestedFields,
         },
         expected: '',
       ),

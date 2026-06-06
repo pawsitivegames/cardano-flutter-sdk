@@ -36,23 +36,34 @@ Dart-only code (no Rust twin), hand-written:
   `dart:js_interop`); `conformance.dart` adds `NativeConformanceBackend` (CSL/FFI);
   `cml_web_backend.dart` is `CmlWebBackend` (CML via JS interop, web-only, **not**
   barrel-exported). The split is what lets the web backend compile under dart2js.
+- `web/web_cip30_wallet.dart` — `WebCip30Wallet`, the scoped web CIP-30 wallet
+  (CML-JS derivation/`signData` + Blockfrost REST). Web-only (`dart:js_interop`).
 
-`lib.dart` is the barrel export — the public API is whatever it re-exports.
+**Two entrypoints:** `cardano_flutter_rs.dart` is the **native** barrel (pulls in
+`dart:ffi`); `cardano_flutter_rs_web.dart` is the **web** entrypoint — re-exports
+only web-safe pieces (`WebCip30Wallet`, `CmlWebBackend`, the contract, providers),
+never the FFI chain, so it compiles under dart2js. The public API is whatever they
+re-export. Web example target: `example/lib/main_web.dart` (`flutter build web -t
+lib/main_web.dart`); host WASM/bridge in `example/web/index.html`.
 
 ## Current state
 
 **Heading toward `0.12.0` RC.** Feature-complete on iOS (verified on iPhone 13);
 macOS packaged & verified; web shipped as a scoped second backend (CML-JS,
-in-browser conformance-gated). Bare `1.0.0` is gated on **Android physical-device**
-verification; hardware wallets stay `@experimental` (→ v1.1.0).
+in-browser conformance-gated 32/32) with a `WebCip30Wallet` public web API
+(`cardano_flutter_rs_web.dart`) and an example web build. Bare `1.0.0` is gated on
+**Android physical-device** verification; hardware wallets stay `@experimental`
+(→ v1.1.0).
 
 - **Phase-by-phase history:** [`CHANGELOG.md`](CHANGELOG.md).
 - **Roadmap, next steps, version gates:** [`docs/PLAN.md`](docs/PLAN.md) — the single
   source of truth. Per-phase verification reports + design docs live in `docs/`.
-- **Known-pending (honest):** web example-app build; Lace/Eternl cross-wallet
-  `verifyMessage`; **Ledger on-device TX signing** (`signTransaction` intentionally
-  throws — `docs/hardware-wallets.md`); **Android physical-device + Play Store**
-  acceptance (emulator-only is *not* "verified on device").
+- **Known-pending (honest):** Lace/Eternl cross-wallet check (verify harness +
+  fixture in place — `docs/cross-wallet-verify.md` — awaiting a captured real
+  signature); macOS example **send-tx** run on testnet; **Ledger on-device TX
+  signing** (`signTransaction` intentionally throws — `docs/hardware-wallets.md`);
+  **Android physical-device + Play Store** acceptance (emulator-only is *not*
+  "verified on device").
 
 ### Key implementation facts (durable — not history)
 

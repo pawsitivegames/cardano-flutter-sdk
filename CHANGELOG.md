@@ -10,7 +10,7 @@ Status legend: 🟢 in progress / partially verified · ✅ complete & verified 
 
 ---
 
-## Phase 6 — Web (scoped) & Desktop 🟢 *(2026-06-04 → 2026-06-06)*
+## Phase 6 — Web (scoped) & Desktop ✅ *(2026-06-04 → 2026-06-06)*
 
 **Web backend verified in-browser; macOS packaged & verified.** Web is a
 **second backend** (no Rust FFI on web; CML-JS via Dart JS interop — Rust→WASM
@@ -32,9 +32,9 @@ suite** freezing the byte-for-byte contract both backends must meet.
   contract (interface + `ConformanceCase` + `runConformanceCase`), no FFI / no
   `dart:js_interop`. Split out of `conformance.dart` so the web backend compiles
   under dart2js (otherwise importing the contract dragged in the FFI chain).
-- **Verified in a real browser (28/28):** `CmlWebBackend`, dart2js-compiled,
+- **Verified in a real browser (32/32):** `CmlWebBackend`, dart2js-compiled,
   driven through the full golden suite against the live CML 6.2.0 +
-  message-signing 1.1.0 **browser WASM** builds → **PASS 28 FAIL 0**
+  message-signing 1.1.0 **browser WASM** builds → **PASS 32 FAIL 0**
   (`tool/web_conformance/`). First de-risked at the library level under Node
   (`tool/cml_conformance_spike/`, `PASS 24`). Divergences resolved & baked in:
   Plutus → `to_cardano_node_format()` (indefinite arrays); `Value` →
@@ -45,7 +45,27 @@ suite** freezing the byte-for-byte contract both backends must meet.
 - **`CmlWebBackend.verifyData` mapped & gated (2026-06-06):** COSE_Sign1 parse +
   Ed25519 verify + identity-binding against the protected-header address. 4 new
   golden `verifyData` vectors (accept, pure-signature accept, wrong-payload
-  reject, wrong-address reject) run in-browser as part of the 28/28 suite.
+  reject, wrong-address reject) run in-browser as part of the 32/32 suite.
+- **Divergence-prone vectors added (2026-06-06):** golden grew 28 → **32** —
+  non-base address types (enterprise / reward / script-credential base, via
+  `addressToHex`) and **nested Plutus** (`constr[list[constr,int],bytes]`,
+  recursive Cardano-node indefinite arrays). CML reproduces all 32 in-browser.
+- **Scoped web CIP-30 shipped (2026-06-06):** new second package entrypoint
+  `dart/lib/cardano_flutter_rs_web.dart` exposing `WebCip30Wallet`
+  (`dart/lib/src/web/web_cip30_wallet.dart`) — CML-JS derivation + `signData`
+  over the conformance-frozen backend, chain reads over the web-capable
+  Blockfrost REST provider. Out-of-scope web tx-building is deliberately absent
+  (not stubbed). Native barrel untouched (no `dart:js_interop` leak).
+- **Example runs on web:** `example/lib/main_web.dart` + `example/web/` (CML/MS
+  WASM instantiation + BIP-39 bridge in `index.html`); `flutter build web -t
+  lib/main_web.dart` compiles, renders in Chrome, backend initializes. A second
+  in-browser gate `web_wallet_harness.dart` (PASS 10) proves `WebCip30Wallet`
+  derivation + `signData`→`verifyData` match native golden values; wired into the
+  `web-conformance` CI job (`run-headless-wallet.mjs`).
+- **Cross-wallet interop harness (2026-06-06):** `test/cross_wallet_verify_test.dart`
+  + `test/fixtures/cross_wallet_signatures.json` + `docs/cross-wallet-verify.md`
+  — the verify side is automated; paste a real Lace/Eternl `signData` output and
+  it asserts acceptance + tamper-rejection. Skips (CI-green) until populated.
 - **CI gate:** the in-browser run is an automated gate — `web-conformance` job in
   `.github/workflows/ci.yml` runs `CmlWebBackend` through every vector in
   headless Chromium (Puppeteer) on each PR; fails the build on any divergence.
@@ -57,8 +77,10 @@ suite** freezing the byte-for-byte contract both backends must meet.
   integration test (`example/integration_test/macos_packaging_test.dart`, `-d macos`)
   loads the embedded framework and round-trips FFI key derivation. `macos-build`
   CI job is a hard gate. Doc: `docs/macos-packaging.md`.
-- **Pending:** web example app build; Lace/Eternl cross-wallet `verifyMessage`
-  check. Design: `docs/web-backend.md`.
+- **Pending:** a captured real Lace/Eternl signature to exercise the cross-wallet
+  harness (verify side is built & gated, just needs one paste); macOS example
+  **send-tx** run on testnet (the example builds + the FFI integration test gates
+  already). Design: `docs/web-backend.md`.
 
 ## Phase 5b — Seed encryption 🟡 *(2026-06-04)*
 

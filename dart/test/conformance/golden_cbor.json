@@ -91,6 +91,33 @@
     "expected": "009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc"
   },
   {
+    "id": "address-to-hex-enterprise",
+    "category": "address",
+    "op": "addressToHex",
+    "input": {
+      "addressBech32": "addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz"
+    },
+    "expected": "609493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e"
+  },
+  {
+    "id": "address-to-hex-reward",
+    "category": "address",
+    "op": "addressToHex",
+    "input": {
+      "addressBech32": "stake_test1uqevw2xnsc0pvn9t9r9c7qryfqfeerchgrlm3ea2nefr9hqp8n5xl"
+    },
+    "expected": "e032c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc"
+  },
+  {
+    "id": "address-to-hex-script-base",
+    "category": "address",
+    "op": "addressToHex",
+    "input": {
+      "addressBech32": "addr_test1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpjcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq82pdzx"
+    },
+    "expected": "100000000000000000000000000000000000000000000000000000000032c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc"
+  },
+  {
     "id": "value-ada-only",
     "category": "value",
     "op": "valueToCbor",
@@ -224,6 +251,19 @@
       ]
     },
     "expected": "9f0102ff"
+  },
+  {
+    "id": "plutus-nested-constr-list-constr",
+    "category": "plutus",
+    "op": "plutusConstr",
+    "input": {
+      "constructor": "2",
+      "fieldsCborHex": [
+        "9fd8799f182aff07ff",
+        "44deadbeef"
+      ]
+    },
+    "expected": "d87b9f9fd8799f182aff07ff44deadbeefff"
   },
   {
     "id": "witness-set-single",

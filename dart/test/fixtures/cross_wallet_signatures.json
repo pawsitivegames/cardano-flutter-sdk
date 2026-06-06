@@ -1,0 +1,14 @@
+{
+  "_README": "Real CIP-30 signData outputs from third-party wallets (Lace, Eternl, ...). Each entry is verified by test/cross_wallet_verify_test.dart against the native verifyData, proving our COSE_Sign1 + identity-binding implementation is spec-interoperable with shipping wallets. The 'signatures' array is empty by design — see docs/cross-wallet-verify.md for how to capture a real one and paste it here. While empty, the test SKIPS (CI stays green).",
+  "_schema": {
+    "wallet": "wallet name + version, e.g. 'lace 1.20' (for the record only)",
+    "network": "'testnet' | 'mainnet' (for the record only)",
+    "message": "the human-readable string that was signed (for the record only)",
+    "payloadHex": "REQUIRED — hex of the exact payload passed to signData (what the wallet signed)",
+    "addressHex": "OPTIONAL — hex of the signer address; if present, verification is pinned to it (identity binding is enforced regardless)",
+    "signature": "REQUIRED — COSE_Sign1 hex returned by the wallet's signData",
+    "key": "REQUIRED — COSE_Key hex returned by the wallet's signData",
+    "expectAccept": "OPTIONAL bool (default true) — set false for a deliberately-bad fixture"
+  },
+  "signatures": []
+}
