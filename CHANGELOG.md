@@ -77,10 +77,19 @@ suite** freezing the byte-for-byte contract both backends must meet.
   integration test (`example/integration_test/macos_packaging_test.dart`, `-d macos`)
   loads the embedded framework and round-trips FFI key derivation. `macos-build`
   CI job is a hard gate. Doc: `docs/macos-packaging.md`.
-- **Pending:** a captured real Lace/Eternl signature to exercise the cross-wallet
-  harness (verify side is built & gated, just needs one paste); macOS example
-  **send-tx** run on testnet (the example builds + the FFI integration test gates
-  already). Design: `docs/web-backend.md`.
+- **macOS send-tx — on-chain (2026-06-06):** the macOS build broadcast a real
+  testnet-preview tx end-to-end (build → sign → submit → confirmed; tx
+  `30c4b6e0…d13702`, block 4355766). Surfaced + fixed a real bug:
+  `send_flow_test.dart` dropped native tokens on the spent UTxO (→ node
+  `ValueNotConserved`); now uses `utxosToTxInputs` so change carries the assets
+  (NFT `TestNFT1`×2 conserved). The test also lacked `RustLib.init()`/integration
+  binding — fixed.
+- **Performance (2026-06-06):** `integration_test/perf_benchmark_test.dart`
+  (macOS + live testnet) — UTxO fetch **53 ms** (<2 s), coin-selection+build over
+  20 runs **median 0 / avg 1 / max 12 ms** (<500 ms), no latency growth.
+- **Pending:** only a captured real Lace/Eternl signature to exercise the
+  cross-wallet harness (verify side is built & gated, just needs one paste).
+  Design: `docs/web-backend.md`.
 
 ## Phase 5b — Seed encryption ✅ *(2026-06-04 → live-verified iPhone 13 2026-06-06)*
 

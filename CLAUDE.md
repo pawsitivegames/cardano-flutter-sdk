@@ -60,10 +60,9 @@ in-browser conformance-gated 32/32) with a `WebCip30Wallet` public web API
   source of truth. Per-phase verification reports + design docs live in `docs/`.
 - **Known-pending (honest):** Lace/Eternl cross-wallet check (verify harness +
   fixture in place — `docs/cross-wallet-verify.md` — awaiting a captured real
-  signature); macOS example **send-tx** run on testnet; **Ledger on-device TX
-  signing** (`signTransaction` intentionally throws — `docs/hardware-wallets.md`);
-  **Android physical-device + Play Store** acceptance (emulator-only is *not*
-  "verified on device").
+  signature); **Ledger on-device TX signing** (`signTransaction` intentionally
+  throws — `docs/hardware-wallets.md`); **Android physical-device + Play Store**
+  acceptance (emulator-only is *not* "verified on device").
 
 ### Key implementation facts (durable — not history)
 

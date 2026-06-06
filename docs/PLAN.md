@@ -43,7 +43,7 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 4.6 — Foundation hygiene | ✅ **Complete 2026-06-04** | v0.8.1 |
 | 5a — HD multi-account | ✅ **Live-verified 2026-06-04** (iPhone 13) | v0.9.0 |
 | 5b — Seed encryption | ✅ **Live-verified 2026-06-06** (iPhone 13: Keychain round-trip + `benchmark_kdf` ~158 ms) | v0.9.1 |
-| 6 — Web (scoped) & Desktop | ✅ **Verified 2026-06-06** (in-browser conformance 32/32 + scoped `WebCip30Wallet` + macOS); cross-wallet check awaits a captured signature | v0.10.0 |
+| 6 — Web (scoped) & Desktop | ✅ **Verified 2026-06-06** (conformance 32/32 + scoped `WebCip30Wallet` + macOS send-tx on-chain + perf within budget); only cross-wallet capture (Lace/Eternl) outstanding | v0.10.0 |
 | 7+ | Planned | — |
 
 **Phase 2 verification (2026-05-25):**
@@ -355,7 +355,7 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 ---
 
-### Phase 6 — Web (scoped) & Desktop → v0.10.0  🟡 conformance core done (2026-06-04)
+### Phase 6 — Web (scoped) & Desktop → v0.10.0  ✅ verified 2026-06-06 (cross-wallet capture outstanding)
 *Dependency: Phase 5b. Verifiable in a desktop browser + macOS — no phone needed.*
 
 > Web ≠ a recompile. No Rust FFI on web → a **CML-JS backend** must implement the
@@ -382,7 +382,10 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 - ✅ **macOS** plugin scaffolding (universal dylib + podspec + entitlements +
   codesign) — done & verified (`docs/macos-packaging.md`); `macos-build` is a
   hard CI gate (framework rebuild → release build → in-`.app` integration test).
-- ⏳ Performance: UTXO fetch <2s, TX build <500ms; memory-leak check under load.
+- ✅ Performance (2026-06-06, macOS + live testnet preview, real FFI):
+  UTxO fetch **53 ms** (budget <2 s); coin-selection + tx-build over 20 runs
+  **median 0 ms / avg 1 ms / max 12 ms** (budget <500 ms); no latency growth
+  across runs (leak smoke check). Gated by `integration_test/perf_benchmark_test.dart`.
 
 **Verification:**
 - ✅ Golden-CBOR suite: native (CSL) reproduces all **32** vectors byte-for-byte
@@ -396,8 +399,12 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 - 🅱️ **Cross-wallet check vs Lace/Eternl** — verify harness + fixture + capture
   guide in place (`docs/cross-wallet-verify.md`); **awaiting a captured real
   signature** (only remaining manual step, no web/hardware needed).
-- 🅱️ macOS example app builds (✅) + runs a **send tx** on testnet — send-tx run
-  still to be exercised (needs a funded testnet address + Blockfrost key).
+- ✅ macOS example **send-tx on testnet preview** (2026-06-06): built → signed →
+  submitted → **confirmed on-chain** (tx `30c4b6e0…d13702`, block 4355766, fee
+  181253). Surfaced + fixed a real bug: native tokens on the spent UTxO were
+  dropped (→ node `ValueNotConserved`); the send now routes them through
+  `utxosToTxInputs` so change carries the assets (NFT `TestNFT1`×2 conserved).
+  Gated by `integration_test/send_flow_test.dart` (live when `BLOCKFROST_PROJECT_ID` set).
 
 ---
 

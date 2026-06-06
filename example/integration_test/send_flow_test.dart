@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
 
 /// Integration test: End-to-end testnet preview transaction send.
 ///
@@ -21,6 +22,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// ONLY runs when BLOCKFROST_PROJECT_ID environment variable is set.
 /// Skipped locally if env var is absent.
 void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
   final projectId = Platform.environment['BLOCKFROST_PROJECT_ID'];
   final isLiveTest = projectId != null && projectId.isNotEmpty;
 
@@ -38,7 +41,10 @@ void main() {
       const testMnemonic =
           'test walk nut penalty hip pave soap entry language right filter choice';
 
-      test('send_flow_testnet_preview', () async {
+      testWidgets('send_flow_testnet_preview', (tester) async {
+        // Load the Rust FFI (packaged framework on desktop/device).
+        await RustLib.init();
+
         // ===== Phase 1: Wallet Setup =====
         // Derive keys from mnemonic (same as Phase 1)
         final keys = await deriveKeysFromMnemonic(
@@ -51,10 +57,11 @@ void main() {
         expect(keys.paymentKey, isNotEmpty, reason: 'Payment key should be derived');
         expect(keys.stakeKey, isNotEmpty, reason: 'Stake key should be derived');
 
-        // For this test, use a known testnet address derived from this mnemonic
-        // This address is publicly used in tests and should have some testnet funds
+        // Account-0 external-0 enterprise address (m/1852'/1815'/0'/0/0, testnet)
+        // of the test mnemonic — the payment credential matches keys.paymentSigningKey
+        // below, so the witness validates. Same address the example app sends from.
         const testnetAddress =
-            'addr_test1qzx9hu8j4zh3k1sugsscq69ek5ee2nrw6rasydg4gwyydewjjxtwq2ytjqd8';
+            'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
 
         print('[SEND_FLOW] Derived testnet keys');
         print('[SEND_FLOW] Using address: $testnetAddress');
@@ -93,15 +100,11 @@ void main() {
         // Select coins for a 1 ADA self-send to same address
         const sendAmount = 1000000; // 1 ADA in lovelace
 
-        // Convert UTXOs to TxInput format for coin selection
-        final txInputs = utxos
-            .map((utxo) => TxInput(
-                  txHash: utxo.txHash,
-                  outputIndex: utxo.outputIndex,
-                  address: utxo.address,
-                  value: Value(coin: utxo.coin, assets: []),
-                ))
-            .toList();
+        // Convert UTXOs to TxInput format for coin selection. Use the SDK helper
+        // so native tokens on the UTxOs are carried through — otherwise they'd be
+        // dropped and the node rejects the tx (ValueNotConserved: assets in inputs
+        // but none in outputs/change).
+        final txInputs = utxosToTxInputs(utxos);
 
         // Target: 1 ADA to same address
         final targetOutputs = [
