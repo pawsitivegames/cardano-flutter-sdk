@@ -12,248 +12,60 @@ A production-grade, open-source Flutter SDK for the Cardano blockchain. Architec
 
 **The plan:** see `docs/PLAN.md` (single source of truth). Critical review of stack choices in `.claude/goals/CRITICAL_REVIEW.md`.
 
+## Architecture & code map
+
+The layering is: **`example/` (Flutter app) → `dart/` (public API) → FFI
+(flutter_rust_bridge) → `rust/` (wrapper crate) → CSL/CML**. Network/chain data
+is fetched in Dart over REST (Blockfrost), *not* through FFI — the FFI surface is
+deliberately minimal (signing/serialization only).
+
+**The core pattern:** most `rust/src/<x>.rs` modules have a generated Dart twin
+`dart/lib/src/<x>.dart`. Edit the Rust, run `flutter_rust_bridge_codegen generate`,
+and the Dart twin + `frb_generated.dart` are regenerated — **never hand-edit
+generated files**. Twin modules: `address`, `cip30`, `coin_selection`, `error`,
+`hardware`, `message`, `metadata`, `minting`, `plutus`, `seed`, `sign`, `staking`,
+`tx`, `wallet`.
+
+Dart-only code (no Rust twin), hand-written:
+- `wrappers.dart` — ergonomic helpers over the generated API (e.g. `utxoToTxInput`).
+- `providers/` — chain-data fetchers (Blockfrost) over REST.
+- `hd/` — CIP-1852 HD discovery / gap scan.
+- `cip45/` — CIP-45 protocol core (transport lives in `example/`, not the package).
+- `conformance/` — the CSL↔CML byte-parity suite. `conformance_contract.dart` is the
+  **platform-agnostic** interface + `runConformanceCase` dispatcher (no FFI, no
+  `dart:js_interop`); `conformance.dart` adds `NativeConformanceBackend` (CSL/FFI);
+  `cml_web_backend.dart` is `CmlWebBackend` (CML via JS interop, web-only, **not**
+  barrel-exported). The split is what lets the web backend compile under dart2js.
+
+`lib.dart` is the barrel export — the public API is whatever it re-exports.
+
 ## Current state
 
-**Phase 6: Web (scoped) & Desktop — WEB BACKEND VERIFIED IN-BROWSER; macOS
-PACKAGED & VERIFIED** 🟢 *(2026-06-04)*
-Web = a **second backend** (no Rust FFI on web; CML-JS via Dart JS interop —
-Rust→WASM stays banned). Shipped the linchpin: a **CSL↔CML golden-CBOR
-conformance suite** freezing the byte-for-byte contract both backends must meet.
-- `dart/lib/src/conformance/conformance.dart`: `ConformanceBackend` (deterministic
-  subset: key-deriv/address/value/plutus/witness/COSE), `runConformanceCase`
-  dispatcher, `NativeConformanceBackend` (CSL/FFI reference). Barrel-exported.
-- `dart/test/conformance/golden_cbor.json`: **23 frozen vectors** (from native via
-  `generate_golden.dart`); `dart/test/conformance_test.dart` = CI gate (native
-  reproduces every vector byte-for-byte + COSE sigs verify).
-- `dart/lib/src/conformance/cml_web_backend.dart`: `CmlWebBackend` — **all scoped
-  ops now mapped** (`dart:js_interop` → `@dcspark/cardano-multiplatform-lib-browser`
-  + `@emurgo/cardano-message-signing-browser`): address, value, plutus
-  (constr/list/int/bytes), witness, COSE `signData`, key derivation. NOT
-  barrel-exported. `verifyData`/legacy `signMessageCose` left `throw` (out of
-  contract).
-- `dart/lib/src/conformance/conformance_contract.dart`: NEW — the platform-agnostic
-  contract (interface + `ConformanceCase` + `runConformanceCase`), no FFI / no
-  `dart:js_interop`. Split out of `conformance.dart` so the web backend compiles
-  under dart2js (without it, importing the contract dragged in the FFI chain →
-  web build impossible). `conformance.dart` keeps `NativeConformanceBackend` and
-  re-exports the contract.
-- **VERIFIED IN A REAL BROWSER (24/24):** `CmlWebBackend`, dart2js-compiled, driven
-  through the full golden suite against the live CML 6.2.0 + message-signing 1.1.0
-  **browser WASM** builds → **PASS 24 FAIL 0** (`tool/web_conformance/`). First
-  de-risked at the library level under Node (`tool/cml_conformance_spike/`, also
-  `PASS 24`). Divergences resolved & baked in: Plutus → `to_cardano_node_format()`
-  (indefinite arrays); `Value` → `to_canonical_cbor_hex()` (sorted map keys). Fixed
-  a scaffold bug (`BaseAddress.new` static vs JS `new`) and a dart2js int-precision
-  bug (Plutus i64 rounded as float64 → `plutusDataInt` now takes `BigInt`, golden
-  stores `n` as a string).
-- **Tests:** Dart **+4** conformance (native 4/4 green); analyze clean; web harness
-  24/24 in-browser. Rust unchanged.
-- **CI gate (NEW):** the in-browser run is now an automated gate — `web-conformance`
-  job in `.github/workflows/ci.yml` runs `CmlWebBackend` through every vector in
-  **headless Chromium** (Puppeteer) on each PR (`tool/web_conformance/run-headless.mjs`,
-  `npm run ci`); fails the build on any CML↔CSL byte divergence. Reproduces the
-  manual harness, just automated.
-- **macOS desktop — PACKAGED & VERIFIED (NEW):** `dart/macos/` is a real FFI
-  plugin (podspec + symbol-forcing stub) vendoring a universal arm64+x86_64
-  `cardano_flutter_rs.framework` (versioned bundle, built by
-  `dart/macos/build_macos_framework.sh`); `example/macos/` scaffolded with
-  App-Sandbox + `network.client` entitlements. Release `flutter build macos`
-  compiles/links/codesigns clean (deep `codesign -v` OK); a packaging integration
-  test (`example/integration_test/macos_packaging_test.dart`, run with `-d macos`)
-  loads the **embedded** framework via the FRB loader and round-trips FFI key
-  derivation (**+1**). `macos-build` CI job is now a HARD gate (rebuild framework →
-  release build → integration test). "Trimmed example" proved unnecessary — all 7
-  example plugins ship macOS impls. Doc: `docs/macos-packaging.md`.
-- **Pending (honest):** web example app build; Lace/Eternl cross-wallet
-  `verifyMessage` check; `CmlWebBackend.verifyData` mapping. Design:
-  `docs/web-backend.md`.
+**Heading toward `0.12.0` RC.** Feature-complete on iOS (verified on iPhone 13);
+macOS packaged & verified; web shipped as a scoped second backend (CML-JS,
+in-browser conformance-gated). Bare `1.0.0` is gated on **Android physical-device**
+verification; hardware wallets stay `@experimental` (→ v1.1.0).
 
-**Phase 4.6: Foundation hygiene — COMPLETE** ✅ *(2026-06-04, PR #2)*
-CI badge + README de-stale (status → v0.9.0, fixed broken `docs/project-plan.md`
-links), `rust/Cargo.toml` version `0.1.0`→`0.9.0`. CI/pinned-FRB/CSL-metadata/
-`@experimental` had landed earlier in `258348d`. Web CI build deferred to Phase 6
-(no web backend yet).
+- **Phase-by-phase history:** [`CHANGELOG.md`](CHANGELOG.md).
+- **Roadmap, next steps, version gates:** [`docs/PLAN.md`](docs/PLAN.md) — the single
+  source of truth. Per-phase verification reports + design docs live in `docs/`.
+- **Known-pending (honest):** web example-app build; Lace/Eternl cross-wallet
+  `verifyMessage`; **Ledger on-device TX signing** (`signTransaction` intentionally
+  throws — `docs/hardware-wallets.md`); **Android physical-device + Play Store**
+  acceptance (emulator-only is *not* "verified on device").
 
-**Phase 5b: Seed encryption — CORE COMPLETE; on-device verify PENDING** 🟡 *(2026-06-04)*
-At-rest encryption for recovery secrets, **all crypto in Rust** (no Dart crypto):
-- `rust/src/seed.rs`: Argon2id KDF + XChaCha20-Poly1305 AEAD. FFI `encrypt_seed`,
-  `encrypt_seed_with_params`, `decrypt_seed`, `benchmark_kdf`, `default_kdf_params`.
-  Self-describing versioned `CFS1` hex container; KDF params embedded + **AAD-bound**
-  (KDF-downgrade-resistant); `Zeroizing` of derived key + plaintext. Default cost
-  64 MiB / t=3 / p=1 (~101 ms dev Mac). Crates: `argon2`, `chacha20poly1305`, `zeroize`.
-- Dart: generated `src/seed.dart` (sync fns + `EncryptedSeed`/`KdfParams`), exported.
-- Example **Seed Vault screen** (`seed_vault_screen.dart`, `flutter_secure_storage`):
-  random wrapping secret in Keychain/Keystore composed with the user password
-  (input composition only) → stolen blob useless without the device.
-- **Tests:** Rust 119/119 (+11), Dart 167/167 (+12); clippy/fmt/analyze clean.
-- **Threat model:** `docs/seed-encryption.md`. **Pending:** iPhone 13 benchmark +
-  Keychain round-trip (needs iOS framework rebuilt with seed symbols); security
-  review folded into Phase 7.
+### Key implementation facts (durable — not history)
 
-**Phase 4.5: Hardware Wallets — Core Complete; On-Device Signing PENDING** 🟡 *(2026-06-02)*
+- **Active backend is CSL**, not CML: Phases 1–5 ship on `cardano-serialization-lib`
+  v15.0.3. CML is the **web** backend and the long-term swap target. CSL↔CML
+  byte-parity is frozen by the conformance suite (see Architecture below) — never
+  change canonical-bytes behavior without regenerating golden vectors *on purpose*.
+- **iOS binary:** dynamic framework at `dart/ios/Libs/cardano_flutter_rs.framework`.
+- **Live integration tests** read `BLOCKFROST_PROJECT_ID` from the env.
+- **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost
+  models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`).
+  `script_data_hash` is correct for node validation.
 
-Honest status: core protocol layer done + tested; example Ledger BLE read path
-code-complete; **transaction signing NOT yet verified on a physical Ledger**
-(no device available). v1.0.0 **not** published — the phase's v1.0 gate
-("Ledger TX signing round-trip verified on device") is deliberately still open.
-
-Core SDK (`rust/src/hardware.rs` + `dart/lib/src/hardware/`, device-agnostic):
-- `xpubToAccount(accountXpubHex, networkId)` — soft-derive base+reward addresses
-  and payment/stake key hashes from a BIP-32 **account xpub** (no private keys;
-  also serves watch-only). Proven to land on the same credentials as the
-  mnemonic private path.
-- `assembleVkeyWitnessSet` / `extractVkeyWitnesses` — device `(pubkey,sig)` pairs
-  ↔ CBOR `transaction_witness_set` (symmetric; for assembly + partial-sign/multisig).
-- `HardwareWallet` interface (`getAccountXpub`, `signTransaction`) + sign-request type.
-- `HardwareCip30Wallet` — CIP-30-shaped wallet: addresses from xpub, balance/UTxOs
-  via provider, signing delegated to device + assembled into a submittable tx.
-- **Tests:** Rust 98/98 (incl. assemble↔extract identity over a real signature),
-  Dart hardware suite incl. a **real-crypto round-trip** (software-sign → extract
-  → mock device → `HardwareCip30Wallet` assembles a **byte-identical** tx).
-  clippy clean · analyze clean.
-
-Example (Ledger over BLE, deps in example only — Vespr's MIT `ledger_cardano_plus`
-+ `ledger_flutter_plus`):
-- `LedgerHardwareWallet implements HardwareWallet`: scan/connect, version,
-  `getAccountXpub` (= `publicKeyHex+chainCodeHex`). **Working read path.**
-- **Ledger screen**: scan → connect → derive address → balance/UTxOs via
-  `HardwareCip30Wallet`. iOS BLE Info.plist keys added; deployment target → 14.0
-  (universal_ble needs ≥13.1). Builds for iOS simulator.
-- `signTransaction` **intentionally throws** — the device-side `ParsedSigningRequest`
-  mapping (+ deriving witness pubkeys from the xpub) needs on-device validation;
-  not shipped unverified. Checklist to close the gate: `docs/hardware-wallets.md`.
-- **Trezor deferred** (USB-only, no BLE; Trezor Connect web bridge impractical on
-  mobile). Ledger-only for v1.0; Trezor a future follow-up.
-
-**Phase 4.4: CIP-45 Complete & Live-Verified** ✅ *(2026-06-02)*
-
-Protocol core (package, unit-tested) + reference transport (example):
-- Core: `Cip45ConnectionUri` (CIP-13 `web+cardano://` build/parse),
-  `Cip45WalletHandler` (routes inbound RPC → `Cip30Wallet` + API announcement),
-  `Cip45Transport` interface. Dart +15 cip45 tests.
-- Transport (example): `BugoutCip45Transport` — hosts `bugout.min.js`
-  (WebTorrent+WebRTC) in a headless WebView (`flutter_inappwebview`), bridges RPC.
-- Example: **CIP-45 screen** (paste/deep-link a connection URI → connect → serve
-  CIP-30 calls) + reference dApp page `example/assets/cip45/dapp.html`.
-- iOS `web+cardano://` deep link (Info.plist + `app_links`) → opens CIP-45 screen.
-- Builds for iOS simulator; **deps added to example only** (core stays lean).
-- **Spec note:** CIP-45 is WebTorrent+WebRTC (not WalletConnect — common myth).
-- **Live-verified (iPhone 13 ↔ desktop browser dApp, preview):** full handshake +
-  CIP-30 RPC over WebTorrent/WebRTC — `getBalance` (real multi-asset), `getUtxos`
-  (real UTXOs), `signData` (valid `COSE_Sign1`+`COSE_Key`) all round-tripped.
-- **Session fixes:** home-screen button rows → `Wrap` (CIP-30/45 were clipped
-  off-screen); `signData` handler accepts `[payload]` or `[address, payload]`
-  (blank address → wallet's base address) per CIP-30; `dapp.html` made QR optional
-  + on-page error surfacing. Dart +3 cip45 param tests (17 total).
-  Guide: `docs/cip45-testing.md`. Transport notes: `docs/cip45-transport.md`.
-
-**Phase 4.3: Complete & Verified** ✅ *(2026-06-02)*
-
-CIP-30 dApp connector shipped:
-- Rust `cip30` module (CSL-backed serialization + CIP-8/COSE signing):
-  - `computeBaseAddress`, `addressToHex` (CIP-30 hex address encoding)
-  - `valueToCborHex`, `utxoToCborHex` (CBOR `Value` / `TransactionUnspentOutput`)
-  - `sumValues` (multi-asset balance folding via CSL)
-  - `cip30SignTx` (returns `transaction_witness_set` hex)
-  - `cip30SignData` / `cip30VerifyData` (real `COSE_Sign1` + `COSE_Key`, RFC 9052)
-- Dart `Cip30Wallet` class (`fromMnemonic`) implementing the CIP-30 surface:
-  `getNetworkId`, `getUtxos`, `getBalance`, `getChangeAddress`,
-  `getUsedAddresses`, `getUnusedAddresses`, `getRewardAddresses`, `signTx`,
-  `signData`, `submitTx`
-  - `cip30SignData` / `cip30VerifyData` now built on Emurgo's
-    `cardano-message-signing` (the reference COSE lib Lace/Eternl use via WASM),
-    so output is interop-correct by construction
-  - `cip30AssembleTx` (dApp-side: combine body + witness set into a submittable tx)
-- Dart `Cip30Wallet` class (`fromMnemonic`) implementing the CIP-30 surface:
-  `getNetworkId`, `getUtxos`, `getBalance`, `getChangeAddress`,
-  `getUsedAddresses`, `getUnusedAddresses`, `getRewardAddresses`, `signTx`,
-  `signData`, `submitTx`
-- `ProtocolParameters.toProtocolParams()` extension (de-dups example screens)
-- Example app: **CIP-30 screen** (live method explorer + signData/verify demo)
-- **Test suite:** Rust 91/91 · Dart 119/119 · clippy clean · analyze clean
-- **Live testnet verified:** end-to-end CIP-30 `signTx → assemble → submit`
-  confirmed on-chain (preview tx `01cc6d66…e11277`); getUtxos/getBalance live
-- iOS device + simulator dylibs rebuilt (3.2 MB each) → v0.6.0
-- Caveat closed: COSE built on the reference library + interop-shaped test.
-  Still nice-to-have: a real cross-wallet (Lace/Eternl) signData handshake.
-
-**Phase 3: Complete & Verified** ✅ *(2026-05-26)*
-
-Native token minting, Plutus data encoding, and CIP-25/68 NFT metadata shipped:
-- Native script policies: `makePubkeyScript`, `makeTimelockExpiryScript`, `computePolicyId`
-- Mint/burn transactions: `buildMintTx`, `signMintTransaction`
-- CIP-25 metadata (label 721): `buildCip25Metadata`
-- CIP-68 datum: `buildCip68Datum`
-- PlutusData helpers: `plutusDataInt/Bytes/Constr/List`, `validatePlutusData`
-- Plutus V2/V3 tx: `buildScriptTx` (collateral, redeemers, script-data-hash)
-- `KeyDerivationResult.paymentKeyHash` (Blake2b-224, 28 bytes)
-- Example app: **NFT Mint screen** (end-to-end CIP-25 mint demo)
-- **Test suite:** Rust 55/55 · Dart 93/93 · clippy clean · flutter analyze clean
-- iOS arm64 device + arm64-sim frameworks updated (2.8 MB each)
-
-**Phase 2.5 (complete, 2026-05-25):** Production hardening
-- Rust 56/56 · Dart 102/102 · clippy clean · flutter analyze clean
-- Bug fix: multi-asset change output coin=0 (ledger-invalid) → now carries min-ADA
-- Bug fix: `SendScreen` dropped native tokens from UTXOs; fixed with `utxoToTxInput`
-- Fee estimation now includes vkey witness overhead + per-output size
-- TX confirmation polling: `pollTransactionConfirmation()` with configurable interval/timeout
-- `utxoToTxInput` / `utxosToTxInputs` helpers in wrappers.dart
-- Network mismatch safety gate (testnet addr + mainnet provider → hard error)
-- Mainnet-aware `SendScreen`: MAINNET banner, red buttons, mainnet explorer link
-
-**Phase 2 (also complete, 2026-05-25):** TX Builder, Coin Selection, Blockfrost, Signing
-- Real-device verification: iPhone 13, iOS 26.5, all green
-
-Decisions made:
-- **Package name:** `cardano_flutter_rs` (pub.dev) + crate name `cardano_flutter_rs` (crates.io)
-- **Active backend:** **CSL** (`cardano-serialization-lib` v15.0.3) — Phases 1–3 on CSL.
-- **FFI:** flutter_rust_bridge v2.12 (pinned)
-- **iOS binary:** dynamic framework (`dart/ios/Libs/cardano_flutter_rs.framework`)
-- **Platform strategy:** Native via Rust FFI; web via JS interop (future)
-- **Independent project, no Catalyst funding** — self-funded, quality-driven
-- **Env var:** `BLOCKFROST_PROJECT_ID` (for live integration tests in CI)
-- **Plutus cost models:** `build_script_tx` uses hardcoded Conway V1/V2/V3 cost models (copied from CSL source, since `TxBuilderConstants` is `pub(crate)`). `script_data_hash` is correct for node validation.
-
-**Roadmap restructure v2 (2026-06-03, post critic review)** — `docs/PLAN.md` is the
-source of truth. No Android phone, no spare Ledger. Three adversarial critics
-reviewed v1 and the plan was corrected: the feature-complete build ships as
-**`0.12.0` RC (iOS verified · macOS · Web scoped · Android emulator-verified)**, NOT
-`1.0.0`. The bare **`1.0.0`** tag waits for **Android on a physical device** (a
-platform, ~70% of mobile — a used Pixel is the cheap unblock). **Ledger** is a
-peripheral → stays `@experimental` → verified in **v1.1.0**.
-
-When you start a session, the next phase is:
-- **Phase 4.6 — Foundation hygiene → v0.8.1 (do first; cheap, unblocks all):** CI
-  (GitHub Actions: cargo test/clippy, analyze, flutter test, build iOS/macOS/web),
-  pubspec/Cargo metadata hygiene (pin `flutter_rust_bridge: =2.12.x`, fix "CSL" not
-  "CML" in description, drop `YOUR_HANDLE`), mark hardware-wallet API `@experimental`.
-- **5a** HD multi-account (CIP-1852 discovery + gap scan) ✅ **complete & live-verified
-  on iPhone 13 (v0.9.0)** — `deriveAddress`, `HdWalletDiscovery`, Blockfrost
-  `isAddressUsed`, Accounts screen; Rust 108 · Dart 155. Live run discovered
-  account 0 (~36,092 ₳) via real Blockfrost queries; gap-limit + account-gap correct.
-- Next: **5b** seed encryption (Rust Argon2id + XChaCha20-Poly1305, threat model,
-  security review — NOT pure-Dart crypto) → **6** Web *scoped* (CML-JS backend =
-  second backend; golden-CBOR CSL↔CML conformance suite; macOS packaging) → **7**
-  CIP-36 governance + security review + Pallas eval + fuzzing → **0.12.0 RC**.
-- **Android emulator IS valid partial verification** (app + FFI `.so` load + 16KB
-  page-size image, Google's recommended test) — label "emulator", never "device".
-- **Track B (physical-device-gated → v1.1.0):** H1 Ledger TX signing on a *spare*
-  device (Nano S Plus ≈ $80 — NOT the maintainer's main-account Ledger; signing
-  models simple payments only, expect more than the alonzo↔babbage fix). H2 Android
-  physical-device + Play Store acceptance. Native WebRTC transport = unbuilt
-  research (Dart WebTorrent client + bugout NaCl/bencode), not "parked verification".
-  Checklists: `docs/hardware-wallets.md`, `docs/cip45-transport.md`.
-- CIP-45 follow-ups (2026-06-03): Android `web+cardano://` intent-filter ✅
-  (Android-device verify pending), in-wallet QR scanning (`mobile_scanner`) ✅
-  **verified on iPhone 13** (scan dApp QR → parse → CIP-45 connect → API handshake),
-  `flutter_webrtc`-native transport **scaffold** (`WebrtcCip45Transport`) — WebRTC
-  done; bugout seams (`Cip45SignalingChannel`=WebTorrent tracker, `Cip45RpcCodec`=
-  NaCl/bencode) documented, not implemented. Remaining: a Dart WebTorrent tracker
-  client + bugout framing, plus Android-device live run.
-- Done: 4.1 Staking (v0.4.0) · 4.2 Message Signing CIP-8 (v0.5.0) · 4.3 CIP-30 (v0.6.0)
-  · 4.4 CIP-45 (v0.7.0, live-verified on iOS) · 4.5 Hardware-wallet **core**
-  (v0.8.0; xpub→account, witness assemble/extract, `HardwareCip30Wallet`,
-  Ledger BLE read path — **on-device signing still pending**)
 
 ## Tech stack (planned versions; verify against latest at install time)
 
@@ -272,7 +84,7 @@ When you start a session, the next phase is:
 
 - All Rust code lives in `rust/` with `cardano_flutter_rs` as the crate name.
 - All Dart code lives in `dart/` with `cardano_flutter_rs` as the package name (avoids collision with Vespr's `cardano_flutter_sdk` on pub.dev; signals the Rust/FFI architecture).
-- Generated bindings go in `dart/lib/src/bridge_generated.dart` — **never edit by hand**.
+- Generated bindings (`dart/lib/src/frb_generated.dart` + the per-module twins, e.g. `address.dart`) — **never edit by hand**; re-run codegen.
 - The reference Flutter app lives in `example/` and depends on the local `dart/` package via path.
 - Use MIT license throughout (matches CML/CSL upstream).
 - Semantic versioning. Pre-1.0 = `0.x.y`. **`1.0.0` = safe to recommend for
@@ -299,11 +111,19 @@ When you start a session, the next phase is:
 # Generate Dart bindings from Rust
 flutter_rust_bridge_codegen generate
 
-# Run Rust tests (55 tests)
+# Run Rust tests — all, one module, or one test by name
 cd rust && cargo test
+cd rust && cargo test address::            # one module
+cd rust && cargo test test_compute_policy_id   # one test by name
 
-# Run Dart tests (requires macOS framework — see below)
+# Run Dart tests (requires the dylib in rust/target/release — see below)
 cd dart && flutter test
+cd dart && flutter test test/conformance_test.dart   # one file
+cd dart && flutter test --name "verify"              # tests matching a name
+
+# Web conformance gate (in-browser, CML-JS backend) — see tool/web_conformance/README.md
+cd dart && dart compile js web/conformance_harness.dart -o ../tool/web_conformance/build/harness.js -O2
+cd tool/web_conformance && node build.mjs && node run-headless.mjs   # → PASS n FAIL 0
 
 # Lint everything
 cd rust && cargo clippy --all-targets -- -D warnings && cd ../dart && flutter analyze
@@ -362,7 +182,7 @@ What this means in practice:
 - Do not put on-chain data through the Rust layer if it can be fetched in Dart via REST. Keep the FFI surface minimal.
 - Do not wrap every CML type for v0.1. Wrap only what the example app needs.
 - Do not skip tests against testnet preview before a CML/CSL major-version bump.
-- Do not edit `bridge_generated.dart` by hand — re-run codegen.
+- Do not edit `frb_generated.dart` or the generated per-module twins by hand — re-run codegen.
 - Do not tunnel Rust through frb-WASM for web. Use CML's official npm package via Dart JS interop instead.
 - Do not skip Android 16KB page size verification — it's mandatory for Play Store since Nov 2025.
 - Do not hardcode a single backend. Use feature flags / trait abstractions so CSL/CML/Pallas can be swapped.
