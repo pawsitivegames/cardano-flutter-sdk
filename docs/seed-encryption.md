@@ -35,13 +35,16 @@ Measured cost (`benchmark_kdf`):
 
 | params | dev Mac (Apple silicon) | iPhone 13 |
 |--------|------------------------|-----------|
-| 64 MiB / t=3 / p=1 (default) | ~101 ms | _pending on-device run_ |
+| 64 MiB / t=3 / p=1 (default) | ~101 ms | **~158 ms** |
 | 46 MiB / t=1 / p=1 | ~17 ms | — |
 | 19 MiB / t=2 / p=1 (OWASP floor) | ~15 ms | — |
 
-The iPhone 13 figure is a device-verification item (run `benchmark_kdf` from the
-example app) — expect roughly 3–5× the dev-Mac number (~300–500 ms for the
-default), which is an acceptable one-time unlock latency. Tune down if needed.
+The iPhone 13 default-param figure (**~158 ms**, measured 2026-06-06 via the
+example app's Seed Vault screen) is a comfortable one-time unlock latency — well
+under the ~300–500 ms we budgeted, so the defaults need no tuning down. The same
+on-device run exercised the full hardware-backed round-trip: encrypt → `CFS1`
+blob (145 bytes) written to the iOS Keychain → read back → decrypt → exact secret
+recovery.
 
 ## At-rest container format (`CFS1`)
 

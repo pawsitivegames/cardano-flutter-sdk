@@ -42,7 +42,7 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 4.5 — Hardware wallets (Ledger) | 🟡 **Core done 2026-06-02**; on-device signing pending | v0.8.0 |
 | 4.6 — Foundation hygiene | ✅ **Complete 2026-06-04** | v0.8.1 |
 | 5a — HD multi-account | ✅ **Live-verified 2026-06-04** (iPhone 13) | v0.9.0 |
-| 5b — Seed encryption | 🟡 **Core done 2026-06-04**; on-device verify pending | v0.9.1 |
+| 5b — Seed encryption | ✅ **Live-verified 2026-06-06** (iPhone 13: Keychain round-trip + `benchmark_kdf` ~158 ms) | v0.9.1 |
 | 6 — Web (scoped) & Desktop | ✅ **Verified 2026-06-06** (in-browser conformance 32/32 + scoped `WebCip30Wallet` + macOS); cross-wallet check awaits a captured signature | v0.10.0 |
 | 7+ | Planned | — |
 
@@ -324,7 +324,7 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 ---
 
-### Phase 5b — Seed encryption & backup (security subsystem) → v0.9.1  🟡 core complete (2026-06-04)
+### Phase 5b — Seed encryption & backup (security subsystem) → v0.9.1  ✅ live-verified (iPhone 13, 2026-06-06)
 *Dependency: Phase 5a. **Security-critical** — own phase, explicit design.*
 *Design + threat model: `docs/seed-encryption.md`.*
 
@@ -346,8 +346,11 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
   KDF-param) → AEAD fail; distinct salt/nonce per call; bad-magic/non-hex reject.
   Rust **119/119** (+11 seed), Dart **167/167** (+12 seed); clippy/fmt/analyze clean.
 - ✅ KDF default params documented + benchmarked on dev hardware (~101 ms @ 64 MiB/t=3).
-- 🅱️ **Pending on-device:** iPhone 13 `benchmark_kdf` figure + Keychain round-trip
-  (needs the iOS framework rebuilt with the seed symbols, then a device run).
+- ✅ **Live-verified on iPhone 13 (2026-06-06):** Seed Vault screen ran the full
+  hardware-backed round-trip — encrypt → `CFS1` blob (145 bytes) written to the
+  iOS Keychain → read back → decrypt → exact secret recovery ("Unlocked ✓").
+  On-device `benchmark_kdf` = **~158 ms** @ 64 MiB/t=3/p=1 (the seed FFI symbols
+  execute on real arm64). Comfortable one-time unlock latency; defaults unchanged.
 - ⏳ Security review of the at-rest format folded into the Phase 7 review pass.
 
 ---

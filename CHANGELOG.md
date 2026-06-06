@@ -82,10 +82,9 @@ suite** freezing the byte-for-byte contract both backends must meet.
   **send-tx** run on testnet (the example builds + the FFI integration test gates
   already). Design: `docs/web-backend.md`.
 
-## Phase 5b — Seed encryption 🟡 *(2026-06-04)*
+## Phase 5b — Seed encryption ✅ *(2026-06-04 → live-verified iPhone 13 2026-06-06)*
 
-Core complete; on-device verify pending. At-rest encryption for recovery secrets,
-**all crypto in Rust** (no Dart crypto):
+At-rest encryption for recovery secrets, **all crypto in Rust** (no Dart crypto):
 - `rust/src/seed.rs`: Argon2id KDF + XChaCha20-Poly1305 AEAD. FFI `encrypt_seed`,
   `encrypt_seed_with_params`, `decrypt_seed`, `benchmark_kdf`, `default_kdf_params`.
   Self-describing versioned `CFS1` hex container; KDF params embedded + AAD-bound
@@ -96,8 +95,12 @@ Core complete; on-device verify pending. At-rest encryption for recovery secrets
   random wrapping secret in Keychain/Keystore composed with the user password →
   stolen blob useless without the device.
 - **Tests:** Rust 119/119 (+11), Dart 167/167 (+12); clippy/fmt/analyze clean.
-- **Threat model:** `docs/seed-encryption.md`. **Pending:** iPhone 13 benchmark +
-  Keychain round-trip; security review folded into Phase 7.
+- **Live-verified on iPhone 13 (2026-06-06):** Seed Vault ran the full
+  hardware-backed round-trip — encrypt → `CFS1` blob (145 bytes) to the iOS
+  Keychain → read back → decrypt → exact recovery; on-device `benchmark_kdf`
+  **~158 ms** @ 64 MiB/t=3/p=1. Added `integration_test/seed_vault_test.dart`
+  (+ `test_driver/`) for the on-device round-trip/benchmark.
+- **Threat model:** `docs/seed-encryption.md`. Security review folded into Phase 7.
 
 ## Phase 5a — HD multi-account ✅ *(v0.9.0, live-verified on iPhone 13)*
 
