@@ -8,7 +8,7 @@ cardano-message-signing browser WASM builds**, in a real browser.
 This is the gate that the Node spike (`tool/cml_conformance_spike/`) could not
 close: the spike proved the *libraries* agree; this proves **this Dart
 JS-interop binding + the actual browser WASM build** reproduce the frozen CSL
-bytes. Expected result: **`PASS 24 FAIL 0`**.
+bytes. Expected result: **`PASS 28 FAIL 0`**.
 
 ## Run
 
@@ -24,13 +24,13 @@ node build.mjs
 
 # 3a. Headless (what CI runs) — drives the page in headless Chromium and exits
 #     non-zero on any divergence:
-node run-headless.mjs   # → "✓ in-browser conformance clean: PASS 24 FAIL 0 …"
+node run-headless.mjs   # → "✓ in-browser conformance clean: PASS 28 FAIL 0 …"
 
 # 3b. Or serve and open in a real browser to inspect manually:
 node serve.mjs          # http://localhost:8099
 ```
 
-Open the URL; the page prints `PASS 24 FAIL 0` (green) when the backend
+Open the URL; the page prints `PASS 28 FAIL 0` (green) when the backend
 reproduces every vector. For automated/headless checks, `run-headless.mjs`
 (Puppeteer) waits for `globalThis.HARNESS_DONE`, parses
 `globalThis.CONFORMANCE_RESULT`, and fails on any `FAIL` or accounting mismatch.

@@ -63,6 +63,7 @@ external JSAny _jsBigInt(String decimal);
 extension type _Ed25519KeyHash._(JSObject _) implements JSObject {
   external static _Ed25519KeyHash from_hex(String hex);
   external String to_hex();
+  external JSUint8Array to_raw_bytes();
 }
 
 @JS('CML.ScriptHash')
@@ -78,13 +79,17 @@ extension type _AssetName._(JSObject _) implements JSObject {
 @JS('CML.Credential')
 extension type _Credential._(JSObject _) implements JSObject {
   external static _Credential new_pub_key(_Ed25519KeyHash hash);
+  external _Ed25519KeyHash? as_pub_key();
 }
 
 @JS('CML.Address')
 extension type _Address._(JSObject _) implements JSObject {
   external static _Address from_bech32(String bech32);
+  external static _Address from_raw_bytes(JSUint8Array data);
   external String to_hex();
   external String to_bech32([String? prefix]);
+  external _Credential? payment_cred();
+  external _Credential? staking_cred();
 }
 
 @JS('CML.BaseAddress')
@@ -155,6 +160,7 @@ extension type _PublicKey._(JSObject _) implements JSObject {
   external static _PublicKey from_bytes(JSUint8Array bytes);
   external JSUint8Array to_raw_bytes();
   external _Ed25519KeyHash hash();
+  external bool verify(JSUint8Array data, _Ed25519Signature signature);
 }
 
 @JS('CML.PrivateKey')
@@ -206,15 +212,22 @@ extension type _AlgorithmId._(JSObject _) implements JSObject {
   external static int get EdDSA;
 }
 
+@JS('MS.Int')
+extension type _Int._(JSObject _) implements JSObject {
+  external static _Int new_i32(int x);
+}
+
 @JS('MS.Label')
 extension type _Label._(JSObject _) implements JSObject {
   external static _Label from_algorithm_id(int id);
   external static _Label new_text(String text);
+  external static _Label new_int(_Int int);
 }
 
 @JS('MS.CBORValue')
 extension type _CBORValue._(JSObject _) implements JSObject {
   external static _CBORValue new_bytes(JSUint8Array bytes);
+  external JSUint8Array? as_bytes();
 }
 
 @JS('MS.HeaderMap')
@@ -223,12 +236,14 @@ extension type _HeaderMap._(JSObject _) implements JSObject {
   external static _HeaderMap new_();
   external void set_algorithm_id(_Label alg);
   external void set_header(_Label key, _CBORValue value);
+  external _CBORValue? header(_Label key);
 }
 
 @JS('MS.ProtectedHeaderMap')
 extension type _ProtectedHeaderMap._(JSObject _) implements JSObject {
   @JS('new')
   external static _ProtectedHeaderMap new_(_HeaderMap headers);
+  external _HeaderMap deserialized_headers();
 }
 
 @JS('MS.Headers')
@@ -236,6 +251,7 @@ extension type _Headers._(JSObject _) implements JSObject {
   @JS('new')
   external static _Headers new_(
       _ProtectedHeaderMap protectedHeaders, _HeaderMap unprotected);
+  external _ProtectedHeaderMap protected();
 }
 
 @JS('MS.COSESign1Builder')
@@ -254,7 +270,14 @@ extension type _SigStructure._(JSObject _) implements JSObject {
 
 @JS('MS.COSESign1')
 extension type _COSESign1._(JSObject _) implements JSObject {
+  external static _COSESign1 from_bytes(JSUint8Array bytes);
   external JSUint8Array to_bytes();
+  external _Headers headers();
+  external JSUint8Array? payload();
+  external JSUint8Array signature();
+  // Reverse-construct the Sig_structure to verify against (no external aad /
+  // payload — CIP-30 signData embeds the payload).
+  external _SigStructure signed_data();
 }
 
 @JS('MS.EdDSA25519Key')
@@ -267,7 +290,9 @@ extension type _EdDSA25519Key._(JSObject _) implements JSObject {
 
 @JS('MS.COSEKey')
 extension type _COSEKey._(JSObject _) implements JSObject {
+  external static _COSEKey from_bytes(JSUint8Array bytes);
   external JSUint8Array to_bytes();
+  external _CBORValue? header(_Label key);
 }
 
 /// Optional host-provided BIP-39 `mnemonic → entropy` bridge. CML has no
@@ -432,14 +457,58 @@ class CmlWebBackend implements ConformanceBackend {
     required String key,
     String? expectedPayloadHex,
     String? expectedAddressHex,
-  }) =>
-      // Verification (parse COSE_Sign1, rebuild Sig_structure, check Ed25519 +
-      // identity-binding) is not yet wired through JS interop. Conformance only
-      // exercises signData; verifyData parity is tracked in docs/web-backend.md.
-      throw UnimplementedError(
-        'CmlWebBackend.verifyData not yet mapped (COSESign1 parse + '
-        'identity-binding via message-signing). See docs/web-backend.md.',
-      );
+  }) {
+    // Mirrors the native CSL `cip30_verify_data` semantics byte-for-byte:
+    // parse COSE_Sign1, optionally pin payload, rebuild the Sig_structure,
+    // pull the Ed25519 public key from COSE_Key label -2, enforce
+    // identity-binding against the protected-header address, then verify.
+    final coseSign1 = _COSESign1.from_bytes(_hexToBytes(signature).toJS);
+
+    // Payload check (absent payload is treated as empty, like CSL).
+    if (expectedPayloadHex != null) {
+      final payloadJs = coseSign1.payload();
+      final payload = payloadJs == null ? Uint8List(0) : payloadJs.toDart;
+      if (!_bytesEqual(_hexToBytes(expectedPayloadHex), payload)) return false;
+    }
+
+    // Sig_structure to verify + raw signature bytes.
+    final toVerify = coseSign1.signed_data().to_bytes();
+    final sig = _Ed25519Signature.from_raw_bytes(coseSign1.signature());
+
+    // Public key: COSE_Key OKP x-coordinate is label -2.
+    final coseKey = _COSEKey.from_bytes(_hexToBytes(key).toJS);
+    final pkBytesJs = coseKey.header(_Label.new_int(_Int.new_i32(-2)))?.as_bytes();
+    if (pkBytesJs == null) return false; // missing Ed25519 public key (-2)
+    final publicKey = _PublicKey.from_bytes(pkBytesJs);
+
+    // Identity binding: read the signer address from the protected header.
+    // If present, the COSE_Key public key must hash to one of its credentials,
+    // so a valid signature cannot be passed off as another address's.
+    final addrBytesJs = coseSign1
+        .headers()
+        .protected()
+        .deserialized_headers()
+        .header(_Label.new_text('address'))
+        ?.as_bytes();
+    if (addrBytesJs != null) {
+      if (expectedAddressHex != null &&
+          !_bytesEqual(_hexToBytes(expectedAddressHex), addrBytesJs.toDart)) {
+        return false;
+      }
+      final addr = _Address.from_raw_bytes(addrBytesJs);
+      final pkHash = publicKey.hash().to_raw_bytes().toDart;
+      final owns = <_Ed25519KeyHash?>[
+        addr.payment_cred()?.as_pub_key(),
+        addr.staking_cred()?.as_pub_key(),
+      ].any((c) => c != null && _bytesEqual(c.to_raw_bytes().toDart, pkHash));
+      if (!owns) return false;
+    } else if (expectedAddressHex != null) {
+      // Caller demanded a specific address but the signature carries none.
+      return false;
+    }
+
+    return publicKey.verify(toVerify, sig);
+  }
 
   @override
   String signMessageCose({
@@ -532,5 +601,13 @@ class CmlWebBackend implements ConformanceBackend {
       sb.write(b.toRadixString(16).padLeft(2, '0'));
     }
     return sb.toString();
+  }
+
+  static bool _bytesEqual(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 }

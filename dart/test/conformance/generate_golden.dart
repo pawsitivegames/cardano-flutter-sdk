@@ -42,6 +42,23 @@ void main() {
     );
     final addrHex = backend.addressToHex(addressBech32: addr0.address);
 
+    // A different (well-formed) address for the verifyData identity-binding
+    // negative — the signature embeds addr0, so pinning addr5 must be rejected.
+    final addr5 = backend.deriveAddress(
+      accountKey: keys.accountKey,
+      role: 0,
+      index: 5,
+      networkId: 0,
+    );
+    final addr5Hex = backend.addressToHex(addressBech32: addr5.address);
+
+    // Pre-sign 'cafe' so the verifyData vectors carry concrete COSE bytes.
+    final cafeSig = backend.signData(
+      addressHex: addrHex,
+      payloadHex: 'cafe',
+      signingKeyBech32: keys.paymentSigningKey,
+    );
+
     final cases = <ConformanceCase>[
       ConformanceCase(
         id: 'key-derivation-acct0-testnet',
@@ -275,6 +292,58 @@ void main() {
           'addressHex': addrHex,
           'payloadHex': 'cafe',
           'signingKeyBech32': keys.paymentSigningKey,
+        },
+        expected: '',
+      ),
+      // verifyData parity: the COSE_Sign1 + COSE_Key above must verify on both
+      // backends, and rejection must agree too. Bytes are baked in so the
+      // vectors are self-contained (no re-signing on the web side).
+      // (a) Accept: payload + embedded address both pinned correctly.
+      ConformanceCase(
+        id: 'verify-data-cafe-valid',
+        category: 'cose',
+        op: 'verifyData',
+        input: {
+          'signature': cafeSig.signature,
+          'key': cafeSig.key,
+          'expectedPayloadHex': 'cafe',
+          'expectedAddressHex': addrHex,
+        },
+        expected: '',
+      ),
+      // (b) Accept: pure-signature path, no payload/address binding requested.
+      ConformanceCase(
+        id: 'verify-data-cafe-unbound',
+        category: 'cose',
+        op: 'verifyData',
+        input: {
+          'signature': cafeSig.signature,
+          'key': cafeSig.key,
+        },
+        expected: '',
+      ),
+      // (c) Reject: wrong expected payload (signed 'cafe', pin 'beef').
+      ConformanceCase(
+        id: 'verify-data-cafe-wrong-payload',
+        category: 'cose',
+        op: 'verifyData',
+        input: {
+          'signature': cafeSig.signature,
+          'key': cafeSig.key,
+          'expectedPayloadHex': 'beef',
+        },
+        expected: '',
+      ),
+      // (d) Reject: identity-binding — pin a different address than the one the
+      // signature embeds. A valid signature must not pass for another address.
+      ConformanceCase(
+        id: 'verify-data-cafe-wrong-address',
+        category: 'cose',
+        op: 'verifyData',
+        input: {
+          'signature': cafeSig.signature,
+          'key': cafeSig.key,
+          'expectedAddressHex': addr5Hex,
         },
         expected: '',
       ),

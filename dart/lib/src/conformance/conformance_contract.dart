@@ -247,6 +247,17 @@ String runConformanceCase(ConformanceBackend backend, ConformanceCase c) {
         signingKeyBech32: i['signingKeyBech32'] as String,
       );
       return '${s.signature}|${s.key}';
+    case 'verifyData':
+      // Returns the boolean verdict as 'true'/'false' so it compares as a plain
+      // golden string. A conformant backend must agree on accept AND reject.
+      return backend
+          .verifyData(
+            signature: i['signature'] as String,
+            key: i['key'] as String,
+            expectedPayloadHex: i['expectedPayloadHex'] as String?,
+            expectedAddressHex: i['expectedAddressHex'] as String?,
+          )
+          .toString();
     case 'signMessage':
       return backend.signMessageCose(
         message: i['message'] as String,
