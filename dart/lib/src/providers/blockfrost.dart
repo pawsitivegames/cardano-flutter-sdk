@@ -308,6 +308,20 @@ class BlockfrostProvider {
     return _parseProtocolParameters(json);
   }
 
+  /// Fetches the current chain tip's absolute slot (`/blocks/latest`).
+  ///
+  /// Use it to set a transaction TTL (e.g. `tip + 7200` ≈ 2h) so the tx expires
+  /// rather than remaining submittable forever (TX-3). Returns the slot number.
+  Future<int> fetchTipSlot() async {
+    final uri = Uri.parse('${network.baseUrl}/blocks/latest');
+    final response = await _makeRequest('GET', uri);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final slot = json['slot'];
+    if (slot is int) return slot;
+    if (slot is num) return slot.toInt();
+    throw const FormatException('blocks/latest: missing or non-numeric slot');
+  }
+
   /// Submits a signed transaction to the network.
   ///
   /// [txCbor]: Raw CBOR-encoded transaction bytes (from `Transaction.to_bytes()`).

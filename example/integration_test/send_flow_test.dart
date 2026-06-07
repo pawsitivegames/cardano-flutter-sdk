@@ -143,7 +143,8 @@ void main() {
         // ===== Phase 2d: Build Transaction =====
         final builtTx = await buildTransaction(
           inputs: coinSelResult.selectedInputs,
-          outputs: [...coinSelResult.changeOutputs, ...targetOutputs], // change + target outputs
+          // TX-1: only target outputs; build_tx adds the single change output.
+          outputs: targetOutputs,
           changeAddress: testnetAddress,
           ttl: null, // no TTL for test
           protocolParams: rustParams,

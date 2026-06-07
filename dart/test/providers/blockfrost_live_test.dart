@@ -55,7 +55,8 @@ void main() {
         );
         final built = await buildTransaction(
           inputs: selection.selectedInputs,
-          outputs: [...targets, ...selection.changeOutputs],
+          // TX-1: only target outputs; build_tx adds the single change output.
+          outputs: targets,
           changeAddress: wallet.baseAddress,
           protocolParams: params,
         );

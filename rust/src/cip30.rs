@@ -376,11 +376,26 @@ pub fn cip30_verify_data(
     let cose_sign1 =
         COSESign1::from_bytes(hex_to_bytes(&data_signature.signature)?).map_err(map_cms_err)?;
 
-    let payload = cose_sign1.payload().unwrap_or_default();
+    // COSE-2: CIP-8 / Cardano signData is EdDSA-only. If the protected header
+    // declares an algorithm, require it to be EdDSA (-8); reject any other suite
+    // rather than letting a non-EdDSA header ride on the hard-wired Ed25519 verify.
+    let protected = cose_sign1.headers().protected().deserialized_headers();
+    if let Some(alg) = protected.algorithm_id() {
+        if alg != Label::new_int(&Int::new_i32(-8)) {
+            return Ok(false);
+        }
+    }
+
+    let payload_opt = cose_sign1.payload();
+    let payload = payload_opt.clone().unwrap_or_default();
     if let Some(expected) = expected_payload_hex {
         if hex_to_bytes(&expected)? != payload {
             return Ok(false);
         }
+    } else if payload_opt.is_none() {
+        // COSE-3: no payload in the structure and none pinned by the caller —
+        // there is nothing meaningful to verify, so fail closed.
+        return Ok(false);
     }
 
     let to_verify = cose_sign1

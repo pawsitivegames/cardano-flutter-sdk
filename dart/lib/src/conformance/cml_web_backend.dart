@@ -120,7 +120,8 @@ extension type _PlutusData._(JSObject _) implements JSObject {
 @JS('CML.ConstrPlutusData')
 extension type _ConstrPlutusData._(JSObject _) implements JSObject {
   @JS('new')
-  external static _ConstrPlutusData new_(JSAny alternative, _PlutusDataList fields);
+  external static _ConstrPlutusData new_(
+      JSAny alternative, _PlutusDataList fields);
 }
 
 @JS('CML.PlutusDataList')
@@ -215,6 +216,7 @@ extension type _AlgorithmId._(JSObject _) implements JSObject {
 @JS('MS.Int')
 extension type _Int._(JSObject _) implements JSObject {
   external static _Int new_i32(int x);
+  external int? as_i32();
 }
 
 @JS('MS.Label')
@@ -222,6 +224,7 @@ extension type _Label._(JSObject _) implements JSObject {
   external static _Label from_algorithm_id(int id);
   external static _Label new_text(String text);
   external static _Label new_int(_Int int);
+  external _Int? as_int();
 }
 
 @JS('MS.CBORValue')
@@ -235,6 +238,7 @@ extension type _HeaderMap._(JSObject _) implements JSObject {
   @JS('new')
   external static _HeaderMap new_();
   external void set_algorithm_id(_Label alg);
+  external _Label? algorithm_id();
   external void set_header(_Label key, _CBORValue value);
   external _CBORValue? header(_Label key);
 }
@@ -332,7 +336,9 @@ class CmlWebBackend implements ConformanceBackend {
     final stake =
         _Credential.new_pub_key(_Ed25519KeyHash.from_hex(stakeKeyHashHex));
     // CSL contract returns a BECH32 base address (`to_bech32(None)`), not hex.
-    return _BaseAddress.new_(networkId, payment, stake).to_address().to_bech32();
+    return _BaseAddress.new_(networkId, payment, stake)
+        .to_address()
+        .to_bech32();
   }
 
   @override
@@ -404,8 +410,8 @@ class CmlWebBackend implements ConformanceBackend {
     final vlist = _VkeywitnessList.new_();
     for (final w in witnesses) {
       final vk = _PublicKey.from_bytes(_hexToBytes(w.vkeyHex).toJS);
-      final sig = _Ed25519Signature.from_raw_bytes(
-          _hexToBytes(w.signatureHex).toJS);
+      final sig =
+          _Ed25519Signature.from_raw_bytes(_hexToBytes(w.signatureHex).toJS);
       vlist.add(_Vkeywitness.new_(vk, sig));
     }
     final ws = _TransactionWitnessSet.new_();
@@ -464,11 +470,23 @@ class CmlWebBackend implements ConformanceBackend {
     // identity-binding against the protected-header address, then verify.
     final coseSign1 = _COSESign1.from_bytes(_hexToBytes(signature).toJS);
 
+    // COSE-2: EdDSA-only (mirrors native). If the protected header declares an
+    // algorithm, require it to be EdDSA (COSE alg -8); reject any other suite.
+    final algLabel =
+        coseSign1.headers().protected().deserialized_headers().algorithm_id();
+    if (algLabel != null) {
+      final algInt = algLabel.as_int();
+      if (algInt == null || algInt.as_i32() != -8) return false;
+    }
+
     // Payload check (absent payload is treated as empty, like CSL).
+    final payloadJs = coseSign1.payload();
     if (expectedPayloadHex != null) {
-      final payloadJs = coseSign1.payload();
       final payload = payloadJs == null ? Uint8List(0) : payloadJs.toDart;
       if (!_bytesEqual(_hexToBytes(expectedPayloadHex), payload)) return false;
+    } else if (payloadJs == null) {
+      // COSE-3: nothing to verify against (no payload, none pinned) — fail closed.
+      return false;
     }
 
     // Sig_structure to verify + raw signature bytes.
@@ -477,7 +495,8 @@ class CmlWebBackend implements ConformanceBackend {
 
     // Public key: COSE_Key OKP x-coordinate is label -2.
     final coseKey = _COSEKey.from_bytes(_hexToBytes(key).toJS);
-    final pkBytesJs = coseKey.header(_Label.new_int(_Int.new_i32(-2)))?.as_bytes();
+    final pkBytesJs =
+        coseKey.header(_Label.new_int(_Int.new_i32(-2)))?.as_bytes();
     if (pkBytesJs == null) return false; // missing Ed25519 public key (-2)
     final publicKey = _PublicKey.from_bytes(pkBytesJs);
 
@@ -551,8 +570,10 @@ class CmlWebBackend implements ConformanceBackend {
         .derive(_harden + 1852)
         .derive(_harden + 1815)
         .derive(_harden + accountIndex);
-    final pay = acct.derive(0).derive(0).to_raw_key().to_public().hash().to_hex();
-    final stk = acct.derive(2).derive(0).to_raw_key().to_public().hash().to_hex();
+    final pay =
+        acct.derive(0).derive(0).to_raw_key().to_public().hash().to_hex();
+    final stk =
+        acct.derive(2).derive(0).to_raw_key().to_public().hash().to_hex();
     // accountKey / signing keys are not part of the conformance comparison for
     // this op (only the two key hashes are); return the bech32 account xprv-less
     // fields empty rather than re-deriving private material we do not expose.
@@ -575,8 +596,7 @@ class CmlWebBackend implements ConformanceBackend {
     final acct = _Bip32PrivateKey.from_bech32(accountKey);
     final payHash =
         acct.derive(role).derive(index).to_raw_key().to_public().hash();
-    final stkHash =
-        acct.derive(2).derive(0).to_raw_key().to_public().hash();
+    final stkHash = acct.derive(2).derive(0).to_raw_key().to_public().hash();
     final addr = _BaseAddress.new_(
       networkId,
       _Credential.new_pub_key(payHash),

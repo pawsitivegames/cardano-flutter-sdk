@@ -10,6 +10,31 @@ Status legend: 🟢 in progress / partially verified · ✅ complete & verified 
 
 ---
 
+## Phase 7 — Security review pass 🟢 *(2026-06-06)*
+
+Pre-1.0 security audit of the security-critical surface (secret handling,
+COSE/CIP-8, fee/coin-selection/tx-building, seed-at-rest), each finding verified
+against the actual code. Full report: `docs/security-review-phase7.md`. No
+critical issues; the crypto cores (COSE identity-binding, `CFS1` AEAD) are sound.
+Fixes landed in the same pass:
+- **TX-1 (high):** removed the double change/fee seam — call sites now pass only
+  target outputs and let `build_tx`'s `add_change_if_needed` create the single
+  change output (was stacking the selector's change + the builder's change → dust
+  burned to fee / redundant change). **Re-verified on-chain** (tx `a4f7d589…`).
+- **SEED-1 (medium):** `decrypt_seed` clamps attacker-controlled Argon2 cost
+  before the KDF runs (DoS guard); mirrored on encrypt. +3 Rust tests.
+- **TX-2 (medium):** `checked_sum` on all coin/asset accumulation;
+  `utxoToTxInput` rejects `BigInt > u64::MAX` before FFI.
+- **TX-3 (medium):** `BlockfrostProvider.fetchTipSlot()`; example send sets a TTL.
+- **SEC-1 (medium):** dev Blockfrost key centralized as a debug-only fallback
+  (`example/lib/dev_config.dart`); release builds embed no key. *(Owner action:
+  rotate the key — it's in git history.)*
+- **COSE-1/2/3, SEED-2 (low):** legacy `message.rs` deprecated + honestly
+  documented (address not bound); verify asserts `alg == EdDSA` and fails closed
+  on absent payload (native + web); `salt_len` validated.
+- Verified: Rust 138/138, Dart 178/4-skip, in-browser conformance 32/32, macOS
+  send-tx on-chain. clippy + fmt + analyze clean.
+
 ## Phase 6 — Web (scoped) & Desktop ✅ *(2026-06-04 → 2026-06-06)*
 
 **Web backend verified in-browser; macOS packaged & verified.** Web is a

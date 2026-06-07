@@ -30,6 +30,52 @@ const DEFAULT_MEM_KIB: u32 = 64 * 1024;
 const DEFAULT_ITERS: u32 = 3;
 const DEFAULT_PARALLELISM: u32 = 1;
 
+/// Sane bounds on Argon2id cost parameters. Enforced on BOTH encrypt (so we never
+/// write an absurd blob) and decrypt (so an attacker-supplied blob cannot make
+/// `decrypt_seed` attempt a multi-terabyte allocation / hang — the KDF runs before
+/// the AEAD tag is checked, so this guard must precede `derive_key`). See SEED-1 in
+/// `docs/security-review-phase7.md`.
+const MIN_MEM_KIB: u32 = 8; // Argon2 itself requires >= 8 * parallelism
+const MAX_MEM_KIB: u32 = 2 * 1024 * 1024; // 2 GiB ceiling
+const MAX_ITERS: u32 = 100;
+const MAX_PARALLELISM: u32 = 16;
+
+/// Reject out-of-range Argon2id parameters before they reach the KDF.
+fn validate_kdf_params(p: &KdfParams) -> Result<(), CardanoError> {
+    let bad = |field: &str, reason: String| CardanoError::InvalidParameter {
+        field: field.to_string(),
+        reason,
+    };
+    if p.mem_kib < MIN_MEM_KIB || p.mem_kib > MAX_MEM_KIB {
+        return Err(bad(
+            "mem_kib",
+            format!(
+                "Argon2 memory {} KiB out of range [{}, {}]",
+                p.mem_kib, MIN_MEM_KIB, MAX_MEM_KIB
+            ),
+        ));
+    }
+    if p.iterations == 0 || p.iterations > MAX_ITERS {
+        return Err(bad(
+            "iterations",
+            format!(
+                "Argon2 iterations {} out of range [1, {}]",
+                p.iterations, MAX_ITERS
+            ),
+        ));
+    }
+    if p.parallelism == 0 || p.parallelism > MAX_PARALLELISM {
+        return Err(bad(
+            "parallelism",
+            format!(
+                "Argon2 parallelism {} out of range [1, {}]",
+                p.parallelism, MAX_PARALLELISM
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// Argon2id cost parameters. Embedded in every ciphertext header so decryption
 /// is self-contained (it always uses the params the blob was written with).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -167,6 +213,9 @@ fn encrypt_seed_internal(
     password: &[u8],
     p: KdfParams,
 ) -> Result<EncryptedSeed, CardanoError> {
+    // Never write a blob with out-of-range cost (mirrors the decrypt-side guard).
+    validate_kdf_params(&p)?;
+
     let mut salt = [0u8; SALT_LEN];
     OsRng.fill_bytes(&mut salt);
     let mut nonce_bytes = [0u8; NONCE_LEN];
@@ -231,6 +280,24 @@ fn decrypt_seed_internal(blob_hex: &str, password: &[u8]) -> Result<String, Card
     let iterations = u32::from_le_bytes(blob[10..14].try_into().unwrap());
     let parallelism = u32::from_le_bytes(blob[14..18].try_into().unwrap());
     let salt_len = blob[18] as usize;
+
+    // SEED-2: the salt length is a fixed invariant; reject anything else early
+    // (it's AAD-bound so a wrong value would fail auth anyway, but this matches the
+    // documented format and rejects malformed input before the KDF).
+    if salt_len != SALT_LEN {
+        return Err(CardanoError::InvalidParameter {
+            field: "salt_len".to_string(),
+            reason: format!("expected {}, got {}", SALT_LEN, salt_len),
+        });
+    }
+
+    // SEED-1: clamp attacker-controlled KDF cost BEFORE deriving (the KDF runs
+    // before the AEAD tag is verified, so this guards against a DoS blob).
+    validate_kdf_params(&KdfParams {
+        mem_kib,
+        iterations,
+        parallelism,
+    })?;
 
     let salt_end = FIXED + salt_len;
     let nonce_end = salt_end + NONCE_LEN;
@@ -404,5 +471,41 @@ mod tests {
     fn benchmark_returns_value() {
         let ms = benchmark_kdf(T_MEM, T_ITERS, T_PAR).unwrap();
         let _ = ms; // wall-clock; just assert it ran without error
+    }
+
+    // SEED-1: a crafted blob with an absurd Argon2 memory cost must be rejected
+    // BEFORE the KDF runs (no multi-terabyte allocation / hang).
+    #[test]
+    fn decrypt_rejects_oversized_mem_param() {
+        let e = enc(MNEMONIC, "pw");
+        let mut blob = hex::decode(&e.blob_hex).unwrap();
+        blob[6..10].copy_from_slice(&u32::MAX.to_le_bytes()); // mem_kib = ~4 TiB
+        let r = decrypt_seed_internal(&hex::encode(blob), b"pw");
+        assert!(r.is_err(), "oversized mem_kib must be rejected pre-KDF");
+    }
+
+    // SEED-2: salt_len must equal the fixed invariant.
+    #[test]
+    fn decrypt_rejects_bad_salt_len() {
+        let e = enc(MNEMONIC, "pw");
+        let mut blob = hex::decode(&e.blob_hex).unwrap();
+        blob[18] = 15; // != SALT_LEN (16)
+        let r = decrypt_seed_internal(&hex::encode(blob), b"pw");
+        assert!(r.is_err(), "salt_len != 16 must be rejected");
+    }
+
+    // SEED-1 (encrypt side): never write a blob with out-of-range cost.
+    #[test]
+    fn encrypt_rejects_oversized_mem_param() {
+        let r = encrypt_seed_internal(
+            MNEMONIC.as_bytes(),
+            b"pw",
+            KdfParams {
+                mem_kib: MAX_MEM_KIB + 1,
+                iterations: T_ITERS,
+                parallelism: T_PAR,
+            },
+        );
+        assert!(r.is_err());
     }
 }

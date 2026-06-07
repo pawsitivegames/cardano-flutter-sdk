@@ -89,7 +89,7 @@ pub fn largest_first(
 
     // Calculate total target coin and asset requirements
     let target_coin: u64 = target_outputs.iter().map(|o| o.value.coin).sum();
-    let target_assets = aggregate_assets(&target_outputs);
+    let target_assets = aggregate_assets(&target_outputs)?;
 
     // Min ADA for a pure-ADA change output (~0.97 ADA on mainnet/preview)
     let min_ada_for_change = estimate_min_ada(&params);
@@ -120,10 +120,11 @@ pub fn largest_first(
 
     for utxo in &sorted_utxos {
         // Add this UTXO to consideration
-        accumulated_coin += utxo.value.coin;
+        accumulated_coin = checked_sum(accumulated_coin, utxo.value.coin, "coin")?;
         for asset in &utxo.value.assets {
             let key = (asset.policy_id.clone(), asset.asset_name.clone());
-            *accumulated_assets.entry(key).or_insert(0) += asset.quantity;
+            let entry = accumulated_assets.entry(key).or_insert(0);
+            *entry = checked_sum(*entry, asset.quantity, "asset quantity")?;
         }
 
         // Estimate fee for current selection
@@ -185,14 +186,15 @@ pub fn largest_first(
                 continue;
             }
             selected.push(utxo.clone());
-            accumulated_coin += utxo.value.coin;
+            accumulated_coin = checked_sum(accumulated_coin, utxo.value.coin, "coin")?;
             // Account for any native assets this dust-fixing input carries.
             // Omitting them here would drop them from `change_assets` below,
             // producing a value-unbalanced selection (assets spent as inputs but
             // never returned as change) — silent token loss / a rejected tx.
             for asset in &utxo.value.assets {
                 let key = (asset.policy_id.clone(), asset.asset_name.clone());
-                *accumulated_assets.entry(key).or_insert(0) += asset.quantity;
+                let entry = accumulated_assets.entry(key).or_insert(0);
+                *entry = checked_sum(*entry, asset.quantity, "asset quantity")?;
             }
             let new_fee = estimate_fee_for_inputs(selected.len(), est_num_outputs, &params);
             let new_change = accumulated_coin - target_coin - new_fee;
@@ -298,16 +300,27 @@ pub fn largest_first(
     })
 }
 
+/// Add two u64s, returning a `CardanoError` instead of panicking/wrapping on
+/// overflow (TX-2). Reachable when the same token is summed across many UTxOs.
+fn checked_sum(a: u64, b: u64, what: &str) -> Result<u64, CardanoError> {
+    a.checked_add(b)
+        .ok_or_else(|| CardanoError::InvalidParameter {
+            field: what.to_string(),
+            reason: "u64 overflow while summing values".to_string(),
+        })
+}
+
 /// Aggregate assets from a slice of outputs into a map: (policy_id, asset_name) -> total_quantity.
-fn aggregate_assets(outputs: &[TxOutput]) -> HashMap<(String, String), u64> {
-    let mut map = HashMap::new();
+fn aggregate_assets(outputs: &[TxOutput]) -> Result<HashMap<(String, String), u64>, CardanoError> {
+    let mut map: HashMap<(String, String), u64> = HashMap::new();
     for output in outputs {
         for asset in &output.value.assets {
             let key = (asset.policy_id.clone(), asset.asset_name.clone());
-            *map.entry(key).or_insert(0) += asset.quantity;
+            let entry = map.entry(key).or_insert(0);
+            *entry = checked_sum(*entry, asset.quantity, "asset quantity")?;
         }
     }
-    map
+    Ok(map)
 }
 
 /// Estimate the minimum ADA needed for a pure-ADA change output.

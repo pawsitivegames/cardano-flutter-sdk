@@ -131,9 +131,14 @@ class _SendScreenState extends State<SendScreen> {
         protocolParams: protocolParams,
       );
 
+      // TX-1: pass ONLY the target outputs and let build_tx's add_change_if_needed
+      // create the single change output. Passing coinSelection.changeOutputs here
+      // too would stack two change/fee engines (double-change → dust burned to fee
+      // / redundant change). selectCoinsForTransaction is used for input selection
+      // + fee preview; CSL is the single source of truth for change.
       final builtTx = await buildTransaction(
         inputs: coinSelection.selectedInputs,
-        outputs: [...targetOutputs, ...coinSelection.changeOutputs],
+        outputs: targetOutputs,
         changeAddress: widget.myAddress,
         ttl: null,
         protocolParams: protocolParams,
@@ -257,11 +262,21 @@ class _SendScreenState extends State<SendScreen> {
         protocolParams: protocolParams,
       );
 
+      // TX-3: set a TTL (~2h) so a delayed/stuck tx expires instead of remaining
+      // submittable forever. ~20 slots/s on mainnet+preview → 7200 slots ≈ 2h.
+      final tipSlot = await widget.provider.fetchTipSlot();
+      final ttl = BigInt.from(tipSlot + 7200);
+
+      // TX-1: pass ONLY the target outputs and let build_tx's add_change_if_needed
+      // create the single change output. Passing coinSelection.changeOutputs here
+      // too would stack two change/fee engines (double-change → dust burned to fee
+      // / redundant change). selectCoinsForTransaction is used for input selection
+      // + fee preview; CSL is the single source of truth for change.
       final builtTx = await buildTransaction(
         inputs: coinSelection.selectedInputs,
-        outputs: [...targetOutputs, ...coinSelection.changeOutputs],
+        outputs: targetOutputs,
         changeAddress: widget.myAddress,
-        ttl: null,
+        ttl: ttl,
         protocolParams: protocolParams,
       );
 

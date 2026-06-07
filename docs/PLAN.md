@@ -413,8 +413,11 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 **Deliverables:**
 - Governance: CIP-36 catalyst/vote key registration (SanchoNet/testnet)
-- **Security review pass** (pre-1.0, not post): secret handling, COSE/CIP-8
-  correctness, fee/coin-selection edge cases, seed-at-rest format
+- ✅ **Security review pass** (pre-1.0) — done 2026-06-06, `docs/security-review-phase7.md`.
+  Audited secret handling, COSE/CIP-8, fee/coin-selection/tx-building, seed-at-rest;
+  no critical issues; 9 findings fixed (notably TX-1 double-change → re-verified
+  on-chain, SEED-1 KDF-DoS clamp, COSE alg/empty-payload strictness, legacy
+  `message.rs` deprecated). 1 owner action: **rotate the Blockfrost dev key**.
 - **Pallas backend evaluation** (the "backend swap" deliverable is specifically
   CSL→Pallas feasibility — addresses CSL going legacy before the API freeze)
 - Fuzz/property tests on CBOR (de)serialization + witness assemble/extract

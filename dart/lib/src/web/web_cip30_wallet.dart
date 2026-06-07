@@ -186,7 +186,8 @@ class WebCip30Wallet {
 
     final accountKeyBech32 = acct.to_bech32();
     final paymentSigningKeyBech32 = acct.derive(0).derive(0).to_bech32();
-    final stakeKeyHash = acct.derive(2).derive(0).to_raw_key().to_public().hash();
+    final stakeKeyHash =
+        acct.derive(2).derive(0).to_raw_key().to_public().hash();
 
     const cml = CmlWebBackend();
     // Base (change/used) address via the conformance-frozen derivation path.
@@ -242,7 +243,8 @@ class WebCip30Wallet {
   /// conformance-frozen [CmlWebBackend.valueToCborHex] (canonical map ordering).
   Future<String> getBalance() async {
     final utxos = await provider.fetchUtxos(baseAddressBech32);
-    final agg = aggregateUtxos(utxos); // pure, unit-tested (value_aggregate.dart)
+    final agg =
+        aggregateUtxos(utxos); // pure, unit-tested (value_aggregate.dart)
     return _cml.valueToCborHex(coin: agg.coin, assets: agg.assets);
   }
 

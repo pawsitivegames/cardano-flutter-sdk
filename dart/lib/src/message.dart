@@ -11,6 +11,14 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CoseSign1`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
+/// ⚠️ DEPRECATED / legacy — prefer `cip30_sign_data`.
+///
+/// Custom, non-COSE structure that predates the CIP-30 path. NOT interoperable
+/// with browser wallets, and its `address` field is **not** cryptographically
+/// bound to the signature (see [`verify_message`]). Use `cip30_sign_data` /
+/// `cip30_verify_data` for any authentication or wallet interop. Retained only
+/// for backward compatibility.
+///
 /// Sign a message (arbitrary bytes) with a private key.
 ///
 /// Uses Blake2b-256 to hash the message, then signs with the private key.
@@ -41,11 +49,19 @@ Future<SignedMessage> signMessageInternal(
     RustLib.instance.api.crateMessageSignMessageInternal(
         message: message, signingKeyBech32: signingKeyBech32, address: address);
 
-/// Verify a CIP-8 signed message.
+/// ⚠️ DEPRECATED / legacy — prefer `cip30_verify_data`.
 ///
-/// Verifies that the signature is a valid Ed25519 signature over the message
-/// **and**, when an address is involved, that the signing public key actually
-/// owns that address (identity binding — see the module docs).
+/// Verify a legacy (non-COSE) signed message.
+///
+/// Verifies that the signature is a valid Ed25519 signature over the message, and
+/// checks that the supplied public key hashes into the supplied `address`.
+///
+/// SECURITY: unlike `cip30_verify_data`, the `address` and `public_key` here are
+/// caller-supplied fields that sit **outside** the signature, so this only proves
+/// "the holder of `public_key` signed `message`" — it does NOT cryptographically
+/// bind the *address* to the signing act (the COSE path binds the address inside
+/// the signed protected header). Do not use this for address-authenticated login;
+/// use `cip30_verify_data`.
 ///
 /// # Arguments
 /// * `signed_message` - The [SignedMessage] to verify

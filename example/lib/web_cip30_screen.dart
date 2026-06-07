@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cardano_flutter_rs/cardano_flutter_rs_web.dart';
 
+import 'dev_config.dart';
+
 /// Scoped CIP-30 demo for the **web** build.
 ///
 /// Drives [WebCip30Wallet] (CML-JS backend + Blockfrost REST) through the RC's
@@ -23,15 +25,12 @@ class _WebCip30ScreenState extends State<WebCip30Screen> {
   static const String _mnemonic =
       'test walk nut penalty hip pave soap entry language right filter choice';
 
-  // Blockfrost project id — dart-define override, else the example dev key.
-  static const String _envKey = String.fromEnvironment('BLOCKFROST_PROJECT_ID');
-  static const String _devKey = 'previewAmnr5VzpgWZkHMg8BibEiC4Vqkcq4G7e';
-
   WebCip30Wallet? _wallet;
   String _status = 'Not connected';
   final List<_LogEntry> _log = [];
 
-  String get _projectId => _envKey.isNotEmpty ? _envKey : _devKey;
+  // SEC-1: env first; debug-only dev-key fallback; empty in release builds.
+  String get _projectId => resolveBlockfrostProjectId();
 
   void _add(String op, String result, {bool ok = true}) {
     setState(() => _log.insert(0, _LogEntry(op, result, ok)));

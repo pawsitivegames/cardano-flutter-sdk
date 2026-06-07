@@ -8,7 +8,7 @@ import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'tx.dart';
 
-// These functions are ignored because they are not marked as `pub`: `aggregate_assets`, `estimate_fee_for_inputs`, `estimate_min_ada_for_multi_asset_output`, `estimate_min_ada`
+// These functions are ignored because they are not marked as `pub`: `aggregate_assets`, `checked_sum`, `estimate_fee_for_inputs`, `estimate_min_ada_for_multi_asset_output`, `estimate_min_ada`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `clone`, `eq`, `fmt`
 
 /// Implements CIP-2 largest-first coin selection.

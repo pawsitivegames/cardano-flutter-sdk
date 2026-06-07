@@ -143,9 +143,13 @@ Future<DerivedAddress> deriveAddress({
 /// final inputs = utxos.map(utxoToTxInput).toList();
 /// ```
 TxInput utxoToTxInput(Utxo utxo) {
+  // TX-2: values cross FFI as u64; a BigInt above u64::MAX would be silently
+  // truncated (wrapped) by the bridge encoder. Reject it explicitly instead.
+  _checkU64(utxo.coin, 'coin', utxo);
   final assets = <NativeAsset>[];
   utxo.assets.forEach((policyId, assetMap) {
     assetMap.forEach((assetName, qty) {
+      _checkU64(qty, 'asset quantity ($policyId.$assetName)', utxo);
       assets.add(NativeAsset(
         policyId: policyId,
         assetName: assetName,
@@ -159,6 +163,18 @@ TxInput utxoToTxInput(Utxo utxo) {
     address: utxo.address,
     value: Value(coin: utxo.coin, assets: assets),
   );
+}
+
+/// Maximum value representable as an unsigned 64-bit integer (the FFI boundary).
+final BigInt _u64Max = (BigInt.one << 64) - BigInt.one;
+
+void _checkU64(BigInt v, String field, Utxo utxo) {
+  if (v < BigInt.zero || v > _u64Max) {
+    throw ArgumentError(
+      'UTxO ${utxo.txHash}#${utxo.outputIndex}: $field value $v does not fit in '
+      'u64 [0, $_u64Max] and cannot be encoded across FFI.',
+    );
+  }
 }
 
 /// Converts a list of Blockfrost [Utxo]s to [TxInput]s for coin selection.
@@ -220,14 +236,22 @@ Future<CoinSelectionResult> selectCoinsForTransaction({
 /// change automatically, and returns the serialized body ready for signing.
 /// The computed fee is included in the result.
 ///
+/// IMPORTANT: pass only your **target** outputs here. `buildTransaction` computes
+/// and appends the single change output itself (returning the balance to
+/// [changeAddress]). Do **not** also pass [CoinSelectionResult.changeOutputs] —
+/// that would stack two change/fee engines (the selector's estimate and the
+/// builder's real fee), which can burn the residual to fee or emit a redundant
+/// second change output. Use [selectCoinsForTransaction] for input selection and
+/// fee preview; the builder is the single source of truth for change.
+///
 /// Example:
 /// ```dart
-/// final coinSelection = ...; // from selectCoinsForTransaction
+/// final coinSelection = await selectCoinsForTransaction(...); // picks inputs
 /// final params = ...; // from BlockfrostProvider
 ///
 /// final builtTx = await buildTransaction(
 ///   inputs: coinSelection.selectedInputs,
-///   outputs: [...targetOutputs, ...coinSelection.changeOutputs],
+///   outputs: targetOutputs, // target only — change is added automatically
 ///   changeAddress: myAddress,
 ///   ttl: null,
 ///   protocolParams: params,

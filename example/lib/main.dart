@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:app_links/app_links.dart';
+import 'dev_config.dart';
 import 'send_screen.dart';
 import 'mint_screen.dart';
 import 'stake_screen.dart';
@@ -49,11 +50,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Get Blockfrost project ID from dart-define, fall back to dev key
-    const envKey = String.fromEnvironment('BLOCKFROST_PROJECT_ID');
-    _blockfrostProjectId = envKey.isNotEmpty
-        ? envKey
-        : 'previewAmnr5VzpgWZkHMg8BibEiC4Vqkcq4G7e'; // TODO: remove before release
+    // SEC-1: env first; debug-only dev-key fallback; empty in release builds.
+    _blockfrostProjectId = resolveBlockfrostProjectId();
     // Auto-run tests on startup for verification
     debugPrint('[Cardano SDK] App initialized, running tests automatically...');
     WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -134,7 +134,8 @@ class _LedgerScreenState extends State<LedgerScreen> {
       );
       final built = await buildTransaction(
         inputs: selection.selectedInputs,
-        outputs: [target, ...selection.changeOutputs],
+        // TX-1: only target output; build_tx adds the single change output.
+        outputs: [target],
         changeAddress: wallet.baseAddress,
         ttl: null,
         protocolParams: params,
