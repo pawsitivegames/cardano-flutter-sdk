@@ -1,6 +1,6 @@
 # Cardano Flutter SDK — Project Plan
 
-> Single source of truth. Last updated: 2026-06-06.
+> Single source of truth. Last updated: 2026-06-09.
 > Independent, self-funded, open-source. No deadlines — phases ship when production-ready.
 
 ---
@@ -23,6 +23,8 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 **Backend swap:** Rust wrapper isolates CSL behind a trait. CML or Pallas can be swapped via feature flag without touching Dart. Pallas v1.0 is the long-term migration target.
 
 **Why FFI over pure Dart:** Protocol upgrades (Conway, hard forks) land upstream — bump a crate version. Pure-Dart SDKs require constant reimplementation. CSL/CML are generated from Cardano's official CDDL spec.
+
+**Long-term FFI boundary:** native platforms keep a small, stable Rust FFI surface for deterministic Cardano-critical work: address/key derivation, transaction body building, fee/size calculation, canonical CBOR serialization, signing/witness assembly, metadata/minting/staking builders, Plutus data encoding, seed crypto, and hardware-wallet transaction decomposition. Dart owns app flow, Flutter UI, provider REST calls, wallet state, secure-storage composition, deep links, Bluetooth/transport adapters, and CIP-30/CIP-45 orchestration. This boundary is deliberate: Rust protects correctness and backend swapability; Dart keeps product integration fast and platform-native. Do not expand FFI to generic network/app logic, and do not reimplement Cardano cryptography or canonical serialization in Dart.
 
 ---
 
@@ -462,6 +464,82 @@ Ledger. Hardware-wallet (Ledger) support remains `@experimental` until v1.1.0.*
 
 ---
 
+## Complete SDK Backlog
+
+These are the remaining workstreams required before the SDK should be considered
+complete in the broader sense: a Flutter developer can build a production wallet,
+dApp connector, staking/native-asset app, or advanced transaction workflow without
+dropping into Rust, CSL/CML, or custom Cardano plumbing.
+
+Priority order:
+
+1. **Android production verification**
+   - Physical-device verification on a real Android phone.
+   - Play Store build acceptance, including 16 KB page-size compliance.
+   - Final ABI policy: arm64, x86_64 emulator, and whether to support armeabi-v7a.
+
+2. **Provider abstraction beyond Blockfrost**
+   - Keep Blockfrost as the default provider.
+   - Add Maestro and Koios providers.
+   - Define a common provider interface for UTxOs, protocol parameters, submit,
+     transaction status, account history, and address metadata.
+   - Normalize retries, rate limits, pagination, and provider-specific errors.
+
+3. **Full wallet account model**
+   - Multi-account discovery and account selection.
+   - Address gap scanning and change-address management.
+   - UTxO cache with explicit refresh/invalidation.
+   - Balance aggregation for ADA and native assets.
+   - Transaction-history helpers suitable for wallet UI.
+
+4. **Production transaction-builder coverage**
+   - ADA send and multi-asset send.
+   - Metadata-only transactions.
+   - Native token mint/burn.
+   - Staking certificates, delegation, deregistration, and reward withdrawals.
+   - Collateral, reference inputs, inline datums, redeemers, and Plutus scripts.
+   - Governance/voting support when the upstream libraries and network flows are stable.
+
+5. **dApp connector maturity**
+   - Stable CIP-30 wallet API surface.
+   - CIP-45 mobile connector with a mature native transport path.
+   - Permission, session, and origin/app-identity management.
+   - Human-readable signing prompts for `signData` and `signTx`.
+
+6. **Hardware-wallet completion**
+   - Ledger transaction signing verified on real hardware.
+   - Explicit supported transaction subset.
+   - Safe refusal for unsupported transaction shapes.
+   - Promote hardware-wallet APIs out of `@experimental` only after real-device
+     signing passes.
+
+7. **Web parity decision**
+   - Decide whether web remains a scoped wallet-lite backend or grows toward full
+     transaction building/signing parity.
+   - Keep CML-JS and native CSL/Pallas byte parity enforced by golden-CBOR conformance.
+
+8. **Security hardening**
+   - Keep seed-encryption threat model current.
+   - Complete recurring security reviews before stable releases.
+   - Remove or rotate any hardcoded development secrets before publication.
+   - Provide secure-storage examples for iOS, Android, and macOS.
+   - Preserve zeroization where practical.
+   - Expand fuzz/property tests around serialization-sensitive code.
+
+9. **Backend swap strategy**
+   - Keep CSL as the active backend until a replacement is proven.
+   - Maintain real trait boundaries for CML/Pallas migration.
+   - Use golden-CBOR conformance to protect Dart API behavior from backend churn.
+
+10. **Developer experience**
+    - Example flows for every major capability.
+    - API docs with copy-paste snippets.
+    - Actionable error types and troubleshooting notes.
+    - Migration guides for breaking changes.
+    - CI matrix for Rust, Flutter, iOS, Android, web, and macOS.
+
+---
+
 ## Track B — Hardware-gated (parked until physical devices available)
 
 ### Phase H1 — Ledger on-device verification → v1.1.0
@@ -545,6 +623,7 @@ install_name_tool -id "@rpath/cardano_flutter_rs.framework/cardano_flutter_rs" "
 | Package name | `cardano_flutter_rs` | Avoids collision with Vespr's `cardano_flutter_sdk`; signals Rust/FFI |
 | Active backend | CSL v15.0.3 | Shipped Phase 1 & 2; swap to CML/Pallas is long-term |
 | FFI framework | flutter_rust_bridge v2.12 (pinned) | Best Dart↔Rust option; breaking changes require pinning |
+| FFI boundary | Rust for deterministic Cardano bytes/signing/crypto; Dart for product, REST, and platform flow | Long-term correctness, smaller API surface, and backend swapability |
 | iOS binary | Dynamic framework | `dart/ios/Libs/cardano_flutter_rs.framework` |
 | Web strategy | Dart JS interop → CML npm | No Rust→WASM tunnel |
 | Funding | Independent, self-funded | No Catalyst; quality over speed |
