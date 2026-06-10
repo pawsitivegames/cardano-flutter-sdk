@@ -437,7 +437,11 @@ Definition of Done (`0.12.0` RC):
       SDK smoke test + deep-link/QR entry + **16KB page-size image** all pass
       (`pageSizeCompat=0`; labeled "emulator", not "device"). Broader Android
       ABI policy remains pending; current example APK is ARM64-only.
-- [ ] >80% Dart coverage; Rust wrapper + crypto coverage; fuzz suite green
+- [x] >80% hand-written Dart coverage; Rust wrapper + crypto coverage; fuzz suite green
+      (2026-06-10: `flutter test --coverage` PASS; LCOV hand-written Dart
+      coverage 80.06% / 558 of 697 lines, excluding generated FRB/Rust twins
+      and `error.freezed.dart`; Rust `cargo test`/clippy + CBOR property tests
+      green in `32610ab`).
 - [ ] Security review pass complete; no hardcoded secrets; clippy + analyze clean
 - [x] Pallas backend-swap feasibility demonstrated (2026-06-09):
       `docs/pallas-feasibility.md`; conclusion is feature-gated conformance

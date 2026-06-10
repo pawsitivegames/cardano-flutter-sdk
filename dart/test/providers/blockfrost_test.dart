@@ -28,7 +28,8 @@ void main() {
 
     group('fetchUtxos', () {
       test('parses valid response into List<Utxo>', () async {
-        const address = 'addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqbgf8pq2fwh7tgkz0v9v8w';
+        const address =
+            'addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqbgf8pq2fwh7tgkz0v9v8w';
         final responseBody = jsonEncode([
           {
             'address': address,
@@ -61,14 +62,19 @@ void main() {
         verify(mockClient.get(
           Uri.parse(
               'https://cardano-preview.blockfrost.io/api/v0/addresses/$address/utxos'),
-          headers: {'project_id': 'test_project_id', 'Content-Type': 'application/json'},
+          headers: {
+            'project_id': 'test_project_id',
+            'Content-Type': 'application/json'
+          },
         )).called(1);
       });
 
       test('handles multi-asset response', () async {
-        const address = 'addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqbgf8pq2fwh7tgkz0v9v8w';
+        const address =
+            'addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqbgf8pq2fwh7tgkz0v9v8w';
         // Example policy ID + asset name
-        const policyId = '1e349c9bdea19fd6c147626a5260bc44b71635f398b67c59881df209';
+        const policyId =
+            '1e349c9bdea19fd6c147626a5260bc44b71635f398b67c59881df209';
         const assetName = '504154415445';
         final responseBody = jsonEncode([
           {
@@ -78,10 +84,7 @@ void main() {
             'output_index': 1,
             'amount': [
               {'unit': 'lovelace', 'quantity': '1500000'},
-              {
-                'unit': policyId + assetName,
-                'quantity': '1000'
-              }
+              {'unit': policyId + assetName, 'quantity': '1000'}
             ],
             'block': 'xyz456',
             'data_hash': null,
@@ -106,7 +109,8 @@ void main() {
       });
 
       test('returns empty list for 404 (no UTxOs)', () async {
-        const address = 'addr_test1qempty0000000000000000000000000000000000000000';
+        const address =
+            'addr_test1qempty0000000000000000000000000000000000000000';
 
         when(mockClient.get(
           any,
@@ -176,7 +180,10 @@ void main() {
         verify(mockClient.get(
           Uri.parse(
               'https://cardano-preview.blockfrost.io/api/v0/epochs/latest/parameters'),
-          headers: {'project_id': 'test_project_id', 'Content-Type': 'application/json'},
+          headers: {
+            'project_id': 'test_project_id',
+            'Content-Type': 'application/json'
+          },
         )).called(1);
       });
 
@@ -206,6 +213,161 @@ void main() {
       });
     });
 
+    group('chain queries', () {
+      test('fetchTipSlot parses integer slot', () async {
+        when(mockClient.get(any, headers: anyNamed('headers'))).thenAnswer(
+            (_) async => http.Response(jsonEncode({'slot': 123}), 200));
+
+        expect(await provider.fetchTipSlot(), equals(123));
+      });
+
+      test('fetchTipSlot rejects missing slot', () async {
+        when(mockClient.get(any, headers: anyNamed('headers'))).thenAnswer(
+            (_) async => http.Response(jsonEncode({'hash': 'b'}), 200));
+
+        expect(() => provider.fetchTipSlot(), throwsA(isA<FormatException>()));
+      });
+
+      test('fetchAccountInfo returns null for unregistered stake address',
+          () async {
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async => http.Response('', 404));
+
+        expect(await provider.fetchAccountInfo('stake_test1u...'), isNull);
+      });
+
+      test('fetchAccountInfo parses rewards and delegation fields', () async {
+        when(mockClient.get(any, headers: anyNamed('headers'))).thenAnswer(
+          (_) async => http.Response(
+            jsonEncode({
+              'stake_address': 'stake_test1uabc',
+              'active': true,
+              'controlled_amount': '5000000',
+              'rewards_sum': '100000',
+              'withdrawable_amount': '25000',
+              'pool_id': 'pool1xyz',
+            }),
+            200,
+          ),
+        );
+
+        final info = await provider.fetchAccountInfo('stake_test1uabc');
+
+        expect(info, isNotNull);
+        expect(info!.stakeAddress, equals('stake_test1uabc'));
+        expect(info.isRegistered, isTrue);
+        expect(info.controlledStake, equals(BigInt.from(5000000)));
+        expect(info.rewardsSum, equals(BigInt.from(100000)));
+        expect(info.withdrawableReward, equals(BigInt.from(25000)));
+        expect(info.poolId, equals('pool1xyz'));
+        expect(info.toString(), contains('pool1xyz'));
+      });
+
+      test('fetchAddressMetadata returns null for never-seen address',
+          () async {
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async => http.Response('', 404));
+
+        expect(await provider.fetchAddressMetadata('addr_test1unused'), isNull);
+        expect(await provider.isAddressUsed('addr_test1unused'), isFalse);
+      });
+
+      test('fetchAddressMetadata parses tx count and lovelace sums', () async {
+        when(mockClient.get(any, headers: anyNamed('headers'))).thenAnswer(
+          (_) async => http.Response(
+            jsonEncode({
+              'address': 'addr_test1used',
+              'tx_count': 3,
+              'received_sum': [
+                {'unit': 'lovelace', 'quantity': '9000000'},
+                {'unit': 'token', 'quantity': '1'},
+              ],
+              'sent_sum': [
+                {'unit': 'lovelace', 'quantity': '4000000'},
+              ],
+            }),
+            200,
+          ),
+        );
+
+        final meta = await provider.fetchAddressMetadata('addr_test1used');
+
+        expect(meta, isNotNull);
+        expect(meta!.isUsed, isTrue);
+        expect(meta.txCount, equals(3));
+        expect(meta.totalReceived, equals(BigInt.from(9000000)));
+        expect(meta.totalSent, equals(BigInt.from(4000000)));
+        expect(meta.toString(), contains('txCount: 3'));
+      });
+    });
+
+    group('staking pool queries', () {
+      test('fetchPoolIds parses active pool IDs with paging parameters',
+          () async {
+        when(mockClient.get(any, headers: anyNamed('headers'))).thenAnswer(
+            (_) async => http.Response(jsonEncode(['pool1', 'pool2']), 200));
+
+        final pools = await provider.fetchPoolIds(page: 2, count: 5);
+
+        expect(pools, equals(['pool1', 'pool2']));
+        verify(mockClient.get(
+          Uri.parse(
+              'https://cardano-preview.blockfrost.io/api/v0/pools?page=2&count=5&order=desc'),
+          headers: anyNamed('headers'),
+        )).called(1);
+      });
+
+      test('fetchPoolInfo parses optional numeric fields', () async {
+        when(mockClient.get(any, headers: anyNamed('headers'))).thenAnswer(
+          (_) async => http.Response(
+            jsonEncode({
+              'fixed_cost': '340000000',
+              'margin_cost': '0.025',
+              'live_saturation': '0.42',
+            }),
+            200,
+          ),
+        );
+
+        final info = await provider.fetchPoolInfo('pool1abc');
+
+        expect(info.poolId, equals('pool1abc'));
+        expect(info.fixedCost, equals('340000000'));
+        expect(info.margin, equals(0.025));
+        expect(info.saturation, equals(0.42));
+        expect(info.toString(), contains('pool1abc'));
+      });
+
+      test('fetchPoolMetadata returns empty map for missing metadata',
+          () async {
+        when(mockClient.get(any, headers: anyNamed('headers')))
+            .thenAnswer((_) async => http.Response('', 404));
+
+        expect(await provider.fetchPoolMetadata('pool1missing'), isEmpty);
+      });
+
+      test('fetchPoolMetadata parses metadata fields', () async {
+        when(mockClient.get(any, headers: anyNamed('headers'))).thenAnswer(
+          (_) async => http.Response(
+            jsonEncode({
+              'name': 'Pool Name',
+              'ticker': 'POOL',
+              'description': 'A stake pool',
+              'homepage': 'https://example.com',
+            }),
+            200,
+          ),
+        );
+
+        final metadata = await provider.fetchPoolMetadata('pool1abc');
+
+        expect(metadata['name'], equals('Pool Name'));
+        expect(metadata['ticker'], equals('POOL'));
+        expect(metadata['description'], equals('A stake pool'));
+        expect(metadata['homepage'], equals('https://example.com'));
+      });
+    });
+
     group('submitTransaction', () {
       test('posts CBOR with correct headers and returns tx hash', () async {
         final txCbor = Uint8List.fromList([0x84, 0x18, 0x2a]); // example CBOR
@@ -216,8 +378,8 @@ void main() {
           any,
           headers: anyNamed('headers'),
           body: anyNamed('body'),
-        )).thenAnswer((_) async =>
-            http.Response(jsonEncode(expectedTxHash), 200));
+        )).thenAnswer(
+            (_) async => http.Response(jsonEncode(expectedTxHash), 200));
 
         final txHash = await provider.submitTransaction(txCbor);
 
@@ -241,8 +403,7 @@ void main() {
           any,
           headers: anyNamed('headers'),
           body: anyNamed('body'),
-        )).thenAnswer(
-            (_) async => http.Response(errorBody, 400));
+        )).thenAnswer((_) async => http.Response(errorBody, 400));
 
         expect(
           () => provider.submitTransaction(txCbor),
@@ -257,8 +418,7 @@ void main() {
           any,
           headers: anyNamed('headers'),
           body: anyNamed('body'),
-        )).thenAnswer(
-            (_) async => http.Response('Forbidden', 403));
+        )).thenAnswer((_) async => http.Response('Forbidden', 403));
 
         expect(
           () => provider.submitTransaction(txCbor),
@@ -269,7 +429,8 @@ void main() {
 
     group('retry logic', () {
       test('retries on 500 and succeeds on third attempt', () async {
-        const address = 'addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqbgf8pq2fwh7tgkz0v9v8w';
+        const address =
+            'addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqbgf8pq2fwh7tgkz0v9v8w';
         final successResponse = jsonEncode([
           {
             'address': address,
@@ -429,8 +590,7 @@ void main() {
           any,
           headers: anyNamed('headers'),
           body: anyNamed('body'),
-        )).thenAnswer(
-            (_) async => http.Response(errorBody, 400));
+        )).thenAnswer((_) async => http.Response(errorBody, 400));
 
         try {
           await provider.submitTransaction(Uint8List(0));
@@ -444,8 +604,8 @@ void main() {
         when(mockClient.get(
           any,
           headers: anyNamed('headers'),
-        )).thenAnswer((_) async => http.Response('Rate Limited', 429,
-            headers: {'retry-after': '60'}));
+        )).thenAnswer((_) async =>
+            http.Response('Rate Limited', 429, headers: {'retry-after': '60'}));
 
         try {
           await provider.fetchProtocolParameters();
@@ -454,13 +614,29 @@ void main() {
           expect(e.retryAfter, equals(Duration(seconds: 60)));
         }
       });
+
+      test('Blockfrost error toString methods include context', () {
+        expect(
+          BlockfrostBadRequest('Bad request', 'InvalidTx').toString(),
+          equals('Bad request: InvalidTx'),
+        );
+        expect(
+          BlockfrostRateLimited(
+            'Rate limited',
+            retryAfter: const Duration(seconds: 12),
+          ).toString(),
+          equals('Rate limited (retry after 12s)'),
+        );
+        expect(BlockfrostNotFound('missing').toString(), equals('missing'));
+      });
     });
 
     group('fetchTransactionStatus', () {
       const txHash =
           'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
 
-      test('returns confirmed=true with blockHeight when TX is on-chain', () async {
+      test('returns confirmed=true with blockHeight when TX is on-chain',
+          () async {
         final body = jsonEncode({
           'hash': txHash,
           'block': 'blockxyz',
@@ -481,7 +657,8 @@ void main() {
         expect(status.blockHeight, equals(8500000));
       });
 
-      test('returns confirmed=false when TX is not yet in a block (404)', () async {
+      test('returns confirmed=false when TX is not yet in a block (404)',
+          () async {
         when(mockClient.get(any, headers: anyNamed('headers')))
             .thenAnswer((_) async => http.Response('', 404));
 
@@ -499,8 +676,7 @@ void main() {
         await provider.fetchTransactionStatus(txHash);
 
         verify(mockClient.get(
-          Uri.parse(
-              'https://cardano-preview.blockfrost.io/api/v0/txs/$txHash'),
+          Uri.parse('https://cardano-preview.blockfrost.io/api/v0/txs/$txHash'),
           headers: anyNamed('headers'),
         )).called(1);
       });
@@ -588,8 +764,8 @@ void main() {
           any,
           headers: anyNamed('headers'),
         )).thenAnswer((invocation) {
-          final headers =
-              invocation.namedArguments[Symbol('headers')] as Map<String, String>;
+          final headers = invocation.namedArguments[Symbol('headers')]
+              as Map<String, String>;
           captured.add(headers);
           return Future.value(http.Response(jsonEncode([]), 200));
         });
@@ -607,8 +783,8 @@ void main() {
           any,
           headers: anyNamed('headers'),
         )).thenAnswer((invocation) {
-          final headers =
-              invocation.namedArguments[Symbol('headers')] as Map<String, String>;
+          final headers = invocation.namedArguments[Symbol('headers')]
+              as Map<String, String>;
           captured.add(headers);
           return Future.value(http.Response(jsonEncode([]), 200));
         });

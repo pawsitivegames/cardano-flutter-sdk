@@ -126,7 +126,8 @@ void main() {
     });
 
     test('rejects invalid mnemonic', () async {
-      const invalidMnemonic = 'invalid mnemonic words that do not form a valid bip39 seed';
+      const invalidMnemonic =
+          'invalid mnemonic words that do not form a valid bip39 seed';
       expect(
         () => deriveKeysFromMnemonic(
           mnemonic: invalidMnemonic,
@@ -172,7 +173,8 @@ void main() {
     });
 
     test('preserves native tokens in multi-asset UTXO', () {
-      const policyId = '29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418';
+      const policyId =
+          '29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418';
       const assetName = '4d59544b4e'; // MYTKN hex
       final utxo = Utxo(
         txHash: 'def456',
@@ -212,6 +214,116 @@ void main() {
       expect(inputs, hasLength(2));
       expect(inputs[0].txHash, equals('aaa'));
       expect(inputs[1].txHash, equals('bbb'));
+    });
+
+    test('rejects negative coin before FFI conversion', () {
+      final utxo = Utxo(
+        txHash: 'neg',
+        outputIndex: 0,
+        address: 'addr_test1q...',
+        coin: BigInt.from(-1),
+        assets: {},
+      );
+
+      expect(() => utxoToTxInput(utxo), throwsA(isA<ArgumentError>()));
+    });
+
+    test('rejects asset quantity above u64 before FFI conversion', () {
+      const policyId =
+          '29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418';
+      final utxo = Utxo(
+        txHash: 'huge',
+        outputIndex: 2,
+        address: 'addr_test1q...',
+        coin: BigInt.from(2000000),
+        assets: {
+          policyId: {'00': BigInt.one << 64},
+        },
+      );
+
+      expect(() => utxoToTxInput(utxo), throwsA(isA<ArgumentError>()));
+    });
+  });
+
+  group('Wrapper conversions', () {
+    const testAddress =
+        'addr_test1vz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerspjrlsz';
+
+    ProtocolParams protocolParams() => ProtocolParams(
+          minFeeA: BigInt.from(44),
+          minFeeB: BigInt.from(155381),
+          coinsPerUtxoByte: BigInt.from(4310),
+          maxTxSize: 16384,
+          poolDeposit: BigInt.from(500000000),
+          keyDeposit: BigInt.from(2000000),
+          maxValSize: 5000,
+        );
+
+    test('ProtocolParameters.toProtocolParams maps all fields', () {
+      final params = ProtocolParameters(
+        minFeeA: 44,
+        minFeeB: 155381,
+        coinsPerUtxoByte: 4310,
+        maxTxSize: 16384,
+        maxValueSize: 5000,
+        keyDeposit: 2000000,
+        poolDeposit: 500000000,
+      ).toProtocolParams();
+
+      expect(params.minFeeA, equals(BigInt.from(44)));
+      expect(params.minFeeB, equals(BigInt.from(155381)));
+      expect(params.coinsPerUtxoByte, equals(BigInt.from(4310)));
+      expect(params.maxTxSize, equals(16384));
+      expect(params.maxValSize, equals(5000));
+      expect(params.keyDeposit, equals(BigInt.from(2000000)));
+      expect(params.poolDeposit, equals(BigInt.from(500000000)));
+    });
+
+    test('signedTxToBytes decodes transaction hex bytes', () {
+      final signedTx = SignedTx(txCborHex: '840102ff', txHash: 'hash');
+
+      expect(signedTxToBytes(signedTx), equals([0x84, 0x01, 0x02, 0xff]));
+    });
+
+    test('computeStakeAddress returns a testnet reward address', () {
+      const stakeKeyHash =
+          '05261533f512bfb9dc8a8686e97951f474a532778f0e2228f8865c17';
+
+      final stakeAddress = computeStakeAddress(
+        stakeKeyHashHex: stakeKeyHash,
+        isTestnet: true,
+      );
+
+      expect(stakeAddress, startsWith('stake_test1'));
+    });
+
+    test('staking builders surface Rust validation errors through wrappers',
+        () async {
+      const stakeKeyHash =
+          '05261533f512bfb9dc8a8686e97951f474a532778f0e2228f8865c17';
+
+      expect(
+        () => buildStakeRegistrationTx(
+          stakeKeyHashHex: stakeKeyHash,
+          inputs: [],
+          changeAddress: testAddress,
+          networkId: 0,
+          params: protocolParams(),
+        ),
+        throwsException,
+      );
+      expect(
+        () => buildDelegationTx(
+          stakeKeyHashHex: stakeKeyHash,
+          poolKeyhashHex:
+              '29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418',
+          inputs: [],
+          changeAddress: testAddress,
+          networkId: 0,
+          params: protocolParams(),
+        ),
+        throwsException,
+      );
     });
   });
 
