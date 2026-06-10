@@ -414,7 +414,9 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 *Dependency: Phase 6.*
 
 **Deliverables:**
-- Governance: CIP-36 catalyst/vote key registration (SanchoNet/testnet)
+- Governance: CIP-36 catalyst/vote key registration (SanchoNet/testnet) —
+  **deferred post-RC**; useful roadmap work, not a feature-complete SDK
+  correctness gate.
 - ✅ **Security review pass** (pre-1.0) — done 2026-06-06, `docs/security-review-phase7.md`.
   Audited secret handling, COSE/CIP-8, fee/coin-selection/tx-building, seed-at-rest;
   no critical issues; 9 findings fixed (notably TX-1 double-change → re-verified
@@ -423,7 +425,9 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 - **Pallas backend evaluation** (the "backend swap" deliverable is specifically
   CSL→Pallas feasibility — addresses CSL going legacy before the API freeze)
 - Fuzz/property tests on CBOR (de)serialization + witness assemble/extract
-- Documentation site live; API stability pass (semver freeze candidates)
+- API stability pass (semver freeze candidates)
+- Documentation site live — **deferred post-RC**; the README/platform matrix and
+  package docs are sufficient for the `0.12.0` RC.
 - >80% Dart coverage
 
 ---
@@ -432,9 +436,17 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 *Gate: Track A 4.6–7 done. **NOT gated on Ledger or physical Android hardware.***
 
 Definition of Done (`0.12.0` RC):
-- [ ] Phases 0–4 (minus hardware verification) + Track A 4.6/5a/5b/6/7 complete
+- [x] Phases 0–4 (minus hardware verification) + Track A 4.6/5a/5b/6/7 complete
+      for the `0.12.0` RC scope. Governance/voting support and the standalone
+      documentation site are explicitly deferred post-RC; security, Pallas
+      feasibility, coverage, Android emulator, web, and macOS gates are complete.
 - [ ] iOS passing CI + live-verified; macOS functional; Web (scoped) functional
-- [ ] Web scoped subset via Dart JS interop → CML (no WASM tunnel); golden-CBOR parity
+      (2026-06-09 local RC gates: Rust fmt/clippy/tests PASS; Dart analyze/tests
+      PASS; web conformance PASS 32/32; WebCip30Wallet PASS 10/10. CI re-run
+      still pending for the final cut).
+- [x] Web scoped subset via Dart JS interop → CML (no WASM tunnel); golden-CBOR parity
+      (`cardano_flutter_rs_web.dart`, `WebCip30Wallet`, `CmlWebBackend`, and
+      in-browser conformance 32/32 verified 2026-06-06).
 - [x] **Android ARM64 emulator-verified** (2026-06-09): app + FFI `.so` load +
       SDK smoke test + deep-link/QR entry + **16KB page-size image** all pass
       (`pageSizeCompat=0`; labeled "emulator", not "device"). Broader Android
@@ -444,14 +456,19 @@ Definition of Done (`0.12.0` RC):
       coverage 80.06% / 558 of 697 lines, excluding generated FRB/Rust twins
       and `error.freezed.dart`; Rust `cargo test`/clippy + CBOR property tests
       green in `32610ab`).
-- [ ] Security review pass complete; no hardcoded secrets; clippy + analyze clean
+- [x] Security review pass complete; no hardcoded secrets; clippy + analyze clean
+      (security review complete 2026-06-06; 2026-06-09 local RC gates:
+      `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
+      `cargo test`, `flutter analyze` for package + example, and hardcoded
+      Blockfrost key grep all clean. Historical dev key still needs external
+      Blockfrost rotation because it exists in git history.)
 - [x] Pallas backend-swap feasibility demonstrated (2026-06-09):
       `docs/pallas-feasibility.md`; conclusion is feature-gated conformance
       backend first, not a production backend flip.
-- [ ] Hardware-wallet API marked `@experimental`; Android marked **supported
+- [x] Hardware-wallet API marked `@experimental`; Android marked **supported
       (emulator-verified)** in platform table
-- [ ] Published to pub.dev as `cardano_flutter_rs` (0.12.0 / `1.0.0-rc.1`)
-- [ ] Documentation site live; README platform-support matrix
+- [ ] Published to pub.dev as `cardano_flutter_rs` (`0.12.0`)
+- [x] README platform-support matrix
 
 ### v1.0.0 — Production release
 *Gate: 0.12.0 RC + **Android verified on a physical device** (incl. Play Store

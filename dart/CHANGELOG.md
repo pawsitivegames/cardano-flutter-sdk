@@ -3,6 +3,27 @@
 All notable changes to `cardano_flutter_rs` are documented here.
 This project follows [Semantic Versioning](https://semver.org). Pre-1.0 = `0.x.y`.
 
+## 0.12.0 — Feature-complete RC
+
+- **Android RC gate:** ARM64 16 KB page-size emulator verified: Rust FFI `.so`
+  load, SDK smoke test, CIP-45 deep link, QR entry path, and `pageSizeCompat=0`.
+  This is explicitly **not** physical-device verification and does not claim
+  broader ABI support.
+- **Web scoped backend:** `cardano_flutter_rs_web.dart`, `WebCip30Wallet`, and
+  `CmlWebBackend` over CML-JS interop, locked to native bytes by the in-browser
+  golden-CBOR conformance gate.
+- **macOS desktop:** packaged FFI plugin verified, including a real testnet-preview
+  send transaction.
+- **Security hardening:** pre-1.0 review fixes for transaction change handling,
+  seed KDF parameter validation, checked asset accumulation, TTL handling, COSE
+  strictness, and debug Blockfrost key handling.
+- **Coverage / conformance:** hand-written Dart coverage is above the 80% RC
+  threshold; Rust tests, clippy, CBOR property tests, and browser conformance are
+  part of the release gate.
+- **Hardware wallets remain experimental:** the API is present and annotated
+  `@experimental`; Ledger transaction signing is still unverified on physical
+  hardware.
+
 ## 0.9.0 — HD multi-account discovery (Phase 5a)
 
 - **Rust:** `deriveAddress(accountKey, role, index, networkId)` → `DerivedAddress`
