@@ -236,6 +236,43 @@ mod tests {
         payment_key.to_bech32()
     }
 
+    fn derive_second_test_payment_key() -> String {
+        let mnemonic_obj = bip39::Mnemonic::parse(TEST_MNEMONIC).expect("Valid mnemonic");
+        let entropy = mnemonic_obj.to_entropy();
+        let root_key = csl::Bip32PrivateKey::from_bip39_entropy(&entropy, b"");
+
+        root_key
+            .derive(1852 | 0x80000000)
+            .derive(1815 | 0x80000000)
+            .derive(1 | 0x80000000)
+            .derive(0)
+            .derive(0)
+            .to_bech32()
+    }
+
+    fn minimal_tx_body_hex() -> String {
+        let mut body_inputs = csl::TransactionInputs::new();
+        let tx_hash = csl::TransactionHash::from_bytes(vec![7u8; 32]).unwrap();
+        body_inputs.add(&csl::TransactionInput::new(&tx_hash, 0));
+
+        let addr = csl::Address::from_bech32(
+            "addr_test1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg57c2qv",
+        )
+        .unwrap();
+        let mut body_outputs = csl::TransactionOutputs::new();
+        body_outputs.add(&csl::TransactionOutput::new(
+            &addr,
+            &csl::Value::new(&csl::BigNum::from(1_500_000u64)),
+        ));
+
+        let body = csl::TransactionBody::new_tx_body(
+            &body_inputs,
+            &body_outputs,
+            &csl::BigNum::from(170_000u64),
+        );
+        hex::encode(body.to_bytes())
+    }
+
     #[test]
     fn test_key_derivation_works() {
         let payment_key = derive_test_payment_key();
@@ -347,5 +384,27 @@ mod tests {
                 other
             ),
         }
+    }
+
+    #[test]
+    fn sign_tx_is_deterministic_and_adds_expected_witnesses() {
+        let body_hex = minimal_tx_body_hex();
+        let keys = vec![derive_test_payment_key(), derive_second_test_payment_key()];
+
+        let first = sign_tx_internal(body_hex.clone(), keys.clone()).unwrap();
+        let second = sign_tx_internal(body_hex, keys).unwrap();
+        assert_eq!(first.tx_cbor_hex, second.tx_cbor_hex);
+        assert_eq!(first.tx_hash, second.tx_hash);
+
+        let tx = csl::Transaction::from_bytes(hex::decode(first.tx_cbor_hex).unwrap()).unwrap();
+        let witnesses = tx
+            .witness_set()
+            .vkeys()
+            .expect("signed transaction must have vkey witnesses");
+        assert_eq!(
+            witnesses.len(),
+            2,
+            "both signing keys must produce witnesses"
+        );
     }
 }

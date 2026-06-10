@@ -327,6 +327,8 @@ pub fn estimate_fee(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+    use std::collections::BTreeMap;
 
     fn test_protocol_params() -> ProtocolParams {
         ProtocolParams {
@@ -423,6 +425,68 @@ mod tests {
         let b = csl::AssetName::new(hex::decode(hex::encode(b"BBB")).unwrap()).unwrap();
         assert_eq!(assets.get(&a).unwrap().to_str(), "3");
         assert_eq!(assets.get(&b).unwrap().to_str(), "7");
+    }
+
+    proptest! {
+        #[test]
+        fn value_to_csl_multiasset_cbor_is_canonical(
+            assets in prop::collection::vec(
+                (
+                    any::<[u8; 28]>(),
+                    prop::collection::vec(any::<u8>(), 0..=32),
+                    1u64..=u64::MAX,
+                ),
+                1..24,
+            )
+        ) {
+            let native_assets: Vec<NativeAsset> = assets
+                .iter()
+                .map(|(policy, asset_name, quantity)| NativeAsset {
+                    policy_id: hex::encode(policy),
+                    asset_name: hex::encode(asset_name),
+                    quantity: *quantity,
+                })
+                .collect();
+            let mut expected = BTreeMap::new();
+            for asset in &native_assets {
+                expected.insert((asset.policy_id.clone(), asset.asset_name.clone()), asset.quantity);
+            }
+
+            let csl_val = value_to_csl(&Value {
+                coin: 2_000_000,
+                assets: native_assets,
+            })
+            .expect("generated value should be valid");
+            let encoded = csl_val.to_bytes();
+            let decoded = csl::Value::from_bytes(encoded.clone()).expect("Value CBOR must decode");
+            prop_assert_eq!(decoded.to_bytes(), encoded, "Value CBOR must be canonical");
+
+            let multi_asset = decoded.multiasset().expect("multiasset should be present");
+            for ((policy_hex, asset_name_hex), quantity) in expected {
+                let policy = csl::ScriptHash::from_bytes(hex::decode(policy_hex).unwrap()).unwrap();
+                let asset_name = csl::AssetName::new(hex::decode(asset_name_hex).unwrap()).unwrap();
+                let policy_assets = multi_asset.get(&policy).expect("policy survives");
+                let actual = policy_assets.get(&asset_name).expect("asset survives");
+                prop_assert_eq!(actual.to_str(), quantity.to_string());
+            }
+        }
+    }
+
+    #[test]
+    fn value_to_csl_rejects_asset_name_over_32_bytes() {
+        let value = Value {
+            coin: 2_000_000,
+            assets: vec![NativeAsset {
+                policy_id: "29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418".to_string(),
+                asset_name: hex::encode([0xab; 33]),
+                quantity: 1,
+            }],
+        };
+
+        assert!(
+            value_to_csl(&value).is_err(),
+            "CSL must reject native asset names longer than 32 bytes"
+        );
     }
 
     #[test]

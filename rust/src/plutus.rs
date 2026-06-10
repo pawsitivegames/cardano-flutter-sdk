@@ -389,6 +389,7 @@ pub fn build_script_tx(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     // ── PlutusData encoding ──────────────────────────────────────────────
 
@@ -466,6 +467,43 @@ mod tests {
     fn validate_plutus_data_rejects_garbage() {
         let result = validate_plutus_data("not_hex".to_string());
         assert!(result.is_err());
+    }
+
+    proptest! {
+        #[test]
+        fn plutus_data_bytes_cbor_roundtrips(bytes in prop::collection::vec(any::<u8>(), 0..256)) {
+            let hex = plutus_data_bytes(hex::encode(&bytes)).expect("byte payload should encode");
+            let decoded = csl::PlutusData::from_bytes(hex::decode(&hex).unwrap())
+                .expect("PlutusData bytes must decode");
+            prop_assert_eq!(decoded.as_bytes().unwrap(), bytes);
+            prop_assert_eq!(hex::encode(decoded.to_bytes()), hex);
+        }
+
+        #[test]
+        fn plutus_data_int_cbor_roundtrips(value in any::<i64>()) {
+            let hex = plutus_data_int(value).expect("integer should encode");
+            let decoded = csl::PlutusData::from_bytes(hex::decode(&hex).unwrap())
+                .expect("PlutusData int must decode");
+            prop_assert!(decoded.as_integer().is_some());
+            prop_assert_eq!(hex::encode(decoded.to_bytes()), hex);
+        }
+    }
+
+    #[test]
+    fn plutus_data_list_encoding_is_deterministic() {
+        let fields = vec![
+            plutus_data_int(1).unwrap(),
+            plutus_data_bytes("deadbeef".to_string()).unwrap(),
+            plutus_data_constr(0, vec![]).unwrap(),
+        ];
+
+        let first = plutus_data_list(fields.clone()).unwrap();
+        let second = plutus_data_list(fields).unwrap();
+
+        assert_eq!(
+            first, second,
+            "same PlutusData list inputs must produce stable CBOR"
+        );
     }
 
     // ── build_script_tx error cases ──────────────────────────────────────
