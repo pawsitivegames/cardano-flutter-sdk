@@ -45,7 +45,7 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 4.6 — Foundation hygiene | ✅ **Complete 2026-06-04** | v0.8.1 |
 | 5a — HD multi-account | ✅ **Live-verified 2026-06-04** (iPhone 13) | v0.9.0 |
 | 5b — Seed encryption | ✅ **Live-verified 2026-06-06** (iPhone 13: Keychain round-trip + `benchmark_kdf` ~158 ms) | v0.9.1 |
-| 6 — Web (scoped) & Desktop | ✅ **Verified 2026-06-06** (conformance 32/32 + scoped `WebCip30Wallet` + macOS send-tx on-chain + perf within budget); only cross-wallet capture (Lace/Eternl) outstanding | v0.10.0 |
+| 6 — Web (scoped) & Desktop | ✅ **Verified 2026-06-06** (conformance 32/32 + scoped `WebCip30Wallet` + macOS send-tx on-chain + perf within budget + real Eternl cross-wallet fixture gate) | v0.10.0 |
 | 7+ | Planned | — |
 
 **Phase 2 verification (2026-05-25):**
@@ -357,7 +357,7 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 
 ---
 
-### Phase 6 — Web (scoped) & Desktop → v0.10.0  ✅ verified 2026-06-06 (cross-wallet capture outstanding)
+### Phase 6 — Web (scoped) & Desktop → v0.10.0  ✅ verified 2026-06-06 + Eternl cross-wallet fixture-gated 2026-06-10
 *Dependency: Phase 5b. Verifiable in a desktop browser + macOS — no phone needed.*
 
 > Web ≠ a recompile. No Rust FFI on web → a **CML-JS backend** must implement the
