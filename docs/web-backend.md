@@ -30,11 +30,14 @@ Per `docs/PLAN.md` (Roadmap restructure v2, point 3), the web backend is scoped
 - Address derivation (key → base address; CIP-1852)
 - Balance / UTxO **read** (the Blockfrost provider is already pure-Dart REST and
   works on web today — no backend work needed)
-- Serialization needed for **CIP-30 connect**: `Value`/`PlutusData`/address CBOR,
-  witness assembly, COSE `signData`/`verifyData`
+- Serialization needed for **CIP-30 connect**: address hex, `Value` CBOR,
+  `TransactionUnspentOutput` CBOR, `PlutusData`, witness assembly, COSE
+  `signData`/`verifyData`
+- `submitTx` for already-signed transaction CBOR hex through the pure-Dart
+  Blockfrost provider
 
 **Out of scope (web, deferred to a later web-parity track):**
-- Full transaction building (fee estimation + coin selection against CML)
+- Full transaction building / `signTx` (fee estimation + coin selection against CML)
 - Minting / Plutus script execution tx assembly
 - Hardware-wallet transports
 
@@ -208,12 +211,17 @@ for (final c in parseConformanceCases(goldenJson)) {
       pure-signature accept, wrong-payload reject, wrong-address reject) — runs
       in-browser as part of the 32/32 suite. Legacy `signMessageCose` left
       intentionally unmapped (excluded from contract).
+- [x] `WebCip30Wallet` now returns CIP-30-shaped web outputs for the scoped read
+      surface: `getChangeAddress` / used / reward addresses as raw address hex,
+      `getBalance` as `Value` CBOR hex, and `getUtxos` as
+      `TransactionUnspentOutput` CBOR hex serialized through CML-JS. It also
+      exposes `submitTx` for already-signed transaction CBOR hex via Blockfrost.
 - [x] **Scoped CIP-30 runs in a desktop browser build of the example.** A second
       package entrypoint `cardano_flutter_rs_web.dart` exposes `WebCip30Wallet`
       (CML-JS + Blockfrost REST); `example/lib/main_web.dart` + `example/web/`
       build & run it in Chrome (`flutter build web -t lib/main_web.dart`). The
       wallet's derivation + `signData`→`verifyData` are gated in-browser against
-      the native golden values (`web_wallet_harness.dart`, **PASS 10**, wired into
+      the native golden values (`web_wallet_harness.dart`, **PASS 12**, wired into
       the `web-conformance` CI job alongside the conformance gate).
 - [ ] **Cross-wallet check vs Lace/Eternl** — verify-side harness + fixture +
       capture guide are in place (`test/cross_wallet_verify_test.dart`,

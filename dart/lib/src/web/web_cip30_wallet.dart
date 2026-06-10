@@ -3,16 +3,17 @@
 // A read + connect + signData wallet for Flutter **web**, built on:
 //   • [CmlWebBackend] — the conformance-frozen CML-via-JS-interop backend, for
 //     the deterministic serialization/signing ops (value CBOR, address hex,
-//     COSE `signData`). These exact call sequences pass the 28/28 golden suite
+//     UTxO CBOR, COSE `signData`). These exact call sequences pass the golden suite
 //     in a real browser (`tool/web_conformance/`).
 //   • [BlockfrostProvider] — pure-Dart REST, already web-capable, for chain reads
 //     (UTxOs / balance).
 //
 // Scope is the RC's deliberately-reduced web subset (see `docs/web-backend.md`):
-// address derivation, balance/UTxO read, and CIP-30 `signData`. Full tx-building
-// (fee estimation + coin selection against CML) is OUT of scope on web and is
-// deferred to a later web-parity track — those methods are intentionally absent
-// here rather than throwing, so the type surface tells the truth.
+// address derivation, balance/UTxO read, CIP-30 `signData`, and signed-tx
+// submission. Full tx-building / `signTx` (fee estimation + coin selection
+// against CML) is OUT of scope on web and is deferred to a later web-parity
+// track — those methods are intentionally absent here rather than throwing, so
+// the type surface tells the truth.
 //
 // This file is web-only by construction (it imports `dart:js_interop`) and is
 // reachable only through the `cardano_flutter_rs_web.dart` entrypoint, never the
@@ -97,9 +98,12 @@ typedef WebDataSignature = ConformanceSignature;
 
 /// Scoped CIP-30 wallet for Flutter web (CML-JS backend + Blockfrost REST).
 ///
-/// Implements the read + connect + `signData` subset of CIP-30. Construct with
-/// [WebCip30Wallet.fromMnemonic]. Tx-building methods are intentionally absent
-/// (out of scope on web for the RC — see the library doc).
+/// Implements the read + connect + `signData` + `submitTx` subset of CIP-30.
+/// Construct with [WebCip30Wallet.fromMnemonic]. Returned addresses are
+/// hex-encoded raw address bytes and returned UTxOs are CBOR
+/// `TransactionUnspentOutput` hex, matching native [Cip30Wallet] behavior.
+/// Tx-building / `signTx` methods are intentionally absent (out of scope on web
+/// for the RC — see the library doc).
 ///
 /// ```dart
 /// final wallet = await WebCip30Wallet.fromMnemonic(
@@ -107,9 +111,10 @@ typedef WebDataSignature = ConformanceSignature;
 ///   provider: BlockfrostProvider(projectId: id, network: Network.testnetPreview),
 ///   isTestnet: true,
 /// );
-/// final netId = await wallet.getNetworkId();      // 0 (testnet)
-/// final bal = await wallet.getBalance();          // Value CBOR hex
-/// final sig = wallet.signData(utf8Hex('hello'));  // COSE_Sign1 + COSE_Key
+/// final netId = await wallet.getNetworkId();       // 0 (testnet)
+/// final addr = await wallet.getChangeAddress();    // address hex
+/// final bal = await wallet.getBalance();           // Value CBOR hex
+/// final sig = wallet.signData(utf8Hex('hello'));   // COSE_Sign1 + COSE_Key
 /// ```
 @experimental
 class WebCip30Wallet {
@@ -219,23 +224,29 @@ class WebCip30Wallet {
   /// CIP-30 `getNetworkId` — `0` testnet, `1` mainnet.
   Future<int> getNetworkId() async => networkId;
 
-  /// CIP-30 `getChangeAddress` — the account's external base address (bech32).
-  Future<String> getChangeAddress() async => baseAddressBech32;
+  /// CIP-30 `getChangeAddress` — the account's external base address as hex.
+  Future<String> getChangeAddress() async =>
+      _cml.addressToHex(addressBech32: baseAddressBech32);
 
   /// CIP-30 `getUsedAddresses` — the scoped wallet exposes a single account
-  /// address; treated as "used" so dApps target it.
-  Future<List<String>> getUsedAddresses() async => [baseAddressBech32];
+  /// address, returned as hex so dApps can target it directly.
+  Future<List<String>> getUsedAddresses() async => [await getChangeAddress()];
 
   /// CIP-30 `getUnusedAddresses` — none in the scoped single-address model.
   Future<List<String>> getUnusedAddresses() async => const [];
 
-  /// CIP-30 `getRewardAddresses` — the account's stake/reward address (bech32).
-  Future<List<String>> getRewardAddresses() async => [rewardAddressBech32];
+  /// CIP-30 `getRewardAddresses` — the account's stake/reward address as hex.
+  Future<List<String>> getRewardAddresses() async =>
+      [_cml.addressToHex(addressBech32: rewardAddressBech32)];
 
   // --- CIP-30: chain reads (Blockfrost REST) ------------------------------
 
-  /// CIP-30 `getUtxos` — the account's UTxO set (via the REST provider).
-  Future<List<Utxo>> getUtxos() => provider.fetchUtxos(baseAddressBech32);
+  /// CIP-30 `getUtxos` — the account's UTxO set as CBOR
+  /// `TransactionUnspentOutput` hex strings.
+  Future<List<String>> getUtxos() async {
+    final utxos = await provider.fetchUtxos(baseAddressBech32);
+    return utxos.map(_cml.utxoToCborHex).toList(growable: false);
+  }
 
   /// CIP-30 `getBalance` — total balance as canonical `Value` CBOR hex.
   ///
@@ -262,6 +273,11 @@ class WebCip30Wallet {
       signingKeyBech32: _paymentSigningKeyBech32,
     );
   }
+
+  /// CIP-30 `submitTx` — submit a fully signed transaction CBOR hex string and
+  /// return its transaction hash.
+  Future<String> submitTx(String signedTxCborHex) async =>
+      provider.submitTransaction(_hexToBytes(signedTxCborHex));
 
   static Uint8List _hexToBytes(String hex) {
     final out = Uint8List(hex.length ~/ 2);

@@ -39,12 +39,14 @@ reproduces every vector. For automated/headless checks, `run-headless.mjs`
 
 A second harness proves the **scoped web wallet** (`WebCip30Wallet`, the public
 web API in `cardano_flutter_rs_web.dart`) derives + signs correctly in a real
-browser. It drives the wallet's offline ops — key/address derivation, reward
-address, `signData`→`verifyData` (accept + tamper-reject) — and asserts each
-result equals the frozen **native CSL** golden value. Network ops
+browser. It drives the wallet's offline ops — key/address derivation, CIP-30
+address encodings, reward address, `signData`→`verifyData` (accept +
+tamper-reject) — and asserts each result equals the frozen **native CSL** golden
+value. Network ops
 (`getUtxos`/`getBalance`) are excluded here to keep the gate deterministic and
-key-free (their value-CBOR assembly is already covered by the conformance gate
-above; the REST provider is covered by the native live tests).
+key-free (`getBalance` value-CBOR assembly is covered by the conformance gate,
+`getUtxos` now serializes provider UTxOs through CML-JS, and the REST provider is
+covered by the native live tests).
 
 ```bash
 # (after `npm install` in this dir)
@@ -52,7 +54,7 @@ cd dart
 dart compile js web/web_wallet_harness.dart -o ../tool/web_conformance/build/wallet_harness.js -O2
 cd ../tool/web_conformance
 node build.mjs
-node run-headless-wallet.mjs   # → "✓ in-browser WebCip30Wallet clean: PASS 10 FAIL 0 / 10"
+node run-headless-wallet.mjs   # → "✓ in-browser WebCip30Wallet clean: PASS 12 FAIL 0 / 12"
 ```
 
 ## CI

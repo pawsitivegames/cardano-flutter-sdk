@@ -39,6 +39,8 @@ import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 
+import '../providers/blockfrost.dart';
+
 // Import the PURE contract, not `conformance.dart` — the latter pulls in
 // `NativeConformanceBackend` and its `dart:ffi` chain, which does not compile
 // under dart2js. This is what lets the web backend build for web at all.
@@ -69,6 +71,11 @@ extension type _Ed25519KeyHash._(JSObject _) implements JSObject {
 @JS('CML.ScriptHash')
 extension type _ScriptHash._(JSObject _) implements JSObject {
   external static _ScriptHash from_hex(String hex);
+}
+
+@JS('CML.TransactionHash')
+extension type _TransactionHash._(JSObject _) implements JSObject {
+  external static _TransactionHash from_hex(String hex);
 }
 
 @JS('CML.AssetName')
@@ -194,6 +201,28 @@ extension type _TransactionWitnessSet._(JSObject _) implements JSObject {
   @JS('new')
   external static _TransactionWitnessSet new_();
   external void set_vkeywitnesses(_VkeywitnessList vkeys);
+  external String to_cbor_hex();
+}
+
+@JS('CML.TransactionInput')
+extension type _TransactionInput._(JSObject _) implements JSObject {
+  @JS('new')
+  external static _TransactionInput new_(
+      _TransactionHash transactionId, JSAny index);
+}
+
+@JS('CML.TransactionOutput')
+extension type _TransactionOutput._(JSObject _) implements JSObject {
+  @JS('new')
+  external static _TransactionOutput new_(_Address address, _Value amount,
+      JSObject? datumOption, JSObject? scriptReference);
+}
+
+@JS('CML.TransactionUnspentOutput')
+extension type _TransactionUnspentOutput._(JSObject _) implements JSObject {
+  @JS('new')
+  external static _TransactionUnspentOutput new_(
+      _TransactionInput input, _TransactionOutput output);
   external String to_cbor_hex();
 }
 
@@ -352,9 +381,32 @@ class CmlWebBackend implements ConformanceBackend {
     required BigInt coin,
     required List<ConformanceAsset> assets,
   }) {
-    if (assets.isEmpty) {
-      return _Value.from_coin(_jsBigInt(coin.toString())).to_cbor_hex();
-    }
+    return _valueFromParts(coin: coin, assets: assets).to_canonical_cbor_hex();
+  }
+
+  /// Serialize a Blockfrost UTxO to CIP-30 `TransactionUnspentOutput` CBOR hex.
+  ///
+  /// This mirrors the native `utxoToCborHex` helper without pulling in the FFI
+  /// barrel, keeping the web wallet's `getUtxos` output spec-shaped.
+  String utxoToCborHex(Utxo utxo) {
+    final input = _TransactionInput.new_(
+      _TransactionHash.from_hex(utxo.txHash),
+      _jsBigInt(utxo.outputIndex.toString()),
+    );
+    final output = _TransactionOutput.new_(
+      _Address.from_bech32(utxo.address),
+      _valueFromParts(coin: utxo.coin, assets: _assetsFromUtxo(utxo)),
+      null,
+      null,
+    );
+    return _TransactionUnspentOutput.new_(input, output).to_cbor_hex();
+  }
+
+  _Value _valueFromParts({
+    required BigInt coin,
+    required List<ConformanceAsset> assets,
+  }) {
+    if (assets.isEmpty) return _Value.from_coin(_jsBigInt(coin.toString()));
     final ma = _MultiAsset.new_();
     for (final a in assets) {
       final policy = _ScriptHash.from_hex(a.policyId);
@@ -364,7 +416,21 @@ class CmlWebBackend implements ConformanceBackend {
       ma.insert_assets(policy, inner);
     }
     // Canonical: CSL sorts multi-asset map keys; CML preserves insertion order.
-    return _Value.new_(_jsBigInt(coin.toString()), ma).to_canonical_cbor_hex();
+    return _Value.new_(_jsBigInt(coin.toString()), ma);
+  }
+
+  List<ConformanceAsset> _assetsFromUtxo(Utxo utxo) {
+    final assets = <ConformanceAsset>[];
+    utxo.assets.forEach((policyId, names) {
+      names.forEach((assetName, quantity) {
+        assets.add((
+          policyId: policyId,
+          assetName: assetName,
+          quantity: quantity,
+        ));
+      });
+    });
+    return assets;
   }
 
   // --- plutus (Cardano-node CBOR: indefinite-length constr/list arrays) ----

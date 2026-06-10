@@ -26,8 +26,10 @@ const _mnemonic =
 
 // Frozen native golden values (CSL) for the test mnemonic, account 0, testnet.
 // See dart/test/conformance/golden_cbor.json (deriveAddress / keyDerivation).
-const _expPaymentHash = '9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e';
-const _expStakeHash = '32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc';
+const _expPaymentHash =
+    '9493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e';
+const _expStakeHash =
+    '32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc';
 const _expBaseAddr =
     'addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp';
 const _expRewardAddr =
@@ -60,33 +62,49 @@ Future<void> main() async {
     check('stakeKeyHash', wallet.stakeKeyHashHex == _expStakeHash,
         wallet.stakeKeyHashHex);
 
+    const cml = CmlWebBackend();
+    final expBaseHex = cml.addressToHex(addressBech32: _expBaseAddr);
+    final expRewardHex = cml.addressToHex(addressBech32: _expRewardAddr);
+
     final change = await wallet.getChangeAddress();
-    check('getChangeAddress==goldenBase', change == _expBaseAddr, change);
+    check('getChangeAddress==goldenBaseHex', change == expBaseHex, change);
     check('baseAddress==goldenBase', wallet.baseAddressBech32 == _expBaseAddr);
 
     final used = await wallet.getUsedAddresses();
     check('getUsedAddresses==[base]',
-        used.length == 1 && used.first == _expBaseAddr);
-    check('getUnusedAddresses==[]', (await wallet.getUnusedAddresses()).isEmpty);
+        used.length == 1 && used.first == expBaseHex);
+    check(
+        'getUnusedAddresses==[]', (await wallet.getUnusedAddresses()).isEmpty);
 
     final reward = await wallet.getRewardAddresses();
-    check('getRewardAddresses==goldenReward',
-        reward.length == 1 && reward.first == _expRewardAddr,
+    check(
+        'getRewardAddresses==goldenRewardHex',
+        reward.length == 1 && reward.first == expRewardHex,
         reward.isEmpty ? '(none)' : reward.first);
+    check('rewardAddress==goldenReward',
+        wallet.rewardAddressBech32 == _expRewardAddr);
+
+    final utxoCbor = cml.utxoToCborHex(Utxo(
+      txHash:
+          '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
+      outputIndex: 0,
+      address: _expBaseAddr,
+      coin: BigInt.from(1234567),
+      assets: const {},
+    ));
+    check('utxoToCborHex(TransactionUnspentOutput)',
+        _isHex(utxoCbor) && utxoCbor.startsWith('82'), utxoCbor);
 
     // signData → verifyData round-trip + tamper rejection (all in-browser).
     final payloadHex = _utf8Hex('hello web cip-30');
     final sig = wallet.signData(payloadHex);
-    final addrHex =
-        const CmlWebBackend().addressToHex(addressBech32: _expBaseAddr);
-    const cml = CmlWebBackend();
     check(
       'signData→verifyData(accept)',
       cml.verifyData(
         signature: sig.signature,
         key: sig.key,
         expectedPayloadHex: payloadHex,
-        expectedAddressHex: addrHex,
+        expectedAddressHex: expBaseHex,
       ),
     );
     check(
@@ -95,7 +113,7 @@ Future<void> main() async {
         signature: sig.signature,
         key: sig.key,
         expectedPayloadHex: _utf8Hex('tampered'),
-        expectedAddressHex: addrHex,
+        expectedAddressHex: expBaseHex,
       ),
     );
   } catch (e, st) {
@@ -121,3 +139,5 @@ String _utf8Hex(String s) {
   }
   return sb.toString();
 }
+
+bool _isHex(String s) => s.length.isEven && RegExp(r'^[0-9a-f]+$').hasMatch(s);
