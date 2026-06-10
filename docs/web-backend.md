@@ -227,11 +227,12 @@ for (final c in parseConformanceCases(goldenJson)) {
       the native golden values, and `signTx` is pinned to a CML transaction fixture
       (`web_wallet_harness.dart`, **PASS 13**, wired into the `web-conformance` CI
       job alongside the conformance gate).
-- [ ] **Cross-wallet check vs Lace/Eternl** — verify-side harness + fixture +
-      capture guide are in place (`test/cross_wallet_verify_test.dart`,
+- [x] **Cross-wallet check vs Eternl** — verify-side harness + real Eternl
+      mainnet `signData` fixture are in place (`test/cross_wallet_verify_test.dart`,
       `test/fixtures/cross_wallet_signatures.json`, `docs/cross-wallet-verify.md`);
-      the test skips until a real wallet signature is pasted in. **Awaiting a
-      captured signature** (the only remaining manual step — no web/hardware needed).
+      native `verifyData` accepts the wallet signature with address binding and
+      rejects a tampered payload. The capture guide remains for adding more
+      Lace/Eternl/Nami vectors.
 - [x] macOS desktop packaging (universal dylib + podspec + entitlements) — done
       and verified, see `docs/macos-packaging.md`.
 

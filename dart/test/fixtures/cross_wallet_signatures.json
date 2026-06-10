@@ -1,5 +1,5 @@
 {
-  "_README": "Real CIP-30 signData outputs from third-party wallets (Lace, Eternl, ...). Each entry is verified by test/cross_wallet_verify_test.dart against the native verifyData, proving our COSE_Sign1 + identity-binding implementation is spec-interoperable with shipping wallets. The 'signatures' array is empty by design — see docs/cross-wallet-verify.md for how to capture a real one and paste it here. While empty, the test SKIPS (CI stays green).",
+  "_README": "Real CIP-30 signData outputs from third-party wallets (Lace, Eternl, ...). Each entry is verified by test/cross_wallet_verify_test.dart against the native verifyData, proving our COSE_Sign1 + identity-binding implementation is spec-interoperable with shipping wallets. See docs/cross-wallet-verify.md for how to capture and append more real wallet vectors.",
   "_schema": {
     "wallet": "wallet name + version, e.g. 'lace 1.20' (for the record only)",
     "network": "'testnet' | 'mainnet' (for the record only)",
@@ -10,5 +10,15 @@
     "key": "REQUIRED — COSE_Key hex returned by the wallet's signData",
     "expectAccept": "OPTIONAL bool (default true) — set false for a deliberately-bad fixture"
   },
-  "signatures": []
+  "signatures": [
+    {
+      "wallet": "Eternl browser extension (mainnet)",
+      "network": "mainnet",
+      "message": "cardano-flutter-sdk COSE interop check",
+      "payloadHex": "63617264616e6f2d666c75747465722d73646b20434f534520696e7465726f7020636865636b",
+      "addressHex": "0110997ab1d79815c41244f70195ec41ebbcb9698d023465a397353fa083d566cb6d70811839d998f40393fb43132688164423842135f8b20b",
+      "signature": "845846a20127676164647265737358390110997ab1d79815c41244f70195ec41ebbcb9698d023465a397353fa083d566cb6d70811839d998f40393fb43132688164423842135f8b20ba166686173686564f4582663617264616e6f2d666c75747465722d73646b20434f534520696e7465726f7020636865636b58402304c4d20e247c1ebb958359e418eb6b90d5571977990528c947f6d363d65f8b0d1da8daaed3597eae30c045e0c4c3427b68bb8d4c2706db2e48529b83108b0a",
+      "key": "a40101032720062158205af41bc80e360f15d611eb610fd3f12903a920dc0a49901e29de261c881e50fa"
+    }
+  ]
 }

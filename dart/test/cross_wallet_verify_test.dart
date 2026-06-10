@@ -5,11 +5,10 @@
 // not just our own `signData`. This is the in-our-control external-interop signal
 // for the RC: a real wallet-signed message must verify under native verifyData.
 //
-// Fixtures live in `test/fixtures/cross_wallet_signatures.json`. The array starts
-// empty — until a maintainer captures a real signature (see
-// `docs/cross-wallet-verify.md`), this test SKIPS rather than fails, so CI stays
-// green. Once populated, each fixture is asserted to verify, AND a tampered-payload
-// copy is asserted to be rejected — so a passing fixture proves the check is real.
+// Fixtures live in `test/fixtures/cross_wallet_signatures.json`. Each fixture is
+// asserted to verify, AND a tampered-payload copy is asserted to be rejected — so
+// a passing fixture proves the check is real. If a checkout intentionally clears
+// the fixture array, the test skips rather than failing.
 import 'dart:convert';
 import 'dart:io';
 
@@ -37,7 +36,8 @@ void main() {
   }
 
   for (final f in signatures) {
-    final label = '${f['wallet'] ?? 'wallet'} / ${f['message'] ?? f['payloadHex']}';
+    final label =
+        '${f['wallet'] ?? 'wallet'} / ${f['message'] ?? f['payloadHex']}';
     final expectAccept = (f['expectAccept'] as bool?) ?? true;
     final payloadHex = f['payloadHex'] as String;
     final addressHex = f['addressHex'] as String?;

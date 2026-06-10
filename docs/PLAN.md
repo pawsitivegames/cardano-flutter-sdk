@@ -402,9 +402,10 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
   CIP-30 address encodings + `signData`→`verifyData` gated in-browser against
   native golden values, plus `signTx` witness-set parity against a CML fixture
   (`web_wallet_harness.dart`, PASS 13), wired into CI.
-- 🅱️ **Cross-wallet check vs Lace/Eternl** — verify harness + fixture + capture
-  guide in place (`docs/cross-wallet-verify.md`); **awaiting a captured real
-  signature** (only remaining manual step, no web/hardware needed).
+- ✅ **Cross-wallet check vs Eternl** — real Eternl mainnet `signData` vector is
+  fixture-gated by `test/cross_wallet_verify_test.dart`; native `verifyData`
+  accepts it with address binding and rejects a tampered payload. Capture guide
+  remains in `docs/cross-wallet-verify.md` for adding Lace/Eternl/Nami vectors.
 - ✅ macOS example **send-tx on testnet preview** (2026-06-06): built → signed →
   submitted → **confirmed on-chain** (tx `30c4b6e0…d13702`, block 4355766, fee
   181253). Surfaced + fixed a real bug: native tokens on the spent UTxO were
@@ -444,10 +445,10 @@ Definition of Done (`0.12.0` RC):
       for the `0.12.0` RC scope. Governance/voting support and the standalone
       documentation site are explicitly deferred post-RC; security, Pallas
       feasibility, coverage, Android emulator, web, and macOS gates are complete.
-- [ ] iOS passing CI + live-verified; macOS functional; Web (scoped) functional
+- [x] iOS passing CI + live-verified; macOS functional; Web (scoped) functional
       (2026-06-09 local RC gates: Rust fmt/clippy/tests PASS; Dart analyze/tests
       PASS; web conformance PASS 32/32; WebCip30Wallet PASS 13/13. CI re-run
-      still pending for the final cut. 2026-06-10 local release verification is
+      complete for `1642aa3` on 2026-06-10. 2026-06-10 local release verification is
       complete in `docs/RC_0_12_0_RELEASE_VERIFICATION.md`: Rust/Dart/web/iOS/
       macOS/Android-build gates PASS; live Blockfrost tests skipped without env).
 - [x] Web scoped subset via Dart JS interop → CML (no WASM tunnel); golden-CBOR parity

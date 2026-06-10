@@ -9,6 +9,9 @@ It needs no web build and no hardware — just a browser wallet extension and ~1
 minutes. The verify side is fully automated: paste the wallet's output into a
 fixture and a test asserts it verifies (and that a tampered copy is rejected).
 
+Current status: the fixture already includes a real Eternl mainnet vector. Use
+the steps below to add more Lace/Eternl/Nami vectors over time.
+
 ## What you capture
 
 A CIP-30 `signData(addr, payload)` call returns `{ signature, key }` — a
