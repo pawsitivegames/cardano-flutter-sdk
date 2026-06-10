@@ -443,7 +443,9 @@ Definition of Done (`0.12.0` RC):
 - [ ] iOS passing CI + live-verified; macOS functional; Web (scoped) functional
       (2026-06-09 local RC gates: Rust fmt/clippy/tests PASS; Dart analyze/tests
       PASS; web conformance PASS 32/32; WebCip30Wallet PASS 10/10. CI re-run
-      still pending for the final cut).
+      still pending for the final cut. 2026-06-10 local release verification is
+      complete in `docs/RC_0_12_0_RELEASE_VERIFICATION.md`: Rust/Dart/web/iOS/
+      macOS/Android-build gates PASS; live Blockfrost tests skipped without env).
 - [x] Web scoped subset via Dart JS interop → CML (no WASM tunnel); golden-CBOR parity
       (`cardano_flutter_rs_web.dart`, `WebCip30Wallet`, `CmlWebBackend`, and
       in-browser conformance 32/32 verified 2026-06-06).

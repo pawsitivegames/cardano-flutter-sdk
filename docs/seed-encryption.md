@@ -131,12 +131,18 @@ password-based primitives that the wrapping-key layer composes over.
 
 ## Verification (Phase 5b gate)
 
-- [ ] Encrypt → drop key → decrypt round-trip recovers the exact mnemonic
-- [ ] Wrong password → `AEAD failure` error (no partial plaintext, no panic)
-- [ ] Tamper any header/ciphertext byte → decrypt fails
-- [ ] KDF params round-trip through the header (decrypt ignores caller params)
-- [ ] Distinct salt+nonce per call → two encryptions of the same input differ
-- [ ] KDF benchmarked on iPhone 13; default params documented here
-- [ ] Security review of this format (folded into the Phase 7 review pass)
+- [x] Encrypt → drop key → decrypt round-trip recovers the exact mnemonic
+      (`dart/test/seed_encryption_test.dart`, `rust/src/seed.rs`)
+- [x] Wrong password → AEAD failure path errors (no partial plaintext, no panic)
+      (`dart/test/seed_encryption_test.dart`, `rust/src/seed.rs`)
+- [x] Tamper any header/ciphertext byte → decrypt fails
+      (`dart/test/seed_encryption_test.dart`, `rust/src/seed.rs`)
+- [x] KDF params round-trip through the header (decrypt ignores caller params)
+      (`dart/test/seed_encryption_test.dart`, `rust/src/seed.rs`)
+- [x] Distinct salt+nonce per call → two encryptions of the same input differ
+      (`dart/test/seed_encryption_test.dart`, `rust/src/seed.rs`)
+- [x] KDF benchmarked on iPhone 13; default params documented here
+      (`dart/test/seed_encryption_test.dart`, `docs/PLAN.md`)
+- [x] Security review of this format (folded into the Phase 7 review pass)
+      (`docs/security-review-phase7.md`)
 ```
-
