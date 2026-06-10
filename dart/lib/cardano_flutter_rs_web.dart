@@ -7,7 +7,8 @@
 /// subset and never pulls in `dart:ffi`, so it compiles under dart2js.
 ///
 /// Scope (RC, deliberately reduced — see `docs/web-backend.md`):
-///   • address derivation, balance / UTxO read, CIP-30 `signData` / `submitTx`
+///   • address derivation, balance / UTxO read, CIP-30 `signData` / `signTx` /
+///     `submitTx`
 ///   • the CSL↔CML conformance contract ([CmlWebBackend])
 /// Full tx-building is out of scope on web for the RC.
 ///

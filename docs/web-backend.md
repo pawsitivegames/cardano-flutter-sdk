@@ -33,11 +33,13 @@ Per `docs/PLAN.md` (Roadmap restructure v2, point 3), the web backend is scoped
 - Serialization needed for **CIP-30 connect**: address hex, `Value` CBOR,
   `TransactionUnspentOutput` CBOR, `PlutusData`, witness assembly, COSE
   `signData`/`verifyData`
+- `signTx` for already-built full transaction CBOR hex, returning this wallet's
+  `transaction_witness_set` CBOR hex
 - `submitTx` for already-signed transaction CBOR hex through the pure-Dart
   Blockfrost provider
 
 **Out of scope (web, deferred to a later web-parity track):**
-- Full transaction building / `signTx` (fee estimation + coin selection against CML)
+- Full transaction building (fee estimation + coin selection against CML)
 - Minting / Plutus script execution tx assembly
 - Hardware-wallet transports
 
@@ -215,14 +217,16 @@ for (final c in parseConformanceCases(goldenJson)) {
       surface: `getChangeAddress` / used / reward addresses as raw address hex,
       `getBalance` as `Value` CBOR hex, and `getUtxos` as
       `TransactionUnspentOutput` CBOR hex serialized through CML-JS. It also
-      exposes `submitTx` for already-signed transaction CBOR hex via Blockfrost.
+      exposes `signTx` for already-built transaction CBOR hex and `submitTx` for
+      already-signed transaction CBOR hex via Blockfrost.
 - [x] **Scoped CIP-30 runs in a desktop browser build of the example.** A second
       package entrypoint `cardano_flutter_rs_web.dart` exposes `WebCip30Wallet`
       (CML-JS + Blockfrost REST); `example/lib/main_web.dart` + `example/web/`
       build & run it in Chrome (`flutter build web -t lib/main_web.dart`). The
       wallet's derivation + `signData`→`verifyData` are gated in-browser against
-      the native golden values (`web_wallet_harness.dart`, **PASS 12**, wired into
-      the `web-conformance` CI job alongside the conformance gate).
+      the native golden values, and `signTx` is pinned to a CML transaction fixture
+      (`web_wallet_harness.dart`, **PASS 13**, wired into the `web-conformance` CI
+      job alongside the conformance gate).
 - [ ] **Cross-wallet check vs Lace/Eternl** — verify-side harness + fixture +
       capture guide are in place (`test/cross_wallet_verify_test.dart`,
       `test/fixtures/cross_wallet_signatures.json`, `docs/cross-wallet-verify.md`);

@@ -9,11 +9,10 @@
 //     (UTxOs / balance).
 //
 // Scope is the RC's deliberately-reduced web subset (see `docs/web-backend.md`):
-// address derivation, balance/UTxO read, CIP-30 `signData`, and signed-tx
-// submission. Full tx-building / `signTx` (fee estimation + coin selection
+// address derivation, balance/UTxO read, CIP-30 `signData`, `signTx`, and
+// signed-tx submission. Full tx-building (fee estimation + coin selection
 // against CML) is OUT of scope on web and is deferred to a later web-parity
-// track — those methods are intentionally absent here rather than throwing, so
-// the type surface tells the truth.
+// track, so the type surface tells the truth.
 //
 // This file is web-only by construction (it imports `dart:js_interop`) and is
 // reachable only through the `cardano_flutter_rs_web.dart` entrypoint, never the
@@ -98,12 +97,11 @@ typedef WebDataSignature = ConformanceSignature;
 
 /// Scoped CIP-30 wallet for Flutter web (CML-JS backend + Blockfrost REST).
 ///
-/// Implements the read + connect + `signData` + `submitTx` subset of CIP-30.
+/// Implements the read + connect + `signData` + `signTx` + `submitTx` subset of CIP-30.
 /// Construct with [WebCip30Wallet.fromMnemonic]. Returned addresses are
 /// hex-encoded raw address bytes and returned UTxOs are CBOR
 /// `TransactionUnspentOutput` hex, matching native [Cip30Wallet] behavior.
-/// Tx-building / `signTx` methods are intentionally absent (out of scope on web
-/// for the RC — see the library doc).
+/// Tx-building remains out of scope on web for the RC — see the library doc.
 ///
 /// ```dart
 /// final wallet = await WebCip30Wallet.fromMnemonic(
@@ -138,6 +136,7 @@ class WebCip30Wallet {
 
   // m/1852'/1815'/account'/0/0 leaf private key, bech32 — fed to COSE signData.
   final String _paymentSigningKeyBech32;
+  final String _stakeSigningKeyBech32;
 
   final CmlWebBackend _cml;
 
@@ -149,8 +148,10 @@ class WebCip30Wallet {
     required this.paymentKeyHashHex,
     required this.stakeKeyHashHex,
     required String paymentSigningKeyBech32,
+    required String stakeSigningKeyBech32,
     required CmlWebBackend cml,
   })  : _paymentSigningKeyBech32 = paymentSigningKeyBech32,
+        _stakeSigningKeyBech32 = stakeSigningKeyBech32,
         _cml = cml;
 
   static const int _harden = 0x80000000;
@@ -191,6 +192,7 @@ class WebCip30Wallet {
 
     final accountKeyBech32 = acct.to_bech32();
     final paymentSigningKeyBech32 = acct.derive(0).derive(0).to_bech32();
+    final stakeSigningKeyBech32 = acct.derive(2).derive(0).to_bech32();
     final stakeKeyHash =
         acct.derive(2).derive(0).to_raw_key().to_public().hash();
 
@@ -215,6 +217,7 @@ class WebCip30Wallet {
       paymentKeyHashHex: derived.paymentKeyHash,
       stakeKeyHashHex: stakeKeyHash.to_hex(),
       paymentSigningKeyBech32: paymentSigningKeyBech32,
+      stakeSigningKeyBech32: stakeSigningKeyBech32,
       cml: cml,
     );
   }
@@ -271,6 +274,18 @@ class WebCip30Wallet {
       addressHex: addressHex,
       payloadHex: payloadHex,
       signingKeyBech32: _paymentSigningKeyBech32,
+    );
+  }
+
+  /// CIP-30 `signTx` — sign a full transaction CBOR hex string and return this
+  /// wallet's `transaction_witness_set` CBOR hex.
+  ///
+  /// [partialSign] is accepted for API compatibility; this scoped wallet always
+  /// contributes every witness it can produce.
+  Future<String> signTx(String txCborHex, {bool partialSign = false}) async {
+    return _cml.signTx(
+      txCborHex: txCborHex,
+      signingKeysBech32: [_paymentSigningKeyBech32, _stakeSigningKeyBech32],
     );
   }
 

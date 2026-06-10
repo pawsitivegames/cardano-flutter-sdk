@@ -55,6 +55,13 @@ import 'conformance_contract.dart';
 @JS('BigInt')
 external JSAny _jsBigInt(String decimal);
 
+@JS('CML.hash_transaction')
+external _TransactionHash _hashTransaction(_TransactionBody txBody);
+
+@JS('CML.make_vkey_witness')
+external _Vkeywitness _makeVkeyWitness(
+    _TransactionHash txBodyHash, _PrivateKey privateKey);
+
 // ---------------------------------------------------------------------------
 // CML JS interop bindings (subset). `globalThis.CML.*`, provided by the host.
 // NOTE: wasm-bindgen exposes constructors as the STATIC method `new`, not a JS
@@ -77,6 +84,15 @@ extension type _ScriptHash._(JSObject _) implements JSObject {
 extension type _TransactionHash._(JSObject _) implements JSObject {
   external static _TransactionHash from_hex(String hex);
 }
+
+@JS('CML.Transaction')
+extension type _Transaction._(JSObject _) implements JSObject {
+  external static _Transaction from_cbor_hex(String cborBytes);
+  external _TransactionBody body();
+}
+
+@JS('CML.TransactionBody')
+extension type _TransactionBody._(JSObject _) implements JSObject {}
 
 @JS('CML.AssetName')
 extension type _AssetName._(JSObject _) implements JSObject {
@@ -479,6 +495,24 @@ class CmlWebBackend implements ConformanceBackend {
       final sig =
           _Ed25519Signature.from_raw_bytes(_hexToBytes(w.signatureHex).toJS);
       vlist.add(_Vkeywitness.new_(vk, sig));
+    }
+    final ws = _TransactionWitnessSet.new_();
+    ws.set_vkeywitnesses(vlist);
+    return ws.to_cbor_hex();
+  }
+
+  /// CIP-30 `signTx`: sign a CML-parseable full transaction CBOR hex and return
+  /// only this wallet's `TransactionWitnessSet` CBOR hex.
+  String signTx({
+    required String txCborHex,
+    required List<String> signingKeysBech32,
+  }) {
+    final tx = _Transaction.from_cbor_hex(txCborHex);
+    final txHash = _hashTransaction(tx.body());
+    final vlist = _VkeywitnessList.new_();
+    for (final key in signingKeysBech32) {
+      final bip32 = _Bip32PrivateKey.from_bech32(key);
+      vlist.add(_makeVkeyWitness(txHash, bip32.to_raw_key()));
     }
     final ws = _TransactionWitnessSet.new_();
     ws.set_vkeywitnesses(vlist);

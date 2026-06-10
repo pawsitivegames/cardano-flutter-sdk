@@ -34,6 +34,10 @@ const _expBaseAddr =
     'addr_test1qz2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnj83ws8lhrn648jjxtwq2ytjqp';
 const _expRewardAddr =
     'stake_test1uqevw2xnsc0pvn9t9r9c7qryfqfeerchgrlm3ea2nefr9hqp8n5xl';
+const _fixtureTxCbor =
+    '84a300d90102818258200000000000000000000000000000000000000000000000000000000000000000000181825839009493315cd92eb5d8c4304e67b7e16ae36d61d34502694657811a2c8e32c728d3861e164cab28cb8f006448139c8f1740ffb8e7aa9e5232dc1a001e8480021a00029810a0f5f6';
+const _expSignTxWitnessSet =
+    'a100d901028282582073fea80d424276ad0978d4fe5310e8bc2d485f5f6bb3bf87612989f112ad5a7d58408e620491e442fe84c3ac20b30e8c17e01078fec0d1b3ccbdc502faf8e640d0bbfec87ac02537bfc6299e0629edd74165b59c73c676e4a49dab8d09f3302da3088258202c041c9c6a676ac54d25e2fdce44c56581e316ae43adc4c7bf17f23214d8d89258401db81a5d3d4f4cb5126acf7e9ad94c1c3b444e125f1d26a3e8e12aac8c05259406761b76214d094dff2663d75e8c0c2327cc3782e3ed19ebab84cc4bf2803e0b';
 
 Future<void> main() async {
   final checks = <String, bool>{};
@@ -94,6 +98,10 @@ Future<void> main() async {
     ));
     check('utxoToCborHex(TransactionUnspentOutput)',
         _isHex(utxoCbor) && utxoCbor.startsWith('82'), utxoCbor);
+
+    final witnessSet = await wallet.signTx(_fixtureTxCbor);
+    check('signTx==cmlFixtureWitnessSet', witnessSet == _expSignTxWitnessSet,
+        witnessSet);
 
     // signData → verifyData round-trip + tamper rejection (all in-browser).
     final payloadHex = _utf8Hex('hello web cip-30');

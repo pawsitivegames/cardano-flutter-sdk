@@ -377,7 +377,7 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
   **Browser-verify pending** — unmapped ops throw (fail loud, not silent). Not
   exported from the barrel so native builds never link `dart:js_interop`.
 - ✅ Web (scoped): address derivation, balance/UTxO read, **CIP-30 connect +
-  signData + submitTx** — *not* full tx-building / `signTx` (deferred to a later
+  signData + signTx + submitTx** — *not* full tx-building (deferred to a later
   web-parity track).
   Shipped as a second package entrypoint `cardano_flutter_rs_web.dart` exposing
   `WebCip30Wallet` (CML-JS + Blockfrost REST); every scoped op mapped. The web
@@ -400,7 +400,8 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
   Chromium) browser — `tool/web_conformance/`, wired as the `web-conformance` CI gate.
 - ✅ Scoped CIP-30 runs in a desktop browser build — `WebCip30Wallet` derivation +
   CIP-30 address encodings + `signData`→`verifyData` gated in-browser against
-  native golden values (`web_wallet_harness.dart`, PASS 12), wired into CI.
+  native golden values, plus `signTx` witness-set parity against a CML fixture
+  (`web_wallet_harness.dart`, PASS 13), wired into CI.
 - 🅱️ **Cross-wallet check vs Lace/Eternl** — verify harness + fixture + capture
   guide in place (`docs/cross-wallet-verify.md`); **awaiting a captured real
   signature** (only remaining manual step, no web/hardware needed).
@@ -445,7 +446,7 @@ Definition of Done (`0.12.0` RC):
       feasibility, coverage, Android emulator, web, and macOS gates are complete.
 - [ ] iOS passing CI + live-verified; macOS functional; Web (scoped) functional
       (2026-06-09 local RC gates: Rust fmt/clippy/tests PASS; Dart analyze/tests
-      PASS; web conformance PASS 32/32; WebCip30Wallet PASS 12/12. CI re-run
+      PASS; web conformance PASS 32/32; WebCip30Wallet PASS 13/13. CI re-run
       still pending for the final cut. 2026-06-10 local release verification is
       complete in `docs/RC_0_12_0_RELEASE_VERIFICATION.md`: Rust/Dart/web/iOS/
       macOS/Android-build gates PASS; live Blockfrost tests skipped without env).
