@@ -3,3 +3,4 @@ dart/ios/Libs/**/*.a filter=lfs diff=lfs merge=lfs -text
 dart/ios/Libs/*.dylib filter=lfs diff=lfs merge=lfs -text
 dart/ios/Libs/*.a filter=lfs diff=lfs merge=lfs -text
 dart/ios/Libs/cardano_flutter_rs.framework/cardano_flutter_rs filter=lfs diff=lfs merge=lfs -text
+dart/android/src/main/jniLibs/**/*.so filter=lfs diff=lfs merge=lfs -text

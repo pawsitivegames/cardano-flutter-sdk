@@ -77,7 +77,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
-            errorBuilder: (context, error, child) => Center(
+            errorBuilder: (context, error) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(

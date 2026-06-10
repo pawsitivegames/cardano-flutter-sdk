@@ -4,7 +4,7 @@ version '1.0-SNAPSHOT'
 buildscript {
     // NDK r28+ required for 16KB page size support (mandatory since Nov 2025)
     ext.kotlin_version = '1.9.0'
-    ext.ndkVersion = '28.0.12674087'
+    ext.ndkVersion = '28.2.13676358'
 
     repositories {
         google()
@@ -29,7 +29,9 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 35
+    namespace 'com.example.cardano_flutter_rs'
+    compileSdkVersion 36
+    ndkVersion '28.2.13676358'
 
     defaultConfig {
         minSdkVersion 21
@@ -45,10 +47,9 @@ android {
         }
     }
 
-    // Configure Rust/FFI build
-    externalNativeBuild {
-        cmake {
-            path "CMakeLists.txt"
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
         }
     }
 }

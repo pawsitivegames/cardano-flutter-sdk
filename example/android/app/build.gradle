@@ -1,5 +1,6 @@
 plugins {
     id "com.android.application"
+    id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
@@ -22,8 +23,18 @@ if (flutterVersionName == null) {
 }
 
 android {
-    compileSdkVersion 35
-    ndkVersion "28.0.12674087"
+    namespace "com.example.cardano_flutter_rs_example"
+    compileSdkVersion 36
+    ndkVersion "28.2.13676358"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
 
     defaultConfig {
         applicationId "com.example.cardano_flutter_rs_example"
@@ -31,11 +42,29 @@ android {
         targetSdkVersion 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+        ndk {
+            abiFilters "arm64-v8a"
+        }
     }
 
     buildTypes {
+        debug {
+            minifyEnabled false
+            shrinkResources false
+        }
         release {
             minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            excludes += [
+                'lib/armeabi-v7a/**',
+                'lib/x86/**',
+                'lib/x86_64/**',
+            ]
         }
     }
 }

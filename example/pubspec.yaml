@@ -25,11 +25,11 @@ dependencies:
   ledger_cardano_plus: ^0.5.9
   permission_handler: ^11.3.1
   # In-wallet QR scanning of CIP-45 web+cardano:// connection URIs (example only).
-  mobile_scanner: ^5.2.3
+  mobile_scanner: ^7.2.0
   # Native (no-WebView) CIP-45 transport scaffold: WebRTC peer connection + data
   # channel. The WebTorrent-tracker discovery + bugout NaCl/bencode framing are
   # provided via pluggable seams (see lib/cip45_webrtc_transport.dart).
-  flutter_webrtc: ^0.11.7
+  flutter_webrtc: ^1.4.1
   # Phase 5b seed-vault demo: hardware-backed storage (iOS Keychain / Android
   # Keystore) for the wrapping secret that composes with the user password.
   # Example-only — the core SDK ships just the Rust crypto primitives.

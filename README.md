@@ -4,12 +4,11 @@
 
 A production-grade Flutter SDK for Cardano, built on Emurgo's Cardano Serialization Library (CSL) via Rust FFI.
 
-> **Status:** v0.9.0 → working toward v0.10.0. Phases 1–4.4 complete and verified;
-> Phase 4.5 (hardware wallets) core complete with on-device signing pending; Phase
-> 5a (HD multi-account) live-verified on iPhone 13; Phase 5b (seed encryption) core
-> complete; Phase 6 (web) golden-CBOR conformance suite in place, CML-JS backend
-> scaffolded (browser-verify pending). CIP-30/CIP-45 dApp connectors, staking,
-> minting, Plutus, and message signing all shipped. See
+> **Status:** heading toward the `0.12.0` feature-complete RC. iOS is
+> live-verified on device; macOS and scoped web are verified; Android has passed
+> the ARM64 16 KB page-size emulator gate (FFI load, SDK smoke test, CIP-45 deep
+> link, QR entry path). Hardware-wallet signing and Android physical-device
+> verification remain pending. See
 > [`docs/PLAN.md`](docs/PLAN.md) for the full roadmap and current phase gates.
 >
 > Pre-1.0: APIs may change. The hardware-wallet API is `@experimental`.
@@ -46,13 +45,15 @@ same bytes by a golden-CBOR conformance suite (see [`docs/web-backend.md`](docs/
 | Platform | Backend | Status |
 |----------|---------|--------|
 | iOS | CSL / Rust FFI | ✅ Live-verified on device (iPhone 13) |
-| Android | CSL / Rust FFI | 🟡 Emulator-verified target; physical-device gated for v1.0 |
-| macOS | CSL / Rust FFI | 🟡 Desktop packaging pending (Phase 6) |
+| Android | CSL / Rust FFI | 🟡 ARM64 16 KB emulator-verified; physical-device + broader ABI policy pending |
+| macOS | CSL / Rust FFI | ✅ Packaged + testnet send verified |
 | Linux / Windows | CSL / Rust FFI | 🟡 Best-effort, CI-build only |
-| Web | CML-JS interop | 🟡 Conformance suite in place; CML backend scaffolded, **browser-verify pending** |
+| Web | CML-JS interop | ✅ Scoped CML-JS backend verified in browser; cross-wallet capture pending |
 
 > "Verified on device" is never used for emulator-only results. The version string
 > never implies uniform readiness across platforms — this matrix is the source of truth.
+
+Android verification details live in [`docs/android-verification.md`](docs/android-verification.md).
 
 ## Project layout
 
@@ -131,7 +132,9 @@ Completed features:
 - **Rust 1.70+** (stable, edition 2021)
 - **Flutter 3.19.0+** with Dart 3.3.0+
 - **iOS:** Xcode 15.0+ (for simulator testing)
-- **Android:** Android SDK 16+ (16KB page size compatible)
+- **Android:** Android SDK 35+, NDK `28.2.13676358`+, JDK 21 for Gradle; see
+  [`docs/android-verification.md`](docs/android-verification.md) for the 16 KB
+  emulator gate.
 
 ### Build & Run
 
@@ -157,7 +160,10 @@ flutter_rust_bridge_codegen generate
 cd example
 flutter run -d "iPad Pro 13"   # or your simulator ID
 
-# 5. Run the example app on Android emulator
+# 5. Build Android JNI libs and run the example app on an Android emulator
+cd ..
+tool/android/build_android_jni.sh
+cd example
 flutter run -d "emulator-5554"
 
 # 6. Test the core library (requires native library in test runtime)

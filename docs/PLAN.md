@@ -433,8 +433,10 @@ Definition of Done (`0.12.0` RC):
 - [ ] Phases 0–4 (minus hardware verification) + Track A 4.6/5a/5b/6/7 complete
 - [ ] iOS passing CI + live-verified; macOS functional; Web (scoped) functional
 - [ ] Web scoped subset via Dart JS interop → CML (no WASM tunnel); golden-CBOR parity
-- [ ] **Android emulator-verified**: app + FFI `.so` load + deep-link/QR + **16KB
-      page-size image** all pass (labeled "emulator", not "device")
+- [x] **Android ARM64 emulator-verified** (2026-06-09): app + FFI `.so` load +
+      SDK smoke test + deep-link/QR entry + **16KB page-size image** all pass
+      (`pageSizeCompat=0`; labeled "emulator", not "device"). Broader Android
+      ABI policy remains pending; current example APK is ARM64-only.
 - [ ] >80% Dart coverage; Rust wrapper + crypto coverage; fuzz suite green
 - [ ] Security review pass complete; no hardcoded secrets; clippy + analyze clean
 - [ ] Pallas backend-swap feasibility demonstrated
@@ -540,7 +542,7 @@ install_name_tool -id "@rpath/cardano_flutter_rs.framework/cardano_flutter_rs" "
 | iOS binary | Dynamic framework | `dart/ios/Libs/cardano_flutter_rs.framework` |
 | Web strategy | Dart JS interop → CML npm | No Rust→WASM tunnel |
 | Funding | Independent, self-funded | No Catalyst; quality over speed |
-| Android NDK | r28+ | 16KB page size mandatory since Nov 2025 |
+| Android NDK | r28.2.13676358+ | 16KB page size mandatory since Nov 2025 |
 
 ---
 
@@ -550,4 +552,5 @@ install_name_tool -id "@rpath/cardano_flutter_rs.framework/cardano_flutter_rs" "
 - **CSL slowing, Pallas rising** — Whisky V2 migrated CSL→Pallas; evaluate before v1.0
 - **Vespr is the real competitor** — differentiate on correctness + tx-building, not speed
 - **Scope creep** — CSL/CML have ~500 exported types; wrap only what the example app needs
-- **Android 16KB mandatory** — verify on Pixel 8a before any Play Store submission
+- **Android 16KB mandatory** — ARM64 emulator pass is complete; still verify on
+  Pixel 8a before any Play Store submission and settle non-ARM64 ABI support.
