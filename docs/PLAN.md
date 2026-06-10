@@ -439,7 +439,9 @@ Definition of Done (`0.12.0` RC):
       ABI policy remains pending; current example APK is ARM64-only.
 - [ ] >80% Dart coverage; Rust wrapper + crypto coverage; fuzz suite green
 - [ ] Security review pass complete; no hardcoded secrets; clippy + analyze clean
-- [ ] Pallas backend-swap feasibility demonstrated
+- [x] Pallas backend-swap feasibility demonstrated (2026-06-09):
+      `docs/pallas-feasibility.md`; conclusion is feature-gated conformance
+      backend first, not a production backend flip.
 - [ ] Hardware-wallet API marked `@experimental`; Android marked **supported
       (emulator-verified)** in platform table
 - [ ] Published to pub.dev as `cardano_flutter_rs` (0.12.0 / `1.0.0-rc.1`)
