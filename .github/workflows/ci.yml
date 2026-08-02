@@ -19,6 +19,14 @@ env:
   FLUTTER_VERSION: '3.38.4'
 
 jobs:
+  workflow-contract:
+    runs-on: ubuntu-latest
+    name: CI Workflow Contract
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify required gates are blocking
+        run: bash tool/verify_ci_contract.sh
+
   rust-tests:
     runs-on: ubuntu-latest
     name: Rust Tests & Lint
@@ -71,12 +79,12 @@ jobs:
           cd dart && flutter pub get
           cd ../example && flutter pub get
       # Gate on the publishable library package (dart/). The example app carries
-      # pre-existing lint nits tracked separately; analyze it non-blocking.
+      # intentional experimental-use warnings; warnings stay visible while
+      # analyzer errors remain blocking.
       - name: Analyze Dart library
         run: cd dart && flutter analyze
-      - name: Analyze example (non-blocking)
-        run: cd example && flutter analyze
-        continue-on-error: true
+      - name: Analyze example (required static analysis)
+        run: cd example && flutter analyze --no-fatal-warnings
       # Real gate: a failing unit test fails CI (no continue-on-error).
       - name: Run Dart unit tests
         run: cd dart && flutter test
@@ -190,15 +198,14 @@ jobs:
       - name: Setup Rust Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
       # Android is emulator-verified pre-1.0 and physical-device-verified for 1.0
-      # (see docs/PLAN.md). This compile check is informational until the NDK r28+
-      # / 16KB-page-size build is wired; it does not gate the RC.
-      - name: Build Android example
+      # (see docs/PLAN.md). This required compile gate does not establish the
+      # separate 16KB, physical-device, Play Store, or provider evidence gates.
+      - name: Build Android example (required compile gate)
         run: cd example && flutter build apk --release
-        continue-on-error: true
 
   summary:
     runs-on: ubuntu-latest
-    needs: [ rust-tests, dart-tests, web-conformance, ios-build, macos-build ]
+    needs: [ workflow-contract, rust-tests, dart-tests, web-conformance, ios-build, macos-build, android-build ]
     if: always()
     name: CI Summary
     steps:
@@ -206,9 +213,11 @@ jobs:
         run: |
           fail=0
           if [ "${{ needs.rust-tests.result }}" != "success" ]; then echo "rust-tests failed"; fail=1; fi
+          if [ "${{ needs.workflow-contract.result }}" != "success" ]; then echo "workflow-contract failed"; fail=1; fi
           if [ "${{ needs.dart-tests.result }}" != "success" ]; then echo "dart-tests failed"; fail=1; fi
           if [ "${{ needs.web-conformance.result }}" != "success" ]; then echo "web-conformance failed"; fail=1; fi
           if [ "${{ needs.ios-build.result }}" != "success" ]; then echo "ios-build failed"; fail=1; fi
           if [ "${{ needs.macos-build.result }}" != "success" ]; then echo "macos-build failed"; fail=1; fi
+          if [ "${{ needs.android-build.result }}" != "success" ]; then echo "android-build failed"; fail=1; fi
           if [ "$fail" -ne 0 ]; then echo "Gating CI checks failed"; exit 1; fi
           echo "All gating CI checks passed"

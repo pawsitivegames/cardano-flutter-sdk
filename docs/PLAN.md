@@ -302,8 +302,9 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 - ✅ **CI** (GitHub Actions `ci.yml`): `cargo test` + `clippy -D warnings` +
   `cargo fmt --check`, `flutter analyze`, `flutter test`, build iOS + macOS +
   Android; gating summary job; **status badge in README**. *(Web build deferred to
-  Phase 6 — no web backend exists yet; macOS/Android jobs are informational until
-  their scaffolding/device verification lands, same pattern.)*
+  Phase 6 — no web backend exists yet. The current macOS/Android compile jobs are
+  blocking CI; device, page-size, store, and provider evidence remain separate
+  release gates.)*
 - ✅ **Metadata hygiene**: `dart/pubspec.yaml` version `0.9.0`,
   `flutter_rust_bridge: 2.12.0` (pinned), description fixed to "CSL", real
   `homepage`/`repository` (no `YOUR_HANDLE`); `rust/Cargo.toml` version bumped
