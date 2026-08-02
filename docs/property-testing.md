@@ -10,7 +10,7 @@ invariants. The current acceptance criteria are deliberately domain-specific:
 - generated CIP-25 text is either one valid text value or UTF-8-safe chunks of
   at most 64 bytes that reassemble exactly;
 - generated coin-selection pools conserve ADA as `target + fee + change` and
-  return every selected asset when late dust-fixing inputs are added; and
+  return every asset from selected inputs for ADA-only targets; and
 - generated fixed-width hardware witness bytes survive assemble → extract
   unchanged at the device boundary.
 

@@ -29,6 +29,8 @@ support that contract and do not replace it.
   failure states, acceptance criteria, and evidence boundaries by feature.
 - [Property-based testing](property-testing.md) — generated invariants,
   shrinking scope, and the limits of randomized evidence.
+- [Mutation testing](mutation-testing.md) — reversible high-risk mutations,
+  killed-test evidence, and the limits of the local mutation audit.
 - [Hardware wallets](hardware-wallets.md) — xpub/read/sign seams and the
   physical-device evidence still required before promotion.
 - [Seed encryption](seed-encryption.md) — CFS1 format, Rust crypto boundary,

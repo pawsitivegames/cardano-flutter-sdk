@@ -764,11 +764,10 @@ mod tests {
         }
     }
 
-    // Randomized conservation property for the complete selection path,
-    // including the dust-fixing branch that adds another input after the
-    // initial greedy pass. Every generated UTxO may carry a distinct asset so
-    // an implementation that forgets to carry assets from a late-added input
-    // fails with a minimal reproducible case.
+    // Randomized conservation property for the complete greedy selection path.
+    // Every generated UTxO may carry a distinct asset so an implementation
+    // that forgets to carry assets from a selected input fails with a minimal
+    // reproducible case.
     proptest! {
         #[test]
         fn randomized_selection_conserves_coin_and_assets(
