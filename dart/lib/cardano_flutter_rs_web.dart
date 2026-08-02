@@ -29,6 +29,7 @@ library cardano_flutter_rs_web;
 
 // Scoped CIP-30 web wallet (CML-JS + Blockfrost REST).
 export 'src/web/web_cip30_wallet.dart';
+export 'src/cip30/cip30_wallet_api.dart';
 
 // The CML-via-JS-interop conformance backend (deterministic ser/sign ops).
 export 'src/conformance/cml_web_backend.dart';

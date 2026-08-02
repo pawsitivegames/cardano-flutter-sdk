@@ -59,8 +59,9 @@ Future<void> main() async {
       provider: provider,
       isTestnet: true,
     );
+    final Cip30WalletApi<WebDataSignature> contract = wallet;
 
-    check('getNetworkId==0', await wallet.getNetworkId() == 0);
+    check('getNetworkId==0', await contract.getNetworkId() == 0);
     check('paymentKeyHash', wallet.paymentKeyHashHex == _expPaymentHash,
         wallet.paymentKeyHashHex);
     check('stakeKeyHash', wallet.stakeKeyHashHex == _expStakeHash,

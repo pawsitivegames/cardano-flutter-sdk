@@ -28,6 +28,7 @@ import 'package:meta/meta.dart';
 import '../conformance/cml_web_backend.dart';
 import '../conformance/conformance_contract.dart';
 import '../providers/blockfrost.dart';
+import '../cip30/cip30_wallet_api.dart';
 import 'value_aggregate.dart';
 
 // ---------------------------------------------------------------------------
@@ -115,7 +116,7 @@ typedef WebDataSignature = ConformanceSignature;
 /// final sig = wallet.signData(utf8Hex('hello'));   // COSE_Sign1 + COSE_Key
 /// ```
 @experimental
-class WebCip30Wallet {
+class WebCip30Wallet implements Cip30WalletApi<WebDataSignature> {
   /// The chain-data provider (UTxO / balance reads over REST).
   final BlockfrostProvider provider;
 
@@ -268,12 +269,19 @@ class WebCip30Wallet {
   /// base address (identity-binding in the protected header). Returns the
   /// `COSE_Sign1` + `COSE_Key` hex pair, verifiable by [CmlWebBackend.verifyData]
   /// or the native `verifyData`.
-  WebDataSignature signData(String payloadHex) {
-    final addressHex = _cml.addressToHex(addressBech32: baseAddressBech32);
+  WebDataSignature signData(String payloadHex, {String? addressHex}) {
+    final baseAddressHex = _cml.addressToHex(addressBech32: baseAddressBech32);
+    final rewardAddressHex = _cml.addressToHex(
+      addressBech32: rewardAddressBech32,
+    );
+    final signerAddressHex = addressHex ?? baseAddressHex;
+    final signingKey = signerAddressHex == rewardAddressHex
+        ? _stakeSigningKeyBech32
+        : _paymentSigningKeyBech32;
     return _cml.signData(
-      addressHex: addressHex,
+      addressHex: signerAddressHex,
       payloadHex: payloadHex,
-      signingKeyBech32: _paymentSigningKeyBech32,
+      signingKeyBech32: signingKey,
     );
   }
 

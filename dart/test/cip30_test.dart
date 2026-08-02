@@ -249,9 +249,11 @@ void main() {
         mnemonic: testMnemonic,
         provider: providerWithUtxos([]),
       );
+      // Keep the native adapter attached to the platform-agnostic CIP-30 seam.
+      final Cip30WalletApi<DataSignature> contract = wallet;
       expect(wallet.baseAddress.startsWith('addr_test1'), isTrue);
       expect(wallet.rewardAddress.startsWith('stake_test1'), isTrue);
-      expect(await wallet.getNetworkId(), 0);
+      expect(await contract.getNetworkId(), 0);
     });
 
     test('getChangeAddress / getRewardAddresses return hex', () async {

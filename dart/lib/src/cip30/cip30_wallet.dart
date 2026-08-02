@@ -17,6 +17,7 @@ import '../tx.dart';
 import '../wallet.dart' show KeyDerivationResult;
 import '../wrappers.dart';
 import '../providers/blockfrost.dart';
+import 'cip30_wallet_api.dart';
 
 export '../cip30.dart' show DataSignature;
 
@@ -42,7 +43,7 @@ export '../cip30.dart' show DataSignature;
 /// final balance = await wallet.getBalance();        // String CBOR hex Value
 /// final change = await wallet.getChangeAddress();   // String hex address
 /// ```
-class Cip30Wallet {
+class Cip30Wallet implements Cip30WalletApi<DataSignature> {
   /// Derived keys for this wallet (signing material lives here — keep private).
   final KeyDerivationResult _keys;
 

@@ -43,6 +43,7 @@ export 'src/message.dart' show SignedMessage;
 // Raw serialization/signing primitives + the high-level Cip30Wallet class.
 export 'src/cip30.dart';
 export 'src/cip30/cip30_wallet.dart';
+export 'src/cip30/cip30_wallet_api.dart';
 
 // Phase 4.4: CIP-45 mobile dApp connector (transport-agnostic protocol core).
 export 'src/cip45/cip45.dart';
