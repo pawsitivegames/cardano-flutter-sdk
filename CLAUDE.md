@@ -51,18 +51,19 @@ lib/main_web.dart`); host WASM/bridge in `example/web/index.html`.
 **Heading toward `0.12.0` RC.** Feature-complete on iOS (verified on iPhone 13);
 macOS packaged & verified; web shipped as a scoped second backend (CML-JS,
 in-browser conformance-gated 32/32) with a `WebCip30Wallet` public web API
-(`cardano_flutter_rs_web.dart`) and an example web build. Bare `1.0.0` is gated on
-**Android physical-device** verification; hardware wallets stay `@experimental`
+(`cardano_flutter_rs_web.dart`) and an example web build. Bare `1.0.0` remains
+gated on **Play Store/AAB acceptance after Android physical-device smoke
+verification**; hardware wallets stay `@experimental`
 (→ v1.1.0).
 
 - **Phase-by-phase history:** [`CHANGELOG.md`](CHANGELOG.md).
 - **Roadmap, next steps, version gates:** [`docs/PLAN.md`](docs/PLAN.md) — the single
   source of truth. Per-phase verification reports + design docs live in `docs/`.
-- **Known-pending (honest):** Lace/Eternl cross-wallet check (verify harness +
-  fixture in place — `docs/cross-wallet-verify.md` — awaiting a captured real
-  signature); **Ledger on-device TX signing** (`signTransaction` intentionally
-  throws — `docs/hardware-wallets.md`); **Android physical-device + Play Store**
-  acceptance (emulator-only is *not* "verified on device").
+- **Known-pending (honest):** additional Lace/Nami cross-wallet captures (the
+  fixture already contains a real Eternl vector — `docs/cross-wallet-verify.md`);
+  **Ledger on-device TX signing** (`signTransaction` intentionally
+throws — `docs/hardware-wallets.md`); **Android Play Store/AAB** acceptance
+(physical smoke is verified; emulator-only is *not* "verified on device").
 
 ### Key implementation facts (durable — not history)
 

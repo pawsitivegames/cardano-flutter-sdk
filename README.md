@@ -6,9 +6,9 @@ A production-grade Flutter SDK for Cardano, built on Emurgo's Cardano Serializat
 
 > **Status:** heading toward the `0.12.0` feature-complete RC. iOS is
 > live-verified on device; macOS and scoped web are verified; Android has passed
-> the ARM64 16 KB page-size emulator gate (FFI load, SDK smoke test, CIP-45 deep
-> link, QR entry path). Hardware-wallet signing and Android physical-device
-> verification remain pending. See
+> the ARM64 physical-device smoke gate (FFI load, `pageSizeCompat=0`, SDK smoke
+> test, and CIP-45 deep link) on Android 16. Play Store/AAB acceptance and
+> broader ABI policy remain pending. See
 > [`docs/PLAN.md`](docs/PLAN.md) for the full roadmap and current phase gates.
 >
 > Pre-1.0: APIs may change. The hardware-wallet API is `@experimental`.
@@ -45,7 +45,7 @@ same bytes by a golden-CBOR conformance suite (see [`docs/web-backend.md`](docs/
 | Platform | Backend | Status |
 |----------|---------|--------|
 | iOS | CSL / Rust FFI | ✅ Live-verified on device (iPhone 13) |
-| Android | CSL / Rust FFI | 🟡 ARM64 16 KB emulator-verified; physical-device + broader ABI policy pending |
+| Android | CSL / Rust FFI | 🟡 ARM64 physical-device smoke + 16 KB compatibility verified; Play Store/AAB + broader ABI policy pending |
 | macOS | CSL / Rust FFI | ✅ Packaged + testnet send verified |
 | Linux / Windows | CSL / Rust FFI | 🟡 Best-effort, CI-build only |
 | Web | CML-JS interop | ✅ Scoped CML-JS backend verified in browser; Eternl cross-wallet fixture passes |

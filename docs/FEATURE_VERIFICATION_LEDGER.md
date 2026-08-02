@@ -52,8 +52,9 @@ but wrong result.
 `dart/test/hd_wallet_test.dart`, `dart/test/hardware_test.dart`, and golden
 vectors cover deterministic derivation, invalid inputs, network prefixes,
 account gaps, and public soft derivation. iPhone 13 evidence is historical in
-the release plan; Android physical verification is still open. **Status: L;
-iOS D evidence historical; Android D/S pending.**
+the release plan; the 2026-08-02 CPH2841 smoke run added Android physical
+evidence for JNI load, version, address validation, and key derivation. **Status:
+L; iOS D historical; Android physical smoke D verified; store/provider S pending.**
 
 ## 3. Transaction building, signing, and coin selection
 
@@ -134,8 +135,8 @@ absence must be distinguishable and safe.
 **Acceptance and evidence:** `dart/test/seed_encryption_test.dart` covers the
 cryptographic contract locally; `example/integration_test/seed_vault_test.dart`
 covers Keychain/Keystore composition on a real target when run. iPhone 13
-evidence is historical; Android secure-store execution is pending. **Status: L;
-historical iOS D; current Android D/S external.**
+evidence is historical; the Android smoke run did not exercise secure storage.
+**Status: L; historical iOS D; Android secure-store D/S external.**
 
 ## 8. Native CIP-30 wallet
 
@@ -234,8 +235,9 @@ WASM/FFI artifacts must be visible and recoverable.
 journey and tap-target guidance; the web target builds; local example analysis
 and integration-test sources cover send, mint, seed, packaging, and bug-fix
 journeys. iOS/macOS results and Android emulator/16 KB results are separate
-dated evidence; Android physical + Play acceptance is still open. **Status: L;
-historical iOS/macOS D and Android emulator evidence; Android D/S/R pending.**
+dated evidence; the 2026-08-02 CPH2841 run adds physical smoke evidence, while
+Play Store acceptance remains open. **Status: L; historical iOS/macOS D,
+Android physical smoke D, and store/provider S/R pending.**
 
 ## Ledger decision
 

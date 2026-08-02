@@ -178,7 +178,8 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
   correct by construction; interop-shaped test asserts wallet-expected structure ✅
 - **Live end-to-end on preview testnet:** `signTx → assemble → submit` confirmed
   on-chain (tx `01cc6d66…e11277`); getUtxos/getBalance live ✅
-- Nice-to-have (not blocking): a real cross-wallet (Lace/Eternl) signData handshake.
+- Nice-to-have (not blocking): additional Lace/Nami signData captures; the real
+  Eternl fixture now closes the initial cross-wallet handshake gate.
 
 ---
 
@@ -467,6 +468,11 @@ Definition of Done (`0.12.0` RC):
       SDK smoke test + deep-link/QR entry + **16KB page-size image** all pass
       (`pageSizeCompat=0`; labeled "emulator", not "device"). Broader Android
       ABI policy remains pending; current example APK is ARM64-only.
+- [x] **Android ARM64 physical-device smoke** (2026-08-02, CPH2841 / Android
+      16): rebuilt current `0.12.0` JNI artifacts, installed and launched the
+      debug APK, observed `pageSizeCompat=0`, SDK `v0.12.0`, successful FFI/key
+      smoke, and `app_links` handling the CIP-45 deep link. Play Store/AAB
+      acceptance and broader ABI policy remain pending.
 - [x] >80% hand-written Dart coverage; Rust wrapper + crypto coverage; fuzz suite green
       (2026-06-10: `flutter test --coverage` PASS; LCOV hand-written Dart
       coverage 80.06% / 558 of 697 lines, excluding generated FRB/Rust twins
@@ -482,18 +488,20 @@ Definition of Done (`0.12.0` RC):
       `docs/pallas-feasibility.md`; conclusion is feature-gated conformance
       backend first, not a production backend flip.
 - [x] Hardware-wallet API marked `@experimental`; Android marked **supported
-      (emulator-verified)** in platform table
+      (ARM64 emulator + physical-smoke verified)** in platform table
 - [ ] Published to pub.dev as `cardano_flutter_rs` (`0.12.0`)
 - [x] README platform-support matrix
 
 ### v1.0.0 — Production release
-*Gate: 0.12.0 RC + **Android verified on a physical device** (incl. Play Store
-build acceptance). A used Pixel (~$150) is the cheap unblock — lower bar than a
-Ledger. Hardware-wallet (Ledger) support remains `@experimental` until v1.1.0.*
+*Gate: 0.12.0 RC + **Play Store/AAB acceptance after Android physical-device
+smoke verification**. The 2026-08-02 CPH2841 run closes the local physical smoke
+gate; store processing, release signing, and broader ABI policy remain open.
+Hardware-wallet (Ledger) support remains `@experimental` until v1.1.0.*
 
 > Note: "a real third-party dApp using the SDK in production" is a post-1.0 adoption
 > goal, not a gate (not on our timeline). The in-our-control external-interop signal
-> is the Lace/Eternl cross-wallet check in Phase 6 — keep it in the RC gate.
+> is now the fixture-gated Eternl cross-wallet check in Phase 6; additional wallet
+> captures are useful but not an RC blocker.
 
 ---
 
@@ -573,7 +581,7 @@ Priority order:
 
 ---
 
-## Track B — Hardware-gated (parked until physical devices available)
+## Track B — Hardware-gated (Ledger plus remaining Android/store gates)
 
 ### Phase H1 — Ledger on-device verification → v1.1.0
 *Blocked on: a spare Ledger (Nano S Plus ≈ $80 — do NOT use the maintainer's
@@ -586,10 +594,12 @@ main-account device).*
 - Promote the hardware-wallet API from `@experimental` to stable; publish in v1.1.0.
 
 ### Phase H2 — Android physical-device verification → v1.1.0
-*Blocked on: a physical Android phone (Pixel 8a recommended).*
-- Deep link + QR connect flow on a real device (emulator already covers functional)
-- **Play Store build acceptance** (16KB already emulator-checked in the RC)
-- Real-device perf + OEM BLE behavior
+*Physical-device smoke completed on CPH2841 / Android 16 on 2026-08-02. Remaining
+gates are store acceptance, broader ABI policy, and representative device/OEM
+coverage.*
+- ✅ Deep link + SDK/FFI smoke on a real ARM64 device
+- **Play Store/AAB build acceptance** (16KB compatibility already checked)
+- Real-device perf + OEM BLE behavior and any additional supported ABIs
 
 ### Research bucket (not device-blocked) — native CIP-45 WebRTC transport
 *Not "verification" — unbuilt implementation. Mostly hardware-free; pursue
@@ -676,5 +686,6 @@ copy it into the Flutter engine Frameworks directory.
 - **CSL slowing, Pallas rising** — Whisky V2 migrated CSL→Pallas; evaluate before v1.0
 - **Vespr is the real competitor** — differentiate on correctness + tx-building, not speed
 - **Scope creep** — CSL/CML have ~500 exported types; wrap only what the example app needs
-- **Android 16KB mandatory** — ARM64 emulator pass is complete; still verify on
-  Pixel 8a before any Play Store submission and settle non-ARM64 ABI support.
+- **Android 16KB mandatory** — ARM64 emulator and CPH2841 physical smoke passes
+  are complete; retain the `pageSizeCompat=0` evidence for Play Store submission
+  and settle non-ARM64 ABI support before claiming broader coverage.

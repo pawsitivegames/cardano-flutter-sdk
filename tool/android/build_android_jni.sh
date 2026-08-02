@@ -38,6 +38,14 @@ target_for_abi() {
 
 mkdir -p "$JNI_DIR"
 
+# cargo-ndk names dependency libraries with a content hash. Remove only the
+# generated Cardano dependencies before copying a fresh build so stale hashes
+# cannot remain in the plugin package and be shipped alongside current code.
+find "$JNI_DIR" -type f \( \
+  -name 'libcardano_message_signing-*.so' -o \
+  -name 'libcardano_serialization_lib-*.so' \
+\) -delete
+
 for abi in $ABIS; do
   target="$(target_for_abi "$abi")"
   rustup target add "$target"

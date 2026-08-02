@@ -1,9 +1,30 @@
 # Android Verification
 
-Current status: Android is verified on an ARM64 16 KB page-size emulator. This is
-not physical-device verification and does not prove all Android ABIs are ready.
+Current status: Android ARM64 physical-device smoke verification passed on a
+CPH2841 phone running Android 16/API 36 on 2026-08-02. The debug APK reported
+`pageSizeCompat=0`, loaded the current `cardano_flutter_rs v0.12.0` JNI library,
+and handled the CIP-45 deep link. Play Store/AAB acceptance and broader Android
+ABI coverage remain open; this is not a store-release claim.
 The checklist follows Android's 16 KB page-size guidance:
 https://developer.android.com/guide/practices/page-sizes
+
+## Physical-device smoke (2026-08-02)
+
+The connected device `CPH2841` (`3B165700BKF00000`) provided this local evidence:
+
+- `flutter build apk --debug` succeeded after rebuilding the ARM64 JNI library
+  from the current Rust `0.12.0` source;
+- the APK contained only the current hashed Cardano dependency libraries for
+  `arm64-v8a`, and `zipalign -c -P 16 -v 4` succeeded;
+- install/launch logs showed `primaryCpuAbi=arm64-v8a`, `extractNativeLibs=false`,
+  `pageSizeCompat=0`, `RustLib.init() completed successfully`, SDK version
+  `0.12.0`, valid address, and successful key derivation; and
+- an Android `web+cardano://connect/v1?...` intent was received by
+  `app_links`, which logged `Handled intent` without a fatal exception.
+
+This verifies a debug physical-device smoke path only. It does not prove Play
+Store processing, release signing, provider credentials, other ABIs, or a
+production deployment.
 
 ## Prerequisites
 
