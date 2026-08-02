@@ -16,7 +16,7 @@
 // platform deep-link registration for `web+cardano://` is intentionally left to
 // an integration layer; the protocol logic here is fully unit-tested.
 
-import '../cip30/cip30_wallet.dart';
+import '../cip30/cip30_wallet_api.dart';
 
 /// Error thrown when a dApp requests a CIP-45 RPC method the wallet does not
 /// expose.
@@ -141,9 +141,21 @@ abstract class Cip45Transport {
 /// await transport.start();
 /// // ... and send handler.apiAnnouncement() to the dApp on connect.
 /// ```
-class Cip45WalletHandler {
+/// Encodes an implementation-specific CIP-30 `signData` result for the wire.
+///
+/// Native and web backends use different Dart result types even though both
+/// produce the same `{signature, key}` CIP-30 payload. Supplying this function
+/// keeps that backend-specific detail behind the handler's seam.
+typedef Cip45SignatureEncoder<Signature> = Map<String, String> Function(
+  Signature signature,
+);
+
+class Cip45WalletHandler<Signature> {
   /// The underlying CIP-30 wallet that fulfils requests.
-  final Cip30Wallet wallet;
+  final Cip30WalletApi<Signature> wallet;
+
+  /// Converts the backend's `signData` result into CIP-45 wire fields.
+  final Cip45SignatureEncoder<Signature> signatureEncoder;
 
   /// Human-readable wallet name announced to the dApp.
   final String name;
@@ -153,9 +165,23 @@ class Cip45WalletHandler {
 
   Cip45WalletHandler({
     required this.wallet,
+    Cip45SignatureEncoder<Signature>? signatureEncoder,
     this.name = 'cardano_flutter_rs',
     this.version = '1.0.0',
-  });
+  }) : signatureEncoder = signatureEncoder ?? _defaultSignatureEncoder;
+
+  static Map<String, String> _defaultSignatureEncoder<T>(T signature) {
+    final dynamic fields = signature;
+    final signatureHex = fields.signature;
+    final keyHex = fields.key;
+    if (signatureHex is! String || keyHex is! String) {
+      throw StateError(
+        'signData result must expose String signature and key fields; '
+        'provide signatureEncoder for this wallet backend',
+      );
+    }
+    return {'signature': signatureHex, 'key': keyHex};
+  }
 
   /// The CIP-30 method names exposed over CIP-45.
   static const List<String> methods = [
@@ -241,7 +267,7 @@ class Cip45WalletHandler {
           payload = _stringParam(params, 0, 'payloadHex');
         }
         final sig = await wallet.signData(payload, addressHex: addr);
-        return {'signature': sig.signature, 'key': sig.key};
+        return signatureEncoder(sig);
       case 'submitTx':
         final tx = _stringParam(params, 0, 'signedTxCborHex');
         return wallet.submitTx(tx);

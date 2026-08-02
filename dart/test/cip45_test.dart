@@ -11,6 +11,41 @@ import 'package:http/testing.dart';
 const testMnemonic =
     'test walk nut penalty hip pave soap entry language right filter choice';
 
+class _ContractOnlyWallet implements Cip30WalletApi<Map<String, String>> {
+  @override
+  Future<int> getNetworkId() async => 0;
+
+  @override
+  Future<List<String>> getUtxos() async => const [];
+
+  @override
+  Future<String> getBalance() async => '00';
+
+  @override
+  Future<String> getChangeAddress() async => '01';
+
+  @override
+  Future<List<String>> getUsedAddresses() async => const [];
+
+  @override
+  Future<List<String>> getUnusedAddresses() async => const ['01'];
+
+  @override
+  Future<List<String>> getRewardAddresses() async => const [];
+
+  @override
+  Future<String> signTx(String txCborHex, {bool partialSign = false}) async =>
+      'a0';
+
+  @override
+  Future<Map<String, String>> signData(String payloadHex,
+          {String? addressHex}) async =>
+      const {'signature': 'sig', 'key': 'key'};
+
+  @override
+  Future<String> submitTx(String signedTxCborHex) async => 'hash';
+}
+
 void main() {
   setUpAll(() async {
     await RustLib.init();
@@ -98,6 +133,18 @@ void main() {
       expect(api['version'], '1.0.0');
       expect(api['methods'], contains('signData'));
       expect(api['methods'], contains('getRewardAddresses'));
+    });
+
+    test('accepts a different Cip30WalletApi adapter through its seam',
+        () async {
+      final h = Cip45WalletHandler<Map<String, String>>(
+        wallet: _ContractOnlyWallet(),
+        signatureEncoder: (signature) => signature,
+      );
+      expect(
+        await h.handleRequest('signData', ['payload']),
+        const {'signature': 'sig', 'key': 'key'},
+      );
     });
 
     test('supportedMethods covers the CIP-30 surface', () async {
