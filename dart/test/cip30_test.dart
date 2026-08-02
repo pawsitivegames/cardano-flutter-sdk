@@ -262,6 +262,18 @@ void main() {
       expect(await contract.getNetworkId(), 0);
     });
 
+    test('fromMnemonic applies a non-empty BIP-39 passphrase', () async {
+      final wallet = await Cip30Wallet.fromMnemonic(
+        mnemonic: testMnemonic,
+        passphrase: 'cardano-passphrase-probe',
+        provider: providerWithUtxos(const []),
+      );
+      expect(
+        wallet.baseAddress,
+        'addr_test1qrdzn2vjkp0fnf5pqlarp0wgcsry5pzh5jrn9km2g5whq7hn2gsawu8xm4pwsrfk8etaz0qk2sf9qnuzqjrav7608pkqw5kmlu',
+      );
+    });
+
     test('getChangeAddress / getRewardAddresses return hex', () async {
       final wallet = await Cip30Wallet.fromMnemonic(
         mnemonic: testMnemonic,

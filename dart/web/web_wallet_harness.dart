@@ -79,6 +79,28 @@ Future<void> main() async {
     check('stakeKeyHash', wallet.stakeKeyHashHex == _expStakeHash,
         wallet.stakeKeyHashHex);
 
+    final passphraseWallet = await WebCip30Wallet.fromMnemonic(
+      mnemonic: _mnemonic,
+      provider: providerFor(used: true),
+      passphrase: 'cardano-passphrase-probe',
+      isTestnet: true,
+    );
+    check(
+      'passphrase paymentKeyHash matches native',
+      passphraseWallet.paymentKeyHashHex ==
+          'da29a992b05e99a68107fa30bdc8c4064a0457a48732db6a451d707a',
+    );
+    check(
+      'passphrase stakeKeyHash matches native',
+      passphraseWallet.stakeKeyHashHex ==
+          'f35221d770e6dd42e80d363e57d13c165412504f820487d67b4f386c',
+    );
+    check(
+      'passphrase address matches native',
+      passphraseWallet.baseAddressBech32 ==
+          'addr_test1qrdzn2vjkp0fnf5pqlarp0wgcsry5pzh5jrn9km2g5whq7hn2gsawu8xm4pwsrfk8etaz0qk2sf9qnuzqjrav7608pkqw5kmlu',
+    );
+
     const cml = CmlWebBackend();
     final expBaseHex = cml.addressToHex(addressBech32: _expBaseAddr);
     final expRewardHex = cml.addressToHex(addressBech32: _expRewardAddr);

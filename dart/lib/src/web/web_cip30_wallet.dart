@@ -22,6 +22,7 @@ library;
 
 import 'dart:js_interop';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:meta/meta.dart';
 
@@ -181,10 +182,9 @@ class WebCip30Wallet implements Cip30WalletApi<WebDataSignature> {
 
     final root = _Bip32PrivateKey.from_bip39_entropy(
       _hexToBytes(entropyHex).toJS,
-      // Passphrase is applied at the BIP-39 entropy stage by the host bridge if
-      // needed; CML's from_bip39_entropy password arg is the (rarely used) CIP-3
-      // second factor and is left empty to match the native CIP-1852 path.
-      Uint8List(0).toJS,
+      // CML's password argument is the BIP-39 passphrase. Passing it here
+      // keeps web derivation identical to the native BIP-39 path.
+      Uint8List.fromList(utf8.encode(passphrase)).toJS,
     );
     final acct = root
         .derive(_harden + 1852)
