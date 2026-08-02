@@ -812,6 +812,59 @@ mod tests {
     const EXT_REWARD_KEY_HEX: &str = "a50101032704810220062158202c041c9c6a676ac54d25e2fdce44c56581e316ae43adc4c7bf17f23214d8d892";
 
     #[test]
+    fn test_interop_json_matches_embedded_constants() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tools/cose-interop/vectors.json"
+        )))
+        .expect("COSE interop vectors JSON must remain valid");
+        let vectors = fixture
+            .get("vectors")
+            .and_then(serde_json::Value::as_object)
+            .expect("COSE interop vectors must contain an object at vectors");
+
+        let expected = [
+            (
+                "base_payment",
+                EXT_BASE_ADDRESS_HEX,
+                EXT_BASE_PAYLOAD_HEX,
+                EXT_BASE_SIG_HEX,
+                EXT_BASE_KEY_HEX,
+            ),
+            (
+                "reward_stake",
+                EXT_REWARD_ADDRESS_HEX,
+                EXT_REWARD_PAYLOAD_HEX,
+                EXT_REWARD_SIG_HEX,
+                EXT_REWARD_KEY_HEX,
+            ),
+        ];
+
+        for (label, address, payload, signature, key) in expected {
+            let vector = vectors
+                .get(label)
+                .and_then(serde_json::Value::as_object)
+                .unwrap_or_else(|| panic!("missing COSE interop vector {label}"));
+            assert_eq!(
+                vector["addressHex"].as_str(),
+                Some(address),
+                "{label}.addressHex"
+            );
+            assert_eq!(
+                vector["payloadHex"].as_str(),
+                Some(payload),
+                "{label}.payloadHex"
+            );
+            assert_eq!(
+                vector["signatureHex"].as_str(),
+                Some(signature),
+                "{label}.signatureHex"
+            );
+            assert_eq!(vector["keyHex"].as_str(), Some(key), "{label}.keyHex");
+        }
+    }
+
+    #[test]
     fn test_interop_external_base_address_vector_verifies() {
         // The external lib derived the same base address we do — ties the foreign
         // vector to our own derivation.
