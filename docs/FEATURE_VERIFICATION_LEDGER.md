@@ -232,12 +232,18 @@ input, loading/error states, platform permissions, absent hardware, and absent
 WASM/FFI artifacts must be visible and recoverable.
 
 **Acceptance and evidence:** `example/test/widget_test.dart` checks the home
-journey and tap-target guidance; the web target builds; local example analysis
-and integration-test sources cover send, mint, seed, packaging, and bug-fix
-journeys. iOS/macOS results and Android emulator/16 KB results are separate
-dated evidence; the 2026-08-02 CPH2841 run adds physical smoke evidence, while
-Play Store acceptance remains open. **Status: L; historical iOS/macOS D,
-Android physical smoke D, and store/provider S/R pending.**
+journey and tap-target guidance, and the diagnostics regression covers injected
+failure → visible recovery state → retry success. The web target builds; local
+example analysis and integration-test sources cover send, mint, seed, packaging,
+and bug-fix journeys. iOS/macOS results and Android emulator/16 KB results are
+separate dated evidence; the 2026-08-02 CPH2841 run adds physical smoke
+evidence, while Play Store acceptance remains open. **Status: L; historical
+iOS/macOS D, Android physical smoke D, and store/provider S/R pending.**
+
+Current local evidence: `PUB_CACHE=/tmp/cardano_flutter_sdk_pub_cache flutter
+test test/widget_test.dart` — 2 passed, including the failure/retry journey;
+`flutter analyze --no-fatal-warnings` — no errors, with 13 known warnings for
+explicitly experimental hardware and scoped web APIs.
 
 ## Ledger decision
 
