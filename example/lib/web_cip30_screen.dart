@@ -104,8 +104,6 @@ class _WebCip30ScreenState extends State<WebCip30Screen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Web CIP-30 (scoped)'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -113,15 +111,20 @@ class _WebCip30ScreenState extends State<WebCip30Screen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
-              color: Colors.indigo.shade50,
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Status: $_status',
-                        style:
-                            const TextStyle(fontWeight: FontWeight.bold)),
+                    Semantics(
+                      liveRegion: true,
+                      label: 'Wallet status: $_status',
+                      child: Text(
+                        'Status: $_status',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     const Text(
                       'CML compiled to JS/WASM via Dart JS interop. No Rust FFI on web.',

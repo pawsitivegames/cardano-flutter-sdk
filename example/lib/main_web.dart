@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 
 import 'web_cip30_screen.dart';
+import 'demo_theme.dart';
 
 void main() {
   runApp(const WebDemoApp());
@@ -25,7 +26,7 @@ class WebDemoApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Cardano Flutter RS — Web',
-      theme: ThemeData(primarySwatch: Colors.indigo, useMaterial3: true),
+      theme: buildDemoTheme(),
       home: const WebCip30Screen(),
     );
   }

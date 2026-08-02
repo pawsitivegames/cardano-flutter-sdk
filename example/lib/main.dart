@@ -14,6 +14,7 @@ import 'cip30_screen.dart';
 import 'cip45_screen.dart';
 import 'accounts_screen.dart';
 import 'seed_vault_screen.dart';
+import 'demo_theme.dart';
 
 // Compile-time Flutter version injected via --dart-define (optional).
 // Falls back to a placeholder if not provided.
@@ -428,27 +429,27 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xff0b6e69),
+    );
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'Cardano Flutter RS Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
+      theme: buildDemoTheme(),
       home: Scaffold(
         appBar: AppBar(
           title: const Text('Cardano Flutter RS'),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(20),
             child: Container(
-              color: Colors.blue.shade800,
+              color: colorScheme.primaryContainer,
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 3),
-              child: const Text(
+              child: Text(
                 kBuildLabel,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colorScheme.onPrimaryContainer,
                   fontSize: 11,
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.bold,
@@ -458,257 +459,245 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
         body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _VersionBanner(sdkVersion: _sdkVersion),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Phase 1–4: SDK + TX + Minting + Staking + Messages',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Padding(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _VersionBanner(sdkVersion: _sdkVersion),
+                    const SizedBox(height: 12),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'SDK playground',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty)
-                    Card(
-                      color: Colors.orange.shade100,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Warning: BLOCKFROST_PROJECT_ID not set',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange,
+                    const SizedBox(height: 4),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Run the diagnostics, then explore a capability on Cardano testnet preview.',
+                        style: TextStyle(fontSize: 15),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_blockfrostProjectId == null ||
+                        _blockfrostProjectId!.isEmpty)
+                      Card(
+                        color: colorScheme.tertiaryContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Warning: BLOCKFROST_PROJECT_ID not set',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onTertiaryContainer,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Run with: flutter run --dart-define=BLOCKFROST_PROJECT_ID=your_project_id\n\n'
-                              'Get a free testnet API key from https://blockfrost.io',
-                              style: TextStyle(color: Colors.orange),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (_initError.isNotEmpty)
-                    Card(
-                      color: Colors.red.shade100,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Initialization Error:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red,
+                              const SizedBox(height: 8),
+                              Text(
+                                'Run with: flutter run --dart-define=BLOCKFROST_PROJECT_ID=your_project_id\n\n'
+                                'Get a free testnet API key from https://blockfrost.io',
+                                style: TextStyle(
+                                    color: colorScheme.onTertiaryContainer),
                               ),
-                            ),
-                            Text(
-                              _initError,
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (_initError.isNotEmpty)
+                      Card(
+                        color: colorScheme.errorContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Initialization Error:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onErrorContainer,
+                                ),
+                              ),
+                              Text(
+                                _initError,
+                                style: TextStyle(
+                                    color: colorScheme.onErrorContainer),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (_initError.isEmpty)
+                      Card(
+                        color: colorScheme.surfaceContainerLow,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'SDK Version:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(_sdkVersion),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Address Validation:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(_addressValidation),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Key Derivation:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(_keyDerivation),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'START HERE',
+                        style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
                         ),
                       ),
                     ),
-                  if (_initError.isEmpty)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'SDK Version:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(_sdkVersion),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Address Validation:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(_addressValidation),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Key Derivation:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(_keyDerivation),
-                          ],
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed:
+                            _derivedKeys != null ? _navigateToSendScreen : null,
+                        icon: const Icon(Icons.send),
+                        label: const Text('Open Send ADA demo'),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'EXPLORE CAPABILITIES',
+                        style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
                         ),
                       ),
                     ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        onPressed: _testSDK,
-                        child: const Text('Re-Run Tests'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _derivedKeys != null
-                            ? _navigateToSendScreen
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _HomeAction(
+                          label: 'Mint NFT',
+                          icon: Icons.token,
+                          onPressed: _derivedKeys != null
+                              ? _navigateToMintScreen
+                              : null,
                         ),
-                        icon: const Icon(Icons.send, color: Colors.white, size: 16),
-                        label: const Text(
-                          'Send ADA',
-                          style: TextStyle(color: Colors.white),
+                        _HomeAction(
+                          label: 'Stake ADA',
+                          icon: Icons.account_balance,
+                          onPressed: _derivedKeys != null
+                              ? _navigateToStakeScreen
+                              : null,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: _derivedKeys != null
-                            ? _navigateToMintScreen
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
+                        _HomeAction(
+                          label: 'Sign Message',
+                          icon: Icons.security,
+                          onPressed: _derivedKeys != null
+                              ? _navigateToMessageScreen
+                              : null,
                         ),
-                        icon: const Icon(Icons.token, color: Colors.white, size: 16),
-                        label: const Text(
-                          'Mint NFT',
-                          style: TextStyle(color: Colors.white),
+                        _HomeAction(
+                          label: 'CIP-30',
+                          icon: Icons.hub,
+                          onPressed:
+                              _libInitialized ? _navigateToCip30Screen : null,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _derivedKeys != null
-                            ? _navigateToStakeScreen
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
+                        _HomeAction(
+                          label: 'CIP-45',
+                          icon: Icons.cable,
+                          onPressed: _libInitialized
+                              ? () => _navigateToCip45Screen()
+                              : null,
                         ),
-                        icon: const Icon(Icons.account_balance,
-                            color: Colors.white, size: 16),
-                        label: const Text(
-                          'Stake ADA',
-                          style: TextStyle(color: Colors.white),
+                        _HomeAction(
+                          label: 'Ledger',
+                          icon: Icons.memory,
+                          onPressed:
+                              _libInitialized ? _navigateToLedgerScreen : null,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: _derivedKeys != null
-                            ? _navigateToMessageScreen
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
+                        _HomeAction(
+                          label: 'Accounts',
+                          icon: Icons.account_tree,
+                          onPressed: _libInitialized
+                              ? _navigateToAccountsScreen
+                              : null,
                         ),
-                        icon: const Icon(Icons.security,
-                            color: Colors.white, size: 16),
-                        label: const Text(
-                          'Sign Message',
-                          style: TextStyle(color: Colors.white),
+                        _HomeAction(
+                          label: 'Seed Vault',
+                          icon: Icons.enhanced_encryption,
+                          onPressed: _libInitialized
+                              ? _navigateToSeedVaultScreen
+                              : null,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: _libInitialized
-                            ? _navigateToCip30Screen
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                        ),
-                        icon: const Icon(Icons.hub,
-                            color: Colors.white, size: 16),
-                        label: const Text(
-                          'CIP-30',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed:
-                            _libInitialized ? () => _navigateToCip45Screen() : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
-                        ),
-                        icon: const Icon(Icons.cable,
-                            color: Colors.white, size: 16),
-                        label: const Text(
-                          'CIP-45',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed:
-                            _libInitialized ? _navigateToLedgerScreen : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                        ),
-                        icon: const Icon(Icons.memory,
-                            color: Colors.white, size: 16),
-                        label: const Text(
-                          'Ledger',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed:
-                            _libInitialized ? _navigateToAccountsScreen : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.cyan,
-                        ),
-                        icon: const Icon(Icons.account_tree,
-                            color: Colors.white, size: 16),
-                        label: const Text(
-                          'Accounts',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed:
-                            _libInitialized ? _navigateToSeedVaultScreen : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                        ),
-                        icon: const Icon(Icons.enhanced_encryption,
-                            color: Colors.white, size: 16),
-                        label: const Text(
-                          'Seed Vault',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      onPressed: _testSDK,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Re-run diagnostics'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HomeAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  const _HomeAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(label),
     );
   }
 }
