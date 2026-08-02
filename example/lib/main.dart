@@ -29,7 +29,11 @@ void main() {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  /// Optional diagnostics runner used to exercise failure and recovery states
+  /// without depending on a platform-specific FFI failure in widget tests.
+  final Future<void> Function()? diagnosticsRunner;
+
+  const MyApp({super.key, this.diagnosticsRunner});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -42,7 +46,8 @@ class _MyAppState extends State<MyApp> {
   String _addressValidation = 'Not tested yet';
   String _keyDerivation = 'Not tested yet';
   bool _libInitialized = false;
-  final String _initError = '';
+  String _initError = '';
+  bool _diagnosticsRunning = false;
   String? _blockfrostProjectId;
   KeyDerivationResult? _derivedKeys;
 
@@ -74,23 +79,39 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _testSDK() async {
-    if (kIsWeb) {
-      setState(() {
-        _sdkVersion = 'Web Version (Demo Mode)';
-        _addressValidation = 'Valid: true\nNetwork: Demo (No FFI on web)';
-        _keyDerivation = 'Payment Key: demo_key_abcdef123456...\nStake Key: demo_stake_key_xyz789...';
-      });
-      return;
-    }
+    if (_diagnosticsRunning) return;
+
+    setState(() {
+      _diagnosticsRunning = true;
+      _initError = '';
+      _derivedKeys = null;
+    });
 
     try {
+      final runner = widget.diagnosticsRunner;
+      if (runner != null) {
+        await runner();
+        return;
+      }
+
+      if (kIsWeb) {
+        setState(() {
+          _sdkVersion = 'Web Version (Demo Mode)';
+          _addressValidation = 'Valid: true\nNetwork: Demo (No FFI on web)';
+          _keyDerivation =
+              'Payment Key: demo_key_abcdef123456...\nStake Key: demo_stake_key_xyz789...';
+        });
+        return;
+      }
+
       // Initialize the FFI bridge if not already done (native only, not web)
       if (!_libInitialized) {
         debugPrint('[Cardano SDK] Running RustLib.init() from test button...');
         if (Platform.isIOS) {
           final exe = Platform.resolvedExecutable;
           final bundleDir = File(exe).parent.path;
-          final libPath = '$bundleDir/Frameworks/cardano_flutter_rs.framework/cardano_flutter_rs';
+          final libPath =
+              '$bundleDir/Frameworks/cardano_flutter_rs.framework/cardano_flutter_rs';
           final exists = File(libPath).existsSync();
           setState(() => _sdkVersion = 'DEBUG\nexe=$exe\nexists=$exists');
           await RustLib.init(
@@ -148,11 +169,18 @@ class _MyAppState extends State<MyApp> {
       });
     } catch (e) {
       debugPrint('[Cardano SDK] Test failed with error: $e');
+      if (!mounted) return;
       setState(() {
-        _sdkVersion = 'Error: $e';
-        _addressValidation = 'Error: $e';
-        _keyDerivation = 'Error: $e';
+        _initError =
+            'Diagnostics could not start. Check the native library and try again.';
+        _sdkVersion = 'Diagnostics unavailable';
+        _addressValidation = 'Unavailable';
+        _keyDerivation = 'Unavailable';
       });
+    } finally {
+      if (mounted) {
+        setState(() => _diagnosticsRunning = false);
+      }
     }
   }
 
@@ -160,7 +188,8 @@ class _MyAppState extends State<MyApp> {
     if (_blockfrostProjectId == null || _blockfrostProjectId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please set BLOCKFROST_PROJECT_ID to use the Mint screen'),
+          content:
+              Text('Please set BLOCKFROST_PROJECT_ID to use the Mint screen'),
         ),
       );
       return;
@@ -469,6 +498,11 @@ class _MyAppState extends State<MyApp> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _VersionBanner(sdkVersion: _sdkVersion),
+                    if (_diagnosticsRunning)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: LinearProgressIndicator(),
+                      ),
                     const SizedBox(height: 12),
                     const Align(
                       alignment: Alignment.centerLeft,
@@ -525,7 +559,7 @@ class _MyAppState extends State<MyApp> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Initialization Error:',
+                                'Diagnostics could not start',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: colorScheme.onErrorContainer,
@@ -666,9 +700,13 @@ class _MyAppState extends State<MyApp> {
                     ),
                     const SizedBox(height: 12),
                     TextButton.icon(
-                      onPressed: _testSDK,
+                      onPressed: _diagnosticsRunning ? null : _testSDK,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Re-run diagnostics'),
+                      label: Text(
+                        _initError.isNotEmpty
+                            ? 'Retry diagnostics'
+                            : 'Re-run diagnostics',
+                      ),
                     ),
                   ],
                 ),
