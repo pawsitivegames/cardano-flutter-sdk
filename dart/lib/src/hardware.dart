@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
-/// Derive a wallet [`HardwareAccount`] from a BIP-32 account-level xpub.
+/// Derive a wallet `HardwareAccount` from a BIP-32 account-level xpub.
 ///
 /// The xpub is the 64-byte CIP-1852 account key (`m/1852'/1815'/account'`) a
 /// hardware wallet returns from its "get extended public key" call: 32 bytes of
@@ -27,7 +27,7 @@ HardwareAccount xpubToAccount(
 
 /// Soft-derive a single raw Ed25519 public key from an account xpub.
 ///
-/// Symmetric with [`xpub_to_account`]: a hardware device returns each signature
+/// Symmetric with `xpub_to_account`: a hardware device returns each signature
 /// paired only with a BIP-32 *path* (no public key), so to turn a device
 /// `(path, signature)` into a vkey witness we re-derive that path's public key
 /// from the same account xpub the addresses were derived from.
@@ -58,7 +58,7 @@ String xpubDerivePublicKey(
 /// Only the ordinary-payment shape is modelled today (inputs, outputs with ADA +
 /// native tokens, fee, ttl, validity start, network id). Bodies with
 /// certificates, withdrawals, mint, collateral, reference inputs, or governance
-/// votes set [`HardwareTxBody::has_unsupported_features`] so the caller can
+/// votes set `HardwareTxBody.has_unsupported_features` so the caller can
 /// refuse rather than mis-sign.
 ///
 /// # Arguments
@@ -71,7 +71,7 @@ HardwareTxBody decomposeTxBody({required String txBodyCborHex}) =>
 ///
 /// Hardware wallets return `(public_key, signature)` pairs rather than a CBOR
 /// witness set. This packs them into a `TransactionWitnessSet` whose hex output
-/// can be passed straight to [`crate::cip30::cip30_assemble_tx`] (or merged with
+/// can be passed straight to `cip30_assemble_tx` (or merged with
 /// other witnesses) to build a submittable transaction.
 ///
 /// # Arguments
@@ -82,7 +82,7 @@ String assembleVkeyWitnessSet({required List<HardwareVkeyWitness> witnesses}) =>
 
 /// Extract the raw vkey witnesses from a CBOR `transaction_witness_set`.
 ///
-/// The inverse of [`assemble_vkey_witness_set`]. Useful for partial-signing and
+/// The inverse of `assemble_vkey_witness_set`. Useful for partial-signing and
 /// multi-signature flows: pull the `(public_key, signature)` pairs out of a
 /// witness set (e.g. one produced by software signing or another cosigner) to
 /// merge them with witnesses from a hardware device.

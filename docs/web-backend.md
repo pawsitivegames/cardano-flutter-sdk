@@ -225,7 +225,7 @@ for (final c in parseConformanceCases(goldenJson)) {
       build & run it in Chrome (`flutter build web -t lib/main_web.dart`). The
       wallet's derivation + `signData`→`verifyData` are gated in-browser against
       the native golden values, and `signTx` is pinned to a CML transaction fixture
-      (`web_wallet_harness.dart`, **PASS 13**, wired into the `web-conformance` CI
+      (`web_wallet_harness.dart`, **PASS 19**, wired into the `web-conformance` CI
       job alongside the conformance gate).
 - [x] **Cross-wallet check vs Eternl** — verify-side harness + real Eternl
       mainnet `signData` fixture are in place (`test/cross_wallet_verify_test.dart`,

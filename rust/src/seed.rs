@@ -25,7 +25,7 @@ const NONCE_LEN: usize = 24;
 
 /// Default Argon2id cost: 64 MiB memory, 3 passes, single lane.
 /// Above OWASP's 2024 floor while staying ~sub-second on an iPhone 13.
-/// Tune with [`benchmark_kdf`]; override with [`encrypt_seed_with_params`].
+/// Tune with `benchmark_kdf`; override with `encrypt_seed_with_params`.
 const DEFAULT_MEM_KIB: u32 = 64 * 1024;
 const DEFAULT_ITERS: u32 = 3;
 const DEFAULT_PARALLELISM: u32 = 1;
@@ -104,7 +104,7 @@ pub fn default_kdf_params() -> KdfParams {
     KdfParams::default()
 }
 
-/// Result of [`encrypt_seed`] — the at-rest container plus an echo of the KDF
+/// Result of `encrypt_seed` — the at-rest container plus an echo of the KDF
 /// parameters that were actually used (also embedded in `blob_hex`).
 #[derive(Clone, Debug)]
 pub struct EncryptedSeed {
@@ -128,8 +128,8 @@ pub fn encrypt_seed(secret: String, password: String) -> Result<EncryptedSeed, S
         .map_err(|e| e.to_string())
 }
 
-/// Like [`encrypt_seed`] but with explicit Argon2id cost parameters (tune via
-/// [`benchmark_kdf`]). Parameters are stored in the header, so decryption does
+/// Like `encrypt_seed` but with explicit Argon2id cost parameters (tune via
+/// `benchmark_kdf`). Parameters are stored in the header, so decryption does
 /// not need them supplied again.
 #[frb(sync)]
 pub fn encrypt_seed_with_params(
@@ -147,7 +147,7 @@ pub fn encrypt_seed_with_params(
     encrypt_seed_internal(secret.as_bytes(), password.as_bytes(), params).map_err(|e| e.to_string())
 }
 
-/// Decrypt a `CFS1` container produced by [`encrypt_seed`]. Returns the original
+/// Decrypt a `CFS1` container produced by `encrypt_seed`. Returns the original
 /// UTF-8 secret. A wrong password and a tampered blob are indistinguishable —
 /// both surface as an authentication failure (fails closed, never partial).
 #[frb(sync)]

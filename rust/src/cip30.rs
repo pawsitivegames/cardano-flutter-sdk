@@ -88,14 +88,14 @@ pub fn address_to_hex(address_bech32: String) -> Result<String, CardanoError> {
 
 // ── Value / UTxO serialization ────────────────────────────────────────────────
 
-/// Serialize a [`Value`] to CBOR hex (CIP-30 `getBalance` encoding).
+/// Serialize a `Value` to CBOR hex (CIP-30 `getBalance` encoding).
 #[frb(sync)]
 pub fn value_to_cbor_hex(value: Value) -> Result<String, CardanoError> {
     let csl_value = value_to_csl(&value)?;
     Ok(hex::encode(csl_value.to_bytes()))
 }
 
-/// Serialize a [`TxInput`] to a CBOR `TransactionUnspentOutput` hex string
+/// Serialize a `TxInput` to a CBOR `TransactionUnspentOutput` hex string
 /// (CIP-30 `getUtxos` encoding: `[input, output]`).
 #[frb(sync)]
 pub fn utxo_to_cbor_hex(input: TxInput) -> Result<String, CardanoError> {
@@ -107,7 +107,7 @@ pub fn utxo_to_cbor_hex(input: TxInput) -> Result<String, CardanoError> {
     Ok(hex::encode(utxo.to_bytes()))
 }
 
-/// Convert a CSL `Value` back into this crate's [`Value`].
+/// Convert a CSL `Value` back into this crate's `Value`.
 fn csl_value_to_value(v: &csl::Value) -> Value {
     let coin: u64 = v.coin().to_str().parse().unwrap_or(0);
     let mut assets = Vec::new();
@@ -135,7 +135,7 @@ fn csl_value_to_value(v: &csl::Value) -> Value {
     Value { coin, assets }
 }
 
-/// Sum a list of [`Value`]s into a single [`Value`] (coin + native assets).
+/// Sum a list of `Value`s into a single `Value` (coin + native assets).
 ///
 /// Used to compute a wallet's total balance from its UTxO set. Multi-asset
 /// addition is delegated to CSL for correctness.
@@ -211,7 +211,7 @@ pub fn cip30_sign_tx(
 /// Assemble a full transaction CBOR from a body, a witness set, and optional
 /// auxiliary data.
 ///
-/// This is the dApp-side counterpart to [`cip30_sign_tx`]: the dApp builds the
+/// This is the dApp-side counterpart to `cip30_sign_tx`: the dApp builds the
 /// body, the wallet returns a `transaction_witness_set`, and this combines them
 /// into a submittable transaction. To build an *unsigned* transaction to hand to
 /// `signTx`, pass an empty witness set (`"a0"`).
@@ -247,7 +247,7 @@ pub fn cip30_assemble_tx(
 // that Lace/Eternl/Nami use via its WASM build), so the `COSE_Sign1` and
 // `COSE_Key` bytes are interop-correct by construction.
 
-/// Map a `cardano-message-signing` deserialization error to [`CardanoError`].
+/// Map a `cardano-message-signing` deserialization error to `CardanoError`.
 fn map_cms_err<E: std::fmt::Debug>(e: E) -> CardanoError {
     CardanoError::InvalidCbor(format!("COSE decode error: {:?}", e))
 }
@@ -292,12 +292,12 @@ fn address_label() -> Label {
 /// `cardano-message-signing` reference library.
 ///
 /// # Arguments
-/// - `address_hex`: hex of the raw signer address bytes (see [`address_to_hex`])
+/// - `address_hex`: hex of the raw signer address bytes (see `address_to_hex`)
 /// - `payload_hex`: hex of the message bytes to sign
 /// - `signing_key_bech32`: bech32 xprv signing key
 ///
 /// # Returns
-/// A [`DataSignature`] with the `COSE_Sign1` and `COSE_Key` as hex CBOR.
+/// A `DataSignature` with the `COSE_Sign1` and `COSE_Key` as hex CBOR.
 #[frb(sync)]
 pub fn cip30_sign_data(
     address_hex: String,
@@ -358,7 +358,7 @@ pub fn cip30_sign_data(
 /// `expected_address_hex` to further pin verification to a specific address.
 ///
 /// # Arguments
-/// - `data_signature`: the [`DataSignature`] to verify
+/// - `data_signature`: the `DataSignature` to verify
 /// - `expected_payload_hex`: if provided, the embedded payload must match it
 /// - `expected_address_hex`: if provided, the protected-header `address` must
 ///   equal these raw address bytes (hex). The key→address binding is enforced

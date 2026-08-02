@@ -36,7 +36,9 @@ import 'package:cardano_flutter_rs/cardano_flutter_rs_web.dart';
 ```dart
 final keys = await deriveKeysFromMnemonic(
   mnemonic: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-  networkId: 0,
+  passphrase: '',
+  accountIndex: 0,
+  isTestnet: true,
 );
 
 final address = await deriveAddress(
@@ -45,7 +47,9 @@ final address = await deriveAddress(
   index: 0,
   networkId: 0,
 );
+print(address.address); // addr_test1…
 ```
 
-See the repository README and `docs/PLAN.md` for platform support, verification
-status, and roadmap details.
+See the [repository documentation index](../docs/README.md) and
+[`docs/PLAN.md`](../docs/PLAN.md) for platform support, verification status, and
+roadmap details.

@@ -84,47 +84,28 @@ cardano-flutter-sdk/
 │   └── pubspec.yaml
 ├── example/              # Reference Flutter app
 │   ├── lib/
-│   │   └── main.dart     # Demo: SDK version, address validation, key derivation
+│   │   └── main.dart     # Native reference app and capability navigation
 │   ├── ios/              # iOS app files
 │   ├── android/          # Android app files
 │   └── pubspec.yaml
 └── flutter_rust_bridge.yaml # FFI codegen config
 ```
 
-## Feature Matrix
+## Feature matrix
 
-| Feature | v0.1.0 | v0.2.0 | v0.3.0+ |
-|---------|--------|--------|---------|
-| Address validation (Bech32) | ✓ | ✓ | ✓ |
-| BIP39 → BIP32 key derivation | ✓ | ✓ | ✓ |
-| Transaction building (CSL) | | ✓ | ✓ |
-| Coin selection (CIP-2 largest-first) | | ✓ | ✓ |
-| Transaction signing (vkey witnesses) | | ✓ | ✓ |
-| Blockfrost provider (testnet) | | ✓ | ✓ |
-| Multi-asset support | | ✓ | ✓ |
-| iOS/Android native (FFI) | ✓ | ✓ | ✓ |
-| Mainnet support | | (planned) | (planned) |
-| Plutus script support | | | (planned) |
+| Capability | Native entrypoint | Web entrypoint | Verification boundary |
+|------------|-------------------|----------------|------------------------|
+| Address validation and CIP-1852 derivation | CSL / Rust FFI | CML-JS | Golden vectors; browser gate for scoped web derivation |
+| Transaction building, coin selection, signing | Supported | Not part of the scoped web surface | Native unit/FFI tests; preview testnet flows where noted |
+| Multi-asset, Plutus, metadata, staking | Supported | Not part of the scoped web surface | Native tests and documented phase gates |
+| Blockfrost provider | Preview + mainnet URL selection | Preview + mainnet URL selection | Provider unit tests; live tests require credentials |
+| CIP-30 connect and data/transaction signing | Supported | Scoped `WebCip30Wallet` | Native tests plus 32/32 conformance and browser wallet gate |
+| HD multi-account and seed encryption | Supported | Not part of the scoped web surface | iPhone 13 verification documented in the plan |
+| Hardware wallet API | `@experimental`; physical signing pending | Not supported | External hardware evidence required |
 
-## Phase 1: Core SDK ✓
-
-Completed features:
-- ✓ Address validation (Bech32 format check)
-- ✓ BIP39 mnemonic → BIP32 key derivation (CIP-1852 HD paths)
-- ✓ Multi-platform build (iOS, Android) via Rust FFI
-- ✓ Dart bindings auto-generated via flutter_rust_bridge
-- ✓ Example app with three test flows
-- ✓ Tested on iOS simulator
-
-## Phase 2: Transaction Building & Submission ✓
-
-Completed features:
-- ✓ Coin selection (CIP-2 largest-first algorithm)
-- ✓ Transaction building (CSL-based TransactionBuilder)
-- ✓ Transaction signing (vkey witnesses from payment keys)
-- ✓ Blockfrost provider for testnet (fetch UTXOs, protocol parameters, submit)
-- ✓ Example app "Send testnet ADA" screen (end-to-end flow)
-- ✓ Full dartdoc on public APIs
+This matrix describes implemented API scope, not a claim that every platform or
+provider path has been physically or externally verified. See
+[`docs/PLAN.md`](docs/PLAN.md) for the release gates and known blockers.
 
 ### Prerequisites
 
@@ -292,22 +273,24 @@ Get a free testnet API key at [https://blockfrost.io](https://blockfrost.io).
 **View transaction:** Open https://preview.cexplorer.io/tx/{txHash}
 
 
-## Architecture Decisions (Phase 1)
+## Current constraints and decisions
 
 - **Backend:** Cardano Serialization Lib (CSL) v15.0.3. Swappable via Rust feature flags; Pallas v1.0+ planned as long-term replacement.
 - **Error handling:** Typed Rust errors → Dart exceptions via flutter_rust_bridge.
 - **Async model:** Sync Rust fns for signing/serialization; tokio only for network I/O (Phase 2+).
-- **Testing:** Unit tests in Dart, integration tests against Cardano testnet (Phase 2).
+- **Testing:** Rust/Dart unit tests, browser byte-parity gates, and optional
+  credentialed preview-testnet integration tests. Device, store, and provider
+  evidence are reported separately from local test results.
 
-## Next: Phase 3+
+## Roadmap
 
-- Mainnet support (currently testnet only)
-- Additional providers: Maestro, Koios
-- Hardware wallet support (Ledger via CIP-86)
-- Plutus script support
-- Multi-sig transactions
+- Android physical-device and Play Store acceptance before `1.0.0`.
+- Ledger transaction signing on physical hardware; the API remains experimental.
+- Additional providers and broader web parity are future scope.
+- Governance, multi-signature workflows, and a documentation site remain planned.
 
-See [`docs/PLAN.md`](docs/PLAN.md) for the full roadmap.
+See the [documentation index](docs/README.md) for task-oriented guides and
+[`docs/PLAN.md`](docs/PLAN.md) for the full roadmap and release contract.
 
 ## Contributing
 

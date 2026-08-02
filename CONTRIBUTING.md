@@ -2,6 +2,9 @@
 
 Thank you for your interest in contributing to the Cardano Flutter SDK! This document explains how to participate.
 
+See [`MAINTAINERS.md`](MAINTAINERS.md) for current ownership and maintainer
+roles.
+
 ## Code of Conduct
 
 Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing. We are committed to providing a welcoming and inclusive community for all.
@@ -11,8 +14,8 @@ Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing. We are
 ### Prerequisites
 
 - Rust (stable, edition 2021)
-- Flutter >=3.19.0
-- Dart >=3.3.0
+- Flutter 3.38.4 (the CI-pinned toolchain; the package declares Flutter >=3.19.0)
+- Dart 3.10.x (from the CI-pinned Flutter toolchain; the package declares Dart >=3.3.0)
 - See README.md for detailed setup
 
 ### Fork & Clone
@@ -30,27 +33,30 @@ git checkout -b feature/my-feature
 ### Running Tests
 
 ```bash
-# Rust tests
-cd rust && cargo test && cargo clippy --all-targets -- -D warnings
+# Rust tests and lint
+cd rust && cargo test
+cd rust && cargo clippy --all-targets -- -D warnings
 
 # Dart tests
 cd dart && flutter test
 
-# Integration tests
-cd dart && flutter test integration_test/
+# Example app widget test
+cd example && flutter test
 
-# All in one
-./scripts/test-all.sh  # (if it exists)
+# Device-backed integration tests (requires a connected device or macOS target)
+cd example && flutter test integration_test/
 ```
 
 ### Linting
 
 ```bash
 # Rust
-cd rust && cargo fmt && cargo clippy
+cd rust && cargo fmt --check
+cd rust && cargo clippy --all-targets -- -D warnings
 
 # Dart
-cd dart && flutter analyze && dart format lib/ test/
+cd dart && flutter analyze
+cd dart && dart format --output=none --set-exit-if-changed lib/ test/
 ```
 
 ## Making Changes
@@ -84,9 +90,12 @@ cd dart && flutter analyze && dart format lib/ test/
 #### Dart
 
 - **Format:** `dart format` (automatic)
-- **Linting:** `flutter analyze` must pass with no warnings
+- **Linting:** `flutter analyze` must pass with no errors. The example app currently
+  reports expected `@experimental` warnings for hardware and scoped web APIs;
+  do not hide new warnings behind an analysis exclusion.
 - **Dartdoc:** Public functions must have dartdoc comments with examples
-- **Tests:** ≥2 tests per public function
+- **Tests:** At least one focused test per public function, plus an error-path or
+  boundary test where the behavior has meaningful failure modes.
 - **Example:**
   ```dart
   /// Validate a Bech32 address.
@@ -106,11 +115,10 @@ cd dart && flutter analyze && dart format lib/ test/
 ### Testing
 
 - **Unit tests:** For all public functions
-  - Minimum 2 tests per function (happy path + error case)
-  - Location: `tests/` (Rust) or `test/` (Dart)
+  - Location: Rust module tests in `rust/src/` or Dart tests in `dart/test/`
   
 - **Integration tests:** For end-to-end flows
-  - Location: `tests/integration_tests.rs` (Rust) or `dart/test/integration_test/` (Dart)
+  - Location: `example/integration_test/` for Flutter device flows
   - Test against Cardano testnet preview (if applicable)
   
 - **Run before pushing:**
@@ -129,7 +137,7 @@ cd dart && flutter analyze && dart format lib/ test/
 
 ### Before You Start
 
-1. Check [open issues](../../issues) — your idea might already be discussed
+1. Check the repository's [open issues](https://github.com/pawsitivegames/cardano-flutter-sdk/issues) — your idea might already be discussed
 2. Open an issue to discuss large changes before coding
 3. Ensure your local branch is up-to-date:
    ```bash
@@ -192,7 +200,7 @@ Maintainers will:
 
 ## Reporting Bugs
 
-Found a bug? Open an [issue](../../issues) with:
+Found a bug? Open an [issue](https://github.com/pawsitivegames/cardano-flutter-sdk/issues) with:
 
 1. **Clear title:** "Address validation fails for X"
 2. **Reproducible steps:**
@@ -211,7 +219,7 @@ Found a bug? Open an [issue](../../issues) with:
 
 ## Suggesting Features
 
-Have an idea? Open an [issue](../../issues) or [discussion](../../discussions) with:
+Have an idea? Open an [issue](https://github.com/pawsitivegames/cardano-flutter-sdk/issues) or [discussion](https://github.com/pawsitivegames/cardano-flutter-sdk/discussions) with:
 
 1. **Clear motivation:** Why is this needed?
 2. **Proposed solution:** How should it work?
@@ -224,7 +232,7 @@ Have an idea? Open an [issue](../../issues) or [discussion](../../discussions) w
 
 - **Discord:** [Link to community Discord]
 - **Forum:** https://forum.cardano.org
-- **Discussions:** [GitHub Discussions](../../discussions)
+- **Discussions:** [GitHub Discussions](https://github.com/pawsitivegames/cardano-flutter-sdk/discussions)
 - **Email:** maintainers@cardano-flutter-sdk.dev
 
 ---

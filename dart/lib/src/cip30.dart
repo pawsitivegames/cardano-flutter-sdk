@@ -34,16 +34,16 @@ String computeBaseAddress(
 String addressToHex({required String addressBech32}) =>
     RustLib.instance.api.crateCip30AddressToHex(addressBech32: addressBech32);
 
-/// Serialize a [`Value`] to CBOR hex (CIP-30 `getBalance` encoding).
+/// Serialize a `Value` to CBOR hex (CIP-30 `getBalance` encoding).
 String valueToCborHex({required Value value}) =>
     RustLib.instance.api.crateCip30ValueToCborHex(value: value);
 
-/// Serialize a [`TxInput`] to a CBOR `TransactionUnspentOutput` hex string
+/// Serialize a `TxInput` to a CBOR `TransactionUnspentOutput` hex string
 /// (CIP-30 `getUtxos` encoding: `[input, output]`).
 String utxoToCborHex({required TxInput input}) =>
     RustLib.instance.api.crateCip30UtxoToCborHex(input: input);
 
-/// Sum a list of [`Value`]s into a single [`Value`] (coin + native assets).
+/// Sum a list of `Value`s into a single `Value` (coin + native assets).
 ///
 /// Used to compute a wallet's total balance from its UTxO set. Multi-asset
 /// addition is delegated to CSL for correctness.
@@ -70,7 +70,7 @@ String cip30SignTx(
 /// Assemble a full transaction CBOR from a body, a witness set, and optional
 /// auxiliary data.
 ///
-/// This is the dApp-side counterpart to [`cip30_sign_tx`]: the dApp builds the
+/// This is the dApp-side counterpart to `cip30_sign_tx`: the dApp builds the
 /// body, the wallet returns a `transaction_witness_set`, and this combines them
 /// into a submittable transaction. To build an *unsigned* transaction to hand to
 /// `signTx`, pass an empty witness set (`"a0"`).
@@ -96,12 +96,12 @@ String cip30AssembleTx(
 /// `cardano-message-signing` reference library.
 ///
 /// # Arguments
-/// - `address_hex`: hex of the raw signer address bytes (see [`address_to_hex`])
+/// - `address_hex`: hex of the raw signer address bytes (see `address_to_hex`)
 /// - `payload_hex`: hex of the message bytes to sign
 /// - `signing_key_bech32`: bech32 xprv signing key
 ///
 /// # Returns
-/// A [`DataSignature`] with the `COSE_Sign1` and `COSE_Key` as hex CBOR.
+/// A `DataSignature` with the `COSE_Sign1` and `COSE_Key` as hex CBOR.
 DataSignature cip30SignData(
         {required String addressHex,
         required String payloadHex,
@@ -128,7 +128,7 @@ DataSignature cip30SignData(
 /// `expected_address_hex` to further pin verification to a specific address.
 ///
 /// # Arguments
-/// - `data_signature`: the [`DataSignature`] to verify
+/// - `data_signature`: the `DataSignature` to verify
 /// - `expected_payload_hex`: if provided, the embedded payload must match it
 /// - `expected_address_hex`: if provided, the protected-header `address` must
 ///   equal these raw address bytes (hex). The key→address binding is enforced

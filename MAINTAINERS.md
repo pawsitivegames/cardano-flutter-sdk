@@ -30,7 +30,7 @@ Maintainers who have stepped back but contributed significantly:
 ## Contact
 
 - **Email:** maintainers@cardano-flutter-sdk.dev
-- **GitHub Issues:** [Create an issue](../../issues)
+- **GitHub Issues:** [Create an issue](https://github.com/pawsitivegames/cardano-flutter-sdk/issues)
 - **Security:** security@cardano-flutter-sdk.dev (do not use for non-security matters)
 
 ---

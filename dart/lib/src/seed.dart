@@ -25,8 +25,8 @@ EncryptedSeed encryptSeed({required String secret, required String password}) =>
     RustLib.instance.api
         .crateSeedEncryptSeed(secret: secret, password: password);
 
-/// Like [`encrypt_seed`] but with explicit Argon2id cost parameters (tune via
-/// [`benchmark_kdf`]). Parameters are stored in the header, so decryption does
+/// Like `encrypt_seed` but with explicit Argon2id cost parameters (tune via
+/// `benchmark_kdf`). Parameters are stored in the header, so decryption does
 /// not need them supplied again.
 EncryptedSeed encryptSeedWithParams(
         {required String secret,
@@ -41,7 +41,7 @@ EncryptedSeed encryptSeedWithParams(
         iterations: iterations,
         parallelism: parallelism);
 
-/// Decrypt a `CFS1` container produced by [`encrypt_seed`]. Returns the original
+/// Decrypt a `CFS1` container produced by `encrypt_seed`. Returns the original
 /// UTF-8 secret. A wrong password and a tampered blob are indistinguishable —
 /// both surface as an authentication failure (fails closed, never partial).
 String decryptSeed({required String blobHex, required String password}) =>
@@ -57,7 +57,7 @@ BigInt benchmarkKdf(
     RustLib.instance.api.crateSeedBenchmarkKdf(
         memKib: memKib, iterations: iterations, parallelism: parallelism);
 
-/// Result of [`encrypt_seed`] — the at-rest container plus an echo of the KDF
+/// Result of `encrypt_seed` — the at-rest container plus an echo of the KDF
 /// parameters that were actually used (also embedded in `blob_hex`).
 class EncryptedSeed {
   /// Versioned, self-describing `CFS1` container, hex-encoded. Store this.

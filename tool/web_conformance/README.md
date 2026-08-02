@@ -56,7 +56,7 @@ cd dart
 dart compile js web/web_wallet_harness.dart -o ../tool/web_conformance/build/wallet_harness.js -O2
 cd ../tool/web_conformance
 node build.mjs
-node run-headless-wallet.mjs   # → "✓ in-browser WebCip30Wallet clean: PASS 13 FAIL 0 / 13"
+node run-headless-wallet.mjs   # → "✓ in-browser WebCip30Wallet clean: PASS 19 FAIL 0 / 19"
 ```
 
 ## CI

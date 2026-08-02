@@ -147,7 +147,7 @@ pub fn build_cip25_metadata(policies: Vec<Cip25Policy>) -> Result<String, Cardan
 
 // ── CIP-68 ───────────────────────────────────────────────────────────────────
 
-/// Build a CIP-68 reference-token inline datum (Constr 0 [ fields_map, version ]).
+/// Build a CIP-68 reference-token inline datum (`Constr 0 [ fields_map, version ]`).
 ///
 /// CIP-68 stores token metadata as a Plutus datum on the (100) reference token
 /// instead of in transaction metadata, enabling on-chain datum updates.

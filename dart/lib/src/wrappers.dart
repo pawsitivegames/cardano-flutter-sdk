@@ -412,7 +412,8 @@ String computeStakeAddress({
 
 /// Build a stake key registration transaction.
 ///
-/// [params] must be a [ProtocolParams] from [fetchProtocolParameters].
+/// [params] must be a [ProtocolParams] from
+/// [BlockfrostProvider.fetchProtocolParameters].
 Future<BuiltStakingTx> buildStakeRegistrationTx({
   required String stakeKeyHashHex,
   required List<TxInput> inputs,

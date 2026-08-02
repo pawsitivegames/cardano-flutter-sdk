@@ -1,6 +1,6 @@
 # Cardano Flutter SDK — Project Plan
 
-> Single source of truth. Last updated: 2026-06-09.
+> Single source of truth. Last updated: 2026-08-02.
 > Independent, self-funded, open-source. No deadlines — phases ship when production-ready.
 
 ---
@@ -372,10 +372,11 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
   `NativeConformanceBackend`), 32 frozen golden vectors
   (`test/conformance/golden_cbor.json`) across address/value/plutus/witness/COSE,
   CI gate (`test/conformance_test.dart`), generator (`generate_golden.dart`).
-- ✅ **CML-JS web backend scaffold** (`cml_web_backend.dart`): `dart:js_interop`
+- ✅ **CML-JS web backend** (`cml_web_backend.dart`): `dart:js_interop`
   bindings to `@dcspark/cardano-multiplatform-lib-browser` + `CmlWebBackend`.
-  **Browser-verify pending** — unmapped ops throw (fail loud, not silent). Not
-  exported from the barrel so native builds never link `dart:js_interop`.
+  The full browser gate passes 32/32 vectors; unmapped ops throw (fail loud,
+  not silent). It is not exported from the native barrel, so native builds never
+  link `dart:js_interop`.
 - ✅ Web (scoped): address derivation, balance/UTxO read, **CIP-30 connect +
   signData + signTx + submitTx** — *not* full tx-building (deferred to a later
   web-parity track).
@@ -401,7 +402,7 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
 - ✅ Scoped CIP-30 runs in a desktop browser build — `WebCip30Wallet` derivation +
   CIP-30 address encodings + `signData`→`verifyData` gated in-browser against
   native golden values, plus `signTx` witness-set parity against a CML fixture
-  (`web_wallet_harness.dart`, PASS 13), wired into CI.
+  (`web_wallet_harness.dart`, PASS 19), wired into CI.
 - ✅ **Cross-wallet check vs Eternl** — real Eternl mainnet `signData` vector is
   fixture-gated by `test/cross_wallet_verify_test.dart`; native `verifyData`
   accepts it with address binding and rejects a tampered payload. Capture guide
@@ -447,7 +448,7 @@ Definition of Done (`0.12.0` RC):
       feasibility, coverage, Android emulator, web, and macOS gates are complete.
 - [x] iOS passing CI + live-verified; macOS functional; Web (scoped) functional
       (2026-06-09 local RC gates: Rust fmt/clippy/tests PASS; Dart analyze/tests
-      PASS; web conformance PASS 32/32; WebCip30Wallet PASS 13/13. CI re-run
+      PASS; web conformance PASS 32/32; WebCip30Wallet PASS 19/19. CI re-run
       complete for `1642aa3` on 2026-06-10. 2026-06-10 local release verification is
       complete in `docs/RC_0_12_0_RELEASE_VERIFICATION.md`: Rust/Dart/web/iOS/
       macOS/Android-build gates PASS; live Blockfrost tests skipped without env).
@@ -610,17 +611,22 @@ notes the hardware coverage now closed.
 ## Build & Test Commands
 
 ```bash
-# Rust tests (30 tests as of Phase 2)
-cargo test
+# Rust tests
+cd rust && cargo test
 
-# Dart tests (requires macOS framework — one-time setup below)
+# Dart package tests (requires the native dylib — setup below)
 cd dart && flutter test
+
+# Example app widget tests
+cd example && flutter test
 
 # Live Blockfrost test
 cd dart && BLOCKFROST_PROJECT_ID=<key> flutter test test/providers/blockfrost_live_test.dart
 
 # Lint
-cargo clippy --all-targets -- -D warnings && flutter analyze
+cd rust && cargo fmt --check
+cd rust && cargo clippy --all-targets -- -D warnings
+cd dart && flutter analyze
 
 # Deploy to device (run in background; monitor via iPhone Mirroring)
 cd example && flutter run -d <device-id>
@@ -631,12 +637,13 @@ flutter_rust_bridge_codegen generate
 
 **One-time macOS setup for `flutter test`** (widget tests load the Rust FFI bridge):
 ```bash
-cargo build --lib
-FWDIR="/opt/homebrew/Caskroom/flutter/$(flutter --version | head -1 | awk '{print $2}')/flutter/bin/cache/artifacts/engine/darwin-x64/Frameworks"
-mkdir -p "$FWDIR/cardano_flutter_rs.framework"
-cp rust/target/debug/libcardano_flutter_rs.dylib "$FWDIR/cardano_flutter_rs.framework/cardano_flutter_rs"
-install_name_tool -id "@rpath/cardano_flutter_rs.framework/cardano_flutter_rs" "$FWDIR/cardano_flutter_rs.framework/cardano_flutter_rs"
+cd rust && cargo build --lib
+mkdir -p target/release
+cp target/debug/libcardano_flutter_rs.dylib target/release/libcardano_flutter_rs.dylib
 ```
+
+The generated FRB loader resolves the library from `rust/target/release`; do not
+copy it into the Flutter engine Frameworks directory.
 
 ---
 
