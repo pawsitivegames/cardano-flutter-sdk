@@ -285,6 +285,18 @@ void main() {
       expect(signedTxToBytes(signedTx), equals([0x84, 0x01, 0x02, 0xff]));
     });
 
+    test('signedTxToBytes rejects odd-length transaction hex', () {
+      final signedTx = SignedTx(txCborHex: 'abc', txHash: 'hash');
+
+      expect(() => signedTxToBytes(signedTx), throwsA(isA<FormatException>()));
+    });
+
+    test('signedTxToBytes rejects non-hex transaction characters', () {
+      final signedTx = SignedTx(txCborHex: '84010g', txHash: 'hash');
+
+      expect(() => signedTxToBytes(signedTx), throwsA(isA<FormatException>()));
+    });
+
     test('computeStakeAddress returns a testnet reward address', () {
       const stakeKeyHash =
           '05261533f512bfb9dc8a8686e97951f474a532778f0e2228f8865c17';

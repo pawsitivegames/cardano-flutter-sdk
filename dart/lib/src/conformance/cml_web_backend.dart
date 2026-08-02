@@ -40,6 +40,7 @@ import 'dart:typed_data';
 import 'package:meta/meta.dart';
 
 import '../providers/blockfrost.dart';
+import '../hex.dart';
 
 // Import the PURE contract, not `conformance.dart` — the latter pulls in
 // `NativeConformanceBackend` and its `dart:ffi` chain, which does not compile
@@ -707,13 +708,7 @@ class CmlWebBackend implements ConformanceBackend {
 
   // --- helpers ------------------------------------------------------------
 
-  static Uint8List _hexToBytes(String hex) {
-    final out = Uint8List(hex.length ~/ 2);
-    for (var i = 0; i < out.length; i++) {
-      out[i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
-    }
-    return out;
-  }
+  static Uint8List _hexToBytes(String hex) => decodeHex(hex);
 
   static String _bytesToHex(Uint8List bytes) {
     final sb = StringBuffer();

@@ -28,6 +28,7 @@ import 'package:meta/meta.dart';
 
 import '../conformance/cml_web_backend.dart';
 import '../conformance/conformance_contract.dart';
+import '../hex.dart';
 import '../providers/blockfrost.dart';
 import '../cip30/cip30_wallet_api.dart';
 import 'value_aggregate.dart';
@@ -181,7 +182,7 @@ class WebCip30Wallet implements Cip30WalletApi<WebDataSignature> {
     }
 
     final root = _Bip32PrivateKey.from_bip39_entropy(
-      _hexToBytes(entropyHex).toJS,
+      decodeHex(entropyHex, label: 'mnemonic entropy').toJS,
       // CML's password argument is the BIP-39 passphrase. Passing it here
       // keeps web derivation identical to the native BIP-39 path.
       Uint8List.fromList(utf8.encode(passphrase)).toJS,
@@ -307,13 +308,7 @@ class WebCip30Wallet implements Cip30WalletApi<WebDataSignature> {
   /// CIP-30 `submitTx` — submit a fully signed transaction CBOR hex string and
   /// return its transaction hash.
   Future<String> submitTx(String signedTxCborHex) async =>
-      provider.submitTransaction(_hexToBytes(signedTxCborHex));
-
-  static Uint8List _hexToBytes(String hex) {
-    final out = Uint8List(hex.length ~/ 2);
-    for (var i = 0; i < out.length; i++) {
-      out[i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
-    }
-    return out;
-  }
+      provider.submitTransaction(
+        decodeHex(signedTxCborHex, label: 'signed transaction CBOR'),
+      );
 }

@@ -5,6 +5,7 @@
 
 import 'dart:typed_data';
 import 'frb_generated.dart';
+import 'hex.dart';
 import 'wallet.dart';
 import 'address.dart';
 import 'tx.dart';
@@ -308,13 +309,7 @@ Future<SignedTx> signTransaction({
 /// Converts the hex-encoded CBOR transaction from [SignedTx] to raw bytes
 /// for submission to Blockfrost or other providers.
 Uint8List signedTxToBytes(SignedTx signedTx) {
-  return Uint8List.fromList(List<int>.from(
-    List.generate(
-      signedTx.txCborHex.length ~/ 2,
-      (i) =>
-          int.parse(signedTx.txCborHex.substring(i * 2, i * 2 + 2), radix: 16),
-    ),
-  ));
+  return decodeHex(signedTx.txCborHex, label: 'signed transaction CBOR');
 }
 
 // ── Phase 3: Minting + Metadata ─────────────────────────────────────────────

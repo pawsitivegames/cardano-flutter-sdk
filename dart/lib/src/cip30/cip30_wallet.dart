@@ -10,9 +10,9 @@
 // `transaction_witness_set`, and `signData` yields a COSE `DataSignature`.
 
 import 'dart:convert';
-import 'dart:typed_data';
 
 import '../cip30.dart';
+import '../hex.dart';
 import '../tx.dart';
 import '../wallet.dart' show KeyDerivationResult;
 import '../wrappers.dart';
@@ -199,7 +199,9 @@ class Cip30Wallet implements Cip30WalletApi<DataSignature> {
   /// `api.submitTx(tx)` — submit a fully-signed transaction (CBOR hex) and
   /// return its transaction hash.
   Future<String> submitTx(String signedTxCborHex) async {
-    return provider.submitTransaction(_hexToBytes(signedTxCborHex));
+    return provider.submitTransaction(
+      decodeHex(signedTxCborHex, label: 'signed transaction CBOR'),
+    );
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -213,10 +215,4 @@ class Cip30Wallet implements Cip30WalletApi<DataSignature> {
     return sb.toString();
   }
 
-  static Uint8List _hexToBytes(String hex) => Uint8List.fromList(
-        List.generate(
-          hex.length ~/ 2,
-          (i) => int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16),
-        ),
-      );
 }

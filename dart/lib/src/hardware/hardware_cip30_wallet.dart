@@ -6,11 +6,10 @@
 // go through a [BlockfrostProvider]; signing is delegated to the device and the
 // returned witnesses are assembled into a submittable transaction.
 
-import 'dart:typed_data';
-
 import 'package:meta/meta.dart';
 
 import '../cip30.dart';
+import '../hex.dart';
 import '../tx.dart' show Value;
 import '../hardware.dart'
     show HardwareAccount, xpubToAccount, assembleVkeyWitnessSet;
@@ -199,13 +198,8 @@ class HardwareCip30Wallet {
   /// `api.submitTx(tx)` — submit a fully-signed transaction (CBOR hex) and
   /// return its transaction hash.
   Future<String> submitTx(String signedTxCborHex) async {
-    return provider.submitTransaction(_hexToBytes(signedTxCborHex));
+    return provider.submitTransaction(
+      decodeHex(signedTxCborHex, label: 'signed transaction CBOR'),
+    );
   }
-
-  static Uint8List _hexToBytes(String hex) => Uint8List.fromList(
-        List.generate(
-          hex.length ~/ 2,
-          (i) => int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16),
-        ),
-      );
 }
