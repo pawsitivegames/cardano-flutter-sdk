@@ -8,6 +8,8 @@ support that contract and do not replace it.
 
 - [Project plan and release gates](PLAN.md) — current architecture, roadmap,
   platform matrix, verification boundaries, blockers, and version gates.
+- [Reference Flutter example](../example/README.md) — native and web run paths,
+  provider configuration, diagnostics recovery, and example-specific checks.
 - [Web backend](web-backend.md) — CML-JS scope, CSL↔CML byte-parity contract,
   browser harness, and web limitations.
 - [Android verification](android-verification.md) — ARM64 emulator and 16 KB
