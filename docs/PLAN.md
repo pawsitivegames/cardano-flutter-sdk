@@ -205,7 +205,8 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 - iOS `web+cardano://` deep link (Info.plist + `app_links`) ✅
 - Builds for iOS simulator; deps confined to the example (core stays lean) ✅
 
-**Follow-ups shipped (2026-06-03, code-complete; device verify pending):**
+**Follow-ups shipped (2026-06-03; Android deep-link smoke verified 2026-08-02;
+full QR/two-peer verification remains open):**
 - Android `web+cardano://` `<intent-filter>` (singleTop `MainActivity` + `app_links`) ✅
 - In-wallet QR scanning of the connection URI (`mobile_scanner` + `qr_scanner_page.dart`,
   camera permissions for both platforms) ✅ **verified on iPhone 13 (2026-06-03):
@@ -215,9 +216,11 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
   (`Cip45SignalingChannel` = WebTorrent tracker, `Cip45RpcCodec` = NaCl/bencode)
   documented but not implemented 🟡 (see `docs/cip45-transport.md`)
 
-**Pending (needs live two-peer run on a device — see `docs/cip45-testing.md`):**
+**Pending (needs live two-peer run and QR exercise on a device — see
+`docs/cip45-testing.md`):**
 - dApp page ↔ wallet connect over public trackers, RPC round-trip, signData/signTx
-- Android-device run of the deep link + QR flow (iOS already live-verified)
+- Android physical-device QR/camera flow (the deep link intent was smoke-verified;
+  iOS remains live-verified)
 - A Dart WebTorrent tracker client + bugout framing to make the native WebRTC
   transport talk to real bugout.js dApps
 

@@ -10,8 +10,8 @@ JS interop, not Rust/WASM FFI.
 `0.12.0` is the feature-complete RC:
 
 - iOS: live-verified on device.
-- Android: ARM64 16 KB page-size emulator verified. Physical-device and broader
-  ABI verification are still pending.
+- Android: ARM64 physical-device smoke verified on Android 16 with
+  `pageSizeCompat=0`; Play Store/AAB and broader ABI verification remain pending.
 - macOS: packaged FFI plugin verified, including testnet transaction submission.
 - Web: scoped CML-JS backend verified in browser by golden-CBOR conformance.
 - Hardware wallets: API is `@experimental`; Ledger transaction signing is not

@@ -133,7 +133,7 @@ also mangles bare primitives. Both fixes are needed for `getNetworkId` to work.
 | Protocol core (`Cip45ConnectionUri` / `Cip45WalletHandler` / `Cip45Transport`) | ✅ shipped, unit-tested |
 | `BugoutCip45Transport` (WebView) | ✅ shipped, **live-verified** (iOS ↔ desktop dApp) |
 | iOS `web+cardano://` deep link | ✅ shipped |
-| Android `web+cardano://` intent-filter | ✅ shipped (Android-device verify pending) |
+| Android `web+cardano://` intent-filter | ✅ shipped; physical deep-link smoke verified 2026-08-02 (QR/two-peer run pending) |
 | In-wallet QR scanning (`mobile_scanner`) | ✅ **verified on iPhone 13 (2026-06-03)** — scanned the dApp QR → parsed URI → CIP-45 connect → API handshake (`wallet connected: cardano_flutter_rs`) |
 | `WebrtcCip45Transport` (native, no WebView) | 🟡 scaffold — WebRTC done; bugout `Cip45SignalingChannel` (WebTorrent tracker) + `Cip45RpcCodec` (NaCl/bencode) seams documented, not implemented |
 | Two-device / Android-device live run | ⏳ pending hardware |
