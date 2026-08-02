@@ -232,12 +232,19 @@ class WebCip30Wallet implements Cip30WalletApi<WebDataSignature> {
   Future<String> getChangeAddress() async =>
       _cml.addressToHex(addressBech32: baseAddressBech32);
 
-  /// CIP-30 `getUsedAddresses` — the scoped wallet exposes a single account
-  /// address, returned as hex so dApps can target it directly.
-  Future<List<String>> getUsedAddresses() async => [await getChangeAddress()];
+  /// CIP-30 `getUsedAddresses` — the base address after on-chain use.
+  Future<List<String>> getUsedAddresses() async {
+    final used = await provider.isAddressUsed(baseAddressBech32);
+    if (!used) return [];
+    return [await getChangeAddress()];
+  }
 
-  /// CIP-30 `getUnusedAddresses` — none in the scoped single-address model.
-  Future<List<String>> getUnusedAddresses() async => const [];
+  /// CIP-30 `getUnusedAddresses` — the base address before on-chain use.
+  Future<List<String>> getUnusedAddresses() async {
+    final used = await provider.isAddressUsed(baseAddressBech32);
+    if (used) return [];
+    return [await getChangeAddress()];
+  }
 
   /// CIP-30 `getRewardAddresses` — the account's stake/reward address as hex.
   Future<List<String>> getRewardAddresses() async =>

@@ -135,18 +135,18 @@ class HardwareCip30Wallet {
   Future<String> getChangeAddress() async =>
       addressToHex(addressBech32: baseAddress);
 
-  /// `api.getUsedAddresses()` — base address as hex when it holds UTxOs.
+  /// `api.getUsedAddresses()` — base address as hex after on-chain use.
   Future<List<String>> getUsedAddresses() async {
-    final utxos = await provider.fetchUtxos(baseAddress);
-    if (utxos.isEmpty) return [];
+    final used = await provider.isAddressUsed(baseAddress);
+    if (!used) return [];
     return [addressToHex(addressBech32: baseAddress)];
   }
 
-  /// `api.getUnusedAddresses()` — base address as hex when it holds no UTxOs.
+  /// `api.getUnusedAddresses()` — base address as hex before on-chain use.
   Future<List<String>> getUnusedAddresses() async {
-    final utxos = await provider.fetchUtxos(baseAddress);
-    if (utxos.isEmpty) return [addressToHex(addressBech32: baseAddress)];
-    return [];
+    final used = await provider.isAddressUsed(baseAddress);
+    if (used) return [];
+    return [addressToHex(addressBech32: baseAddress)];
   }
 
   /// `api.getRewardAddresses()` — the wallet's reward address as hex.

@@ -136,22 +136,22 @@ class Cip30Wallet implements Cip30WalletApi<DataSignature> {
 
   /// `api.getUsedAddresses()` — addresses that have participated in a tx.
   ///
-  /// Returned as hex strings. This single-address wallet reports its base
-  /// address as used when it currently holds UTxOs, otherwise an empty list.
+  /// Returned as hex strings. Usage is based on on-chain transaction history,
+  /// not current UTxO balance, so a previously spent address remains used.
   Future<List<String>> getUsedAddresses() async {
-    final utxos = await provider.fetchUtxos(baseAddress);
-    if (utxos.isEmpty) return [];
+    final used = await provider.isAddressUsed(baseAddress);
+    if (!used) return [];
     return [addressToHex(addressBech32: baseAddress)];
   }
 
   /// `api.getUnusedAddresses()` — addresses not yet used.
   ///
-  /// Returned as hex strings. Reports the base address as unused when it holds
-  /// no UTxOs, otherwise an empty list.
+  /// Returned as hex strings. A never-seen address is unused even when it has
+  /// no UTxOs (the normal pre-funding state).
   Future<List<String>> getUnusedAddresses() async {
-    final utxos = await provider.fetchUtxos(baseAddress);
-    if (utxos.isEmpty) return [addressToHex(addressBech32: baseAddress)];
-    return [];
+    final used = await provider.isAddressUsed(baseAddress);
+    if (used) return [];
+    return [addressToHex(addressBech32: baseAddress)];
   }
 
   /// `api.getRewardAddresses()` — the wallet's reward address(es) as hex.

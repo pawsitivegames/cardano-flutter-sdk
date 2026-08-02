@@ -14,6 +14,8 @@ import 'dart:convert';
 import 'dart:js_interop';
 
 import 'package:cardano_flutter_rs/cardano_flutter_rs_web.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 @JS('WALLET_RESULT')
 external set _walletResult(String v);
@@ -43,20 +45,30 @@ Future<void> main() async {
   final checks = <String, bool>{};
   final notes = <String>[];
 
+  BlockfrostProvider providerFor({required bool used}) {
+    final client = MockClient((request) async {
+      if (request.url.path.endsWith('/total')) {
+        if (!used) return http.Response('', 404);
+        return http.Response(jsonEncode({'tx_count': 1}), 200);
+      }
+      return http.Response('[]', 200);
+    });
+    return BlockfrostProvider(
+      projectId: 'offline-harness',
+      network: Network.testnetPreview,
+      client: client,
+    );
+  }
+
   void check(String name, bool ok, [String? note]) {
     checks[name] = ok;
     if (note != null) notes.add('$name: $note');
   }
 
   try {
-    // A provider is required by the factory but never called by offline ops.
-    final provider = BlockfrostProvider(
-      projectId: 'offline-harness',
-      network: Network.testnetPreview,
-    );
     final wallet = await WebCip30Wallet.fromMnemonic(
       mnemonic: _mnemonic,
-      provider: provider,
+      provider: providerFor(used: true),
       isTestnet: true,
     );
     final Cip30WalletApi<WebDataSignature> contract = wallet;
@@ -80,6 +92,18 @@ Future<void> main() async {
         used.length == 1 && used.first == expBaseHex);
     check(
         'getUnusedAddresses==[]', (await wallet.getUnusedAddresses()).isEmpty);
+
+    final unusedWallet = await WebCip30Wallet.fromMnemonic(
+      mnemonic: _mnemonic,
+      provider: providerFor(used: false),
+      isTestnet: true,
+    );
+    final unused = await unusedWallet.getUsedAddresses();
+    check('never-seen getUsedAddresses==[]', unused.isEmpty);
+    final available = await unusedWallet.getUnusedAddresses();
+    check(
+        'never-seen getUnusedAddresses==[base]',
+        available.length == 1 && available.first == expBaseHex);
 
     final reward = await wallet.getRewardAddresses();
     check(

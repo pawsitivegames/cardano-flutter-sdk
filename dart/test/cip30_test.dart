@@ -219,11 +219,17 @@ void main() {
 
   group('Cip30Wallet', () {
     // A MockClient that returns canned Blockfrost responses.
-    BlockfrostProvider providerWithUtxos(List<Map<String, dynamic>> utxos) {
+    BlockfrostProvider providerWithUtxos(
+      List<Map<String, dynamic>> utxos, {
+      int? txCount,
+    }) {
       final client = MockClient((request) async {
         final path = request.url.path;
         if (path.contains('/utxos')) {
           return http.Response(jsonEncode(utxos), 200);
+        }
+        if (path.endsWith('/total') && txCount != null) {
+          return http.Response(jsonEncode({'tx_count': txCount}), 200);
         }
         return http.Response('Not found', 404);
       });
@@ -326,8 +332,16 @@ void main() {
       );
     });
 
-    test('used/unused address lists flip on UTxO presence', () async {
-      // Empty wallet: base address is unused.
+    test('used/unused address lists follow on-chain history', () async {
+      // A spent address can have no current UTxOs and is still used.
+      final spent = await Cip30Wallet.fromMnemonic(
+        mnemonic: testMnemonic,
+        provider: providerWithUtxos(const [], txCount: 3),
+      );
+      expect(await spent.getUsedAddresses(), hasLength(1));
+      expect(await spent.getUnusedAddresses(), isEmpty);
+
+      // A never-seen address is unused before it receives its first UTxO.
       final empty = await Cip30Wallet.fromMnemonic(
         mnemonic: testMnemonic,
         provider: providerWithUtxos(const []),
@@ -335,16 +349,17 @@ void main() {
       expect(await empty.getUsedAddresses(), isEmpty);
       expect(await empty.getUnusedAddresses(), hasLength(1));
 
-      // Funded wallet: base address is used.
+      // A currently funded address is also used when its history says so.
       var funded = await Cip30Wallet.fromMnemonic(
         mnemonic: testMnemonic,
         provider: providerWithUtxos(const []),
       );
       funded = await Cip30Wallet.fromMnemonic(
         mnemonic: testMnemonic,
-        provider: providerWithUtxos([
-          lovelaceUtxo(funded.baseAddress, 5000000, 0),
-        ]),
+        provider: providerWithUtxos(
+          [lovelaceUtxo(funded.baseAddress, 5000000, 0)],
+          txCount: 1,
+        ),
       );
       expect(await funded.getUsedAddresses(), hasLength(1));
       expect(await funded.getUnusedAddresses(), isEmpty);

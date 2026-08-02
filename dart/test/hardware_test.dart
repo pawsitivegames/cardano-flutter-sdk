@@ -135,10 +135,16 @@ void main() {
   });
 
   group('HardwareCip30Wallet', () {
-    BlockfrostProvider providerWithUtxos(List<Map<String, dynamic>> utxos) {
+    BlockfrostProvider providerWithUtxos(
+      List<Map<String, dynamic>> utxos, {
+      int? txCount,
+    }) {
       final client = MockClient((request) async {
         if (request.url.path.contains('/utxos')) {
           return http.Response(jsonEncode(utxos), 200);
+        }
+        if (request.url.path.endsWith('/total') && txCount != null) {
+          return http.Response(jsonEncode({'tx_count': txCount}), 200);
         }
         return http.Response('Not found', 404);
       });
@@ -190,7 +196,7 @@ void main() {
         provider: providerWithUtxos([
           lovelaceUtxo(addr, 3000000, 0),
           lovelaceUtxo(addr, 7000000, 1),
-        ]),
+        ], txCount: 1),
       );
 
       final utxos = await wallet.getUtxos();
@@ -209,6 +215,17 @@ void main() {
 
       final rewards = await wallet.getRewardAddresses();
       expect(rewards.first, addressToHex(addressBech32: wallet.rewardAddress));
+    });
+
+    test('used address remains used after its UTxOs are spent', () async {
+      final device = MockHardwareWallet(xpub: testAccountXpub);
+      final wallet = await HardwareCip30Wallet.fromDevice(
+        device: device,
+        provider: providerWithUtxos(const [], txCount: 2),
+      );
+
+      expect(await wallet.getUsedAddresses(), hasLength(1));
+      expect(await wallet.getUnusedAddresses(), isEmpty);
     });
 
     test('signTransaction assembles a tx byte-identical to software signing',
