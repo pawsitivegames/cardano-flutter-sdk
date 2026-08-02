@@ -7,8 +7,8 @@
 //
 // Fixtures live in `test/fixtures/cross_wallet_signatures.json`. Each fixture is
 // asserted to verify, AND a tampered-payload copy is asserted to be rejected — so
-// a passing fixture proves the check is real. If a checkout intentionally clears
-// the fixture array, the test skips rather than failing.
+// a passing fixture proves the check is real. The fixture is a release-quality
+// interop gate, so an empty array fails instead of silently removing coverage.
 import 'dart:convert';
 import 'dart:io';
 
@@ -24,16 +24,11 @@ void main() {
   final root = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
   final signatures = (root['signatures'] as List).cast<Map<String, dynamic>>();
 
-  if (signatures.isEmpty) {
-    test('cross-wallet verify (no fixtures yet — skipped)', () {
-      markTestSkipped(
-        'No third-party wallet signatures captured yet. See '
-        'docs/cross-wallet-verify.md to add a real Lace/Eternl signData output '
-        'to test/fixtures/cross_wallet_signatures.json.',
-      );
-    }, skip: true);
-    return;
-  }
+  test('cross-wallet fixture retains at least one real wallet vector', () {
+    expect(signatures, isNotEmpty,
+        reason: 'At least one third-party wallet fixture is required. See '
+            'docs/cross-wallet-verify.md to add a real wallet signData output.');
+  });
 
   for (final f in signatures) {
     final label =

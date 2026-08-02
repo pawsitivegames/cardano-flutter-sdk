@@ -48,7 +48,7 @@ same bytes by a golden-CBOR conformance suite (see [`docs/web-backend.md`](docs/
 | Android | CSL / Rust FFI | 🟡 ARM64 16 KB emulator-verified; physical-device + broader ABI policy pending |
 | macOS | CSL / Rust FFI | ✅ Packaged + testnet send verified |
 | Linux / Windows | CSL / Rust FFI | 🟡 Best-effort, CI-build only |
-| Web | CML-JS interop | ✅ Scoped CML-JS backend verified in browser; cross-wallet capture pending |
+| Web | CML-JS interop | ✅ Scoped CML-JS backend verified in browser; Eternl cross-wallet fixture passes |
 
 > "Verified on device" is never used for emulator-only results. The version string
 > never implies uniform readiness across platforms — this matrix is the source of truth.

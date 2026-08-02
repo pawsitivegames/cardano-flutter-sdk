@@ -68,7 +68,10 @@ the `payload` hex you signed (and, optionally, the signer address hex).
 
    It asserts the signature **verifies** under native `verifyData` (with identity
    binding to the header address) and that a **tampered** payload is rejected.
-   While the array is empty the test skips, so CI stays green until you add one.
+   The fixture array is a release-quality gate: an empty array fails, so CI
+   cannot silently lose all third-party coverage. The repository currently
+   includes a real Eternl mainnet vector; add more wallet captures when
+   available.
 
 ## What a pass proves
 

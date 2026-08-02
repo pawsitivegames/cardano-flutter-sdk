@@ -23,6 +23,8 @@ support that contract and do not replace it.
   guidance for tracker/WebRTC failures.
 - [Cross-wallet verification](cross-wallet-verify.md) — how to capture and
   verify third-party CIP-30 `signData` output without exposing credentials.
+- [Fixture data contract](fixture-data-contract.md) — executable shape,
+  identity, provenance, and coverage guarantees for interoperability JSON.
 - [Hardware wallets](hardware-wallets.md) — xpub/read/sign seams and the
   physical-device evidence still required before promotion.
 - [Seed encryption](seed-encryption.md) — CFS1 format, Rust crypto boundary,
