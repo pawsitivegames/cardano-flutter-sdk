@@ -554,12 +554,14 @@ Future<SignedTx> signMintTransaction({
   );
 }
 
-// ── Phase 4.2: Message Signing (CIP-8) ──────────────────────────────────────
+// ── Phase 4.2: Legacy message signing ───────────────────────────────────────
 
-/// Sign an arbitrary message with a payment or stake key (CIP-8).
+/// Sign an arbitrary message with a payment or stake key using the legacy
+/// message format.
 ///
-/// Creates a COSE Sign1 signed message that can be verified independently.
-/// Use for authentication, proof-of-key ownership, or dApp login flows.
+/// This API is retained for compatibility and is not the CIP-8/CIP-30 wallet
+/// interop format. For authentication, proof-of-key ownership, or dApp login
+/// flows, use [cip30SignData] and [cip30VerifyData] instead.
 ///
 /// Example:
 /// ```dart
@@ -587,10 +589,11 @@ Future<SignedMessage> signMessage({
   );
 }
 
-/// Verify a CIP-8 signed message.
+/// Verify a legacy signed message.
 ///
-/// Checks that the signature is valid for the public key in the message.
-/// Optionally verifies that the message came from an expected address.
+/// Checks that the legacy signature is valid for the public key in the message.
+/// Optionally verifies the claimed address. This is not a replacement for the
+/// protected-header identity binding in [cip30VerifyData].
 ///
 /// Returns true if the signature is valid, false otherwise.
 ///

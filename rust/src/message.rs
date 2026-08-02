@@ -1,7 +1,8 @@
-//! CIP-8 message signing and verification.
+//! Legacy message signing and verification.
 //!
-//! Provides functions to sign arbitrary messages with payment or stake keys
-//! and verify signatures.
+//! Provides compatibility functions to sign arbitrary messages with payment or
+//! stake keys and verify signatures. The interoperable CIP-8/CIP-30 path lives
+//! in [`crate::cip30`].
 //!
 //! # ⚠️ Legacy — prefer [`crate::cip30`] for new code
 //!
@@ -32,7 +33,7 @@ use serde::{Deserialize, Serialize};
 /// A signed message with signature, public key, and address information.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignedMessage {
-    /// Hex-encoded COSE Sign1 structure containing signature + payload
+    /// Hex-encoded legacy CBOR message container containing signature + payload.
     pub cose_sign1_hex: String,
     /// Hex-encoded public key (32 bytes)
     pub public_key_hex: String,
@@ -51,7 +52,8 @@ pub struct SignedMessage {
 /// Sign a message (arbitrary bytes) with a private key.
 ///
 /// Uses Blake2b-256 to hash the message, then signs with the private key.
-/// Returns a COSE Sign1 structure (CBOR encoded).
+/// Returns the legacy message container (CBOR encoded), not a standard
+/// `COSE_Sign1` structure.
 ///
 /// # Arguments
 /// * `message` - Hex-encoded bytes to sign
@@ -59,7 +61,8 @@ pub struct SignedMessage {
 /// * `address` - Optional address for context (e.g., the sender's address)
 ///
 /// # Returns
-/// A [SignedMessage] containing the COSE Sign1 hex, public key, and address.
+/// A [SignedMessage] containing the legacy message-container hex, public key,
+/// and address.
 ///
 /// # Errors
 /// * `InvalidKey` - If the signing key cannot be decoded
@@ -149,7 +152,7 @@ pub fn sign_message_internal(
 /// present); `false` otherwise.
 ///
 /// # Errors
-/// * `InvalidCbor` - If the COSE Sign1 structure is malformed
+/// * `InvalidCbor` - If the legacy CBOR message container is malformed
 /// * `InvalidAddress` - If a claimed/expected address cannot be parsed
 #[frb(sync)]
 pub fn verify_message(

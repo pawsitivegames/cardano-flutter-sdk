@@ -38,7 +38,7 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 | 3 — Minting + Plutus + CIP-25/68 | ✅ **Verified 2026-05-26** | v0.3.0 |
 | 2.5 — Production hardening | ✅ **Complete 2026-05-25** | v0.3.1 |
 | 4.1 — Staking operations | ✅ **Verified 2026-05-26** | v0.4.0 |
-| 4.2 — Message signing (CIP-8) | ✅ **Complete 2026-05-26** | v0.5.0 |
+| 4.2 — Legacy message signing | ✅ **Complete 2026-05-26** | v0.5.0 |
 | 4.3 — CIP-30 dApp connector | ✅ **Verified 2026-06-02** | v0.6.0 |
 | 4.4 — CIP-45 mobile connector | ✅ **Live-verified 2026-06-02** (iOS) | v0.7.0 |
 | 4.5 — Hardware wallets (Ledger) | 🟡 **Core done 2026-06-02**; on-device signing pending | v0.8.0 |
@@ -68,7 +68,8 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 
 **Phase 4.2 verification (2026-05-26):**
 - Rust 77/77 (8 new message tests) · Dart package: no issues found
-- New module: `message` with CIP-8 COSE Sign1 support
+- New module: `message` with a retained legacy CBOR message format; CIP-30
+  `signData` owns interoperable COSE/CIP-8 signing
 - `signMessage()` / `verifyMessage()` with payment or stake keys
 - Blake2b-256 hashing + Ed25519 signatures + CBOR encoding
 - Example app: Message screen with sign/verify UI for dApp auth
@@ -141,17 +142,22 @@ cardano-serialization-lib (CSL)     ← active backend (v15.0.3)
 
 ---
 
-### Phase 4.2 — Message Signing (CIP-8) → v0.5.0 ✅
+### Phase 4.2 — Legacy Message Signing → v0.5.0 ✅
 *Dependency: Phase 4.1 complete. Prerequisite for CIP-30.*
 
 **Deliverables:**
-- Sign arbitrary payload with payment or stake key (CIP-8 `signData`) ✅
-- Verify a CIP-8 signature ✅
-- Example: dApp login / auth flow in example app ✅
+- Sign arbitrary payload with payment or stake key in the retained legacy CBOR
+  message format ✅
+- Verify the legacy signature and address claim ✅
+- Example: compatibility sign/verify flow; use Phase 4.3 CIP-30 `signData` for
+  dApp login and cross-wallet interoperability ✅
 
 **Verification:**
-- Signatures verified via Blake2b-256 + Ed25519 + CBOR round-trips ✅
-- Round-trip sign → verify passes for both payment and stake keys ✅
+- Signatures verified via Blake2b-256 + Ed25519 + the legacy CBOR container ✅
+- Round-trip sign → verify and forged-address rejection pass for the public Dart
+  wrapper and Rust implementation ✅
+- This legacy format is deliberately not claimed as standard COSE/CIP-8 wallet
+  interop; the interoperable path is CIP-30 `signData` in Phase 4.3 ✅
 - Rust 77/77 · Dart clean · Example app integrated ✅
 
 ---

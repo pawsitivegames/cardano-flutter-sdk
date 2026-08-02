@@ -22,7 +22,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 /// Sign a message (arbitrary bytes) with a private key.
 ///
 /// Uses Blake2b-256 to hash the message, then signs with the private key.
-/// Returns a COSE Sign1 structure (CBOR encoded).
+/// Returns the legacy message container (CBOR encoded), not a standard
+/// `COSE_Sign1` structure.
 ///
 /// # Arguments
 /// * `message` - Hex-encoded bytes to sign
@@ -30,7 +31,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 /// * `address` - Optional address for context (e.g., the sender's address)
 ///
 /// # Returns
-/// A [SignedMessage] containing the COSE Sign1 hex, public key, and address.
+/// A [SignedMessage] containing the legacy message-container hex, public key,
+/// and address.
 ///
 /// # Errors
 /// * `InvalidKey` - If the signing key cannot be decoded
@@ -73,7 +75,7 @@ Future<SignedMessage> signMessageInternal(
 /// present); `false` otherwise.
 ///
 /// # Errors
-/// * `InvalidCbor` - If the COSE Sign1 structure is malformed
+/// * `InvalidCbor` - If the legacy CBOR message container is malformed
 /// * `InvalidAddress` - If a claimed/expected address cannot be parsed
 bool verifyMessage(
         {required SignedMessage signedMessage, String? expectedAddress}) =>
@@ -87,7 +89,7 @@ Future<bool> verifyMessageInternal(
 
 /// A signed message with signature, public key, and address information.
 class SignedMessage {
-  /// Hex-encoded COSE Sign1 structure containing signature + payload
+  /// Hex-encoded legacy CBOR message container containing signature + payload.
   final String coseSign1Hex;
 
   /// Hex-encoded public key (32 bytes)

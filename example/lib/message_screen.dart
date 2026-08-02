@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cardano_flutter_rs/cardano_flutter_rs.dart';
 
-/// Phase 4.2 example: CIP-8 message signing and verification.
+/// Phase 4.2 example: legacy message signing and verification.
 ///
 /// Provides UI for:
 /// - Signing messages with payment or stake keys
 /// - Verifying signed messages
-/// - Demonstrating CIP-8 COSE Sign1 structure
-/// - Testing dApp authentication flows
+/// - Demonstrating the retained legacy CBOR message container
+/// - Showing that CIP-30 `signData` is the interoperable wallet-auth path
 class MessageScreen extends StatefulWidget {
   final String myAddress;
   final String paymentSigningKey;
@@ -172,7 +172,7 @@ class _MessageScreenState extends State<MessageScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Message Signing (CIP-8)'),
+        title: const Text('Legacy Message Signing'),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -199,7 +199,7 @@ class _MessageScreenState extends State<MessageScreen> {
                           Icon(Icons.security, size: 16, color: Colors.indigo),
                           const SizedBox(width: 8),
                           const Text(
-                            'CIP-8 Message Signing',
+                            'Legacy Message Signing',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
@@ -210,7 +210,7 @@ class _MessageScreenState extends State<MessageScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Sign and verify messages with payment or stake keys for dApp authentication',
+                        'Compatibility format only; use CIP-30 signData for wallet interoperability',
                         style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
                       ),
                     ],
@@ -414,7 +414,7 @@ class _MessageScreenState extends State<MessageScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _DetailRow(
-                          label: 'COSE Sign1 (hex):',
+                          label: 'Legacy CBOR container (hex):',
                           value: _truncateHex(_currentSignedMessage!.coseSign1Hex),
                           fullValue: _currentSignedMessage!.coseSign1Hex,
                         ),
