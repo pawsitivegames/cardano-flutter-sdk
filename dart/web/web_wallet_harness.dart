@@ -171,6 +171,14 @@ Future<void> main() async {
         expectedAddressHex: expBaseHex,
       ),
     );
+
+    var rejectedUnknownAddress = false;
+    try {
+      wallet.signData(payloadHex, addressHex: '00');
+    } on ArgumentError {
+      rejectedUnknownAddress = true;
+    }
+    check('signData rejects unknown address', rejectedUnknownAddress);
   } catch (e, st) {
     check('harness-threw', false, '$e\n$st');
   }

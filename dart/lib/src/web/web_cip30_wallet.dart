@@ -274,8 +274,9 @@ class WebCip30Wallet implements Cip30WalletApi<WebDataSignature> {
   // --- CIP-30: signData ----------------------------------------------------
 
   /// CIP-30 `signData` — COSE_Sign1 over [payloadHex], bound to the wallet's
-  /// base address (identity-binding in the protected header). Returns the
-  /// `COSE_Sign1` + `COSE_Key` hex pair, verifiable by [CmlWebBackend.verifyData]
+  /// base or reward address owned by this wallet (identity-binding in the
+  /// protected header). Returns the `COSE_Sign1` + `COSE_Key` hex pair,
+  /// verifiable by [CmlWebBackend.verifyData]
   /// or the native `verifyData`.
   WebDataSignature signData(String payloadHex, {String? addressHex}) {
     final baseAddressHex = _cml.addressToHex(addressBech32: baseAddressBech32);
@@ -283,6 +284,14 @@ class WebCip30Wallet implements Cip30WalletApi<WebDataSignature> {
       addressBech32: rewardAddressBech32,
     );
     final signerAddressHex = addressHex ?? baseAddressHex;
+    if (signerAddressHex != baseAddressHex &&
+        signerAddressHex != rewardAddressHex) {
+      throw ArgumentError.value(
+        addressHex,
+        'addressHex',
+        'must be a base or reward address owned by this wallet',
+      );
+    }
     final signingKey = signerAddressHex == rewardAddressHex
         ? _stakeSigningKeyBech32
         : _paymentSigningKeyBech32;

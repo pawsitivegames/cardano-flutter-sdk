@@ -177,12 +177,21 @@ class Cip30Wallet implements Cip30WalletApi<DataSignature> {
   /// `api.signData(addr, payload)` — produce a CIP-8 `COSE_Sign1` data
   /// signature over [payloadHex] (hex bytes) for [addressHex].
   ///
-  /// [addressHex] defaults to the wallet's base address. The payment key signs
-  /// for the base address; the stake key signs for the reward address.
+  /// [addressHex] defaults to the wallet's base address and must be either the
+  /// wallet's base or reward address. The payment key signs for the base
+  /// address; the stake key signs for the reward address.
   Future<DataSignature> signData(String payloadHex,
       {String? addressHex}) async {
     final addr = addressHex ?? addressToHex(addressBech32: baseAddress);
+    final baseHex = addressToHex(addressBech32: baseAddress);
     final rewardHex = addressToHex(addressBech32: rewardAddress);
+    if (addr != baseHex && addr != rewardHex) {
+      throw ArgumentError.value(
+        addressHex,
+        'addressHex',
+        'must be a base or reward address owned by this wallet',
+      );
+    }
     final signingKey =
         addr == rewardHex ? _keys.stakeSigningKey : _keys.paymentSigningKey;
     return cip30SignData(

@@ -387,6 +387,31 @@ void main() {
       expect(cip30VerifyData(dataSignature: sig, expectedPayloadHex: payload),
           isTrue);
     });
+
+    test('signData rejects an address outside this wallet', () async {
+      final wallet = await Cip30Wallet.fromMnemonic(
+        mnemonic: testMnemonic,
+        provider: providerWithUtxos(const []),
+      );
+      final otherAccount = await deriveKeysFromMnemonic(
+        mnemonic: testMnemonic,
+        passphrase: '',
+        accountIndex: 1,
+        isTestnet: true,
+      );
+      final otherAddress = addressToHex(
+        addressBech32: computeBaseAddress(
+          paymentKeyHashHex: otherAccount.paymentKeyHash,
+          stakeKeyHashHex: otherAccount.stakeKeyHash,
+          networkId: 0,
+        ),
+      );
+
+      await expectLater(
+        wallet.signData(utf8Hex('not this wallet'), addressHex: otherAddress),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
   });
 
   group('CIP-30 signTx', () {
