@@ -436,7 +436,9 @@ adversarial critics; this **v2** incorporates their findings. Key corrections vs
   `message.rs` deprecated). 1 owner action: **rotate the Blockfrost dev key**.
 - **Pallas backend evaluation** (the "backend swap" deliverable is specifically
   CSL→Pallas feasibility — addresses CSL going legacy before the API freeze)
-- Fuzz/property tests on CBOR (de)serialization + witness assemble/extract
+- ✅ Scoped property tests on CBOR/value/Plutus/metadata/coin-selection
+  invariants and hardware witness assemble/extract; broader fuzzing remains a
+  separate post-RC hardening option
 - API stability pass (semver freeze candidates)
 - Documentation site live — **deferred post-RC**; the README/platform matrix and
   package docs are sufficient for the `0.12.0` RC.

@@ -367,6 +367,7 @@ fn estimate_fee_for_inputs(num_inputs: usize, num_outputs: usize, params: &Proto
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     fn make_params() -> ProtocolParams {
         ProtocolParams {
@@ -760,6 +761,98 @@ mod tests {
                     seed
                 );
             }
+        }
+    }
+
+    // Randomized conservation property for the complete selection path,
+    // including the dust-fixing branch that adds another input after the
+    // initial greedy pass. Every generated UTxO may carry a distinct asset so
+    // an implementation that forgets to carry assets from a late-added input
+    // fails with a minimal reproducible case.
+    proptest! {
+        #[test]
+        fn randomized_selection_conserves_coin_and_assets(
+            utxo_values in prop::collection::vec(
+                (1_500_000u64..=2_500_000u64, 1u64..=1_000u64),
+                2..=6,
+            )
+        ) {
+            let policy = "29d222ce763455e3a6ce516f5a56f76349c3ecbf3c60d7751c4f6418";
+            let available = utxo_values
+                .iter()
+                .enumerate()
+                .map(|(index, (coin, quantity))| TxInput {
+                    tx_hash: format!("property-{index}"),
+                    output_index: 0,
+                    address: "addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqq4mj7m3hn8wxssdcn0y3fy".to_string(),
+                    value: Value {
+                        coin: *coin,
+                        assets: vec![NativeAsset {
+                            policy_id: policy.to_string(),
+                            asset_name: format!("TKN{index}"),
+                            quantity: *quantity,
+                        }],
+                    },
+                })
+                .collect::<Vec<_>>();
+            let target_coin = 1_000_000u64;
+
+            let result = largest_first(
+                available,
+                vec![output("addr_recv", target_coin)],
+                "addr_change".to_string(),
+                make_params(),
+            );
+
+            let result = match result {
+                Ok(result) => result,
+                Err(CardanoError::DustChange { .. }) => {
+                    // The generated pool can legitimately be unable to make a
+                    // non-dust change output. That is a valid domain result,
+                    // not a conservation failure.
+                    return Ok(());
+                }
+                Err(error) => {
+                    prop_assert!(false, "unexpected selection error: {error:?}");
+                    return Ok(());
+                }
+            };
+
+            let selected_coin: u64 = result
+                .selected_inputs
+                .iter()
+                .map(|input| input.value.coin)
+                .sum();
+            let change_coin: u64 = result
+                .change_outputs
+                .iter()
+                .map(|output| output.value.coin)
+                .sum();
+            prop_assert_eq!(
+                selected_coin,
+                target_coin + result.fee + change_coin,
+                "selected ADA must equal target + fee + change",
+            );
+
+            let mut selected_assets = HashMap::new();
+            for input in &result.selected_inputs {
+                for asset in &input.value.assets {
+                    let key = (asset.policy_id.clone(), asset.asset_name.clone());
+                    *selected_assets.entry(key).or_insert(0u64) += asset.quantity;
+                }
+            }
+            let mut change_assets = HashMap::new();
+            for output in &result.change_outputs {
+                for asset in &output.value.assets {
+                    let key = (asset.policy_id.clone(), asset.asset_name.clone());
+                    *change_assets.entry(key).or_insert(0u64) += asset.quantity;
+                }
+            }
+            prop_assert_eq!(
+                selected_assets,
+                change_assets,
+                "all selected native assets must return as change when target is ADA-only",
+            );
         }
     }
 }

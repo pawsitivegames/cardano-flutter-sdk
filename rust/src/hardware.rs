@@ -349,6 +349,7 @@ pub fn extract_vkey_witnesses(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     // Account xpub for the test mnemonic
     // ("test walk nut penalty hip pave soap entry language right filter choice"),
@@ -419,6 +420,30 @@ mod tests {
         assert_eq!(extracted.len(), 1);
         assert_eq!(extracted[0].vkey_hex, original.vkey_hex);
         assert_eq!(extracted[0].signature_hex, original.signature_hex);
+    }
+
+    // The device boundary is fixed-width bytes even when the signature is not
+    // valid for the key yet. Serialization must preserve every byte so a
+    // downstream verifier or device adapter receives exactly what it returned.
+    proptest! {
+        #[test]
+        fn arbitrary_fixed_width_witness_bytes_roundtrip(
+            public_key in any::<[u8; 32]>(),
+            signature in any::<[u8; 64]>(),
+        ) {
+            let original = HardwareVkeyWitness {
+                vkey_hex: hex::encode(public_key),
+                signature_hex: hex::encode(signature),
+            };
+            let ws_hex = assemble_vkey_witness_set(vec![original.clone()])
+                .expect("fixed-width witness bytes should serialize");
+            let extracted = extract_vkey_witnesses(ws_hex)
+                .expect("serialized witness set should parse");
+
+            prop_assert_eq!(extracted.len(), 1);
+            prop_assert_eq!(&extracted[0].vkey_hex, &original.vkey_hex);
+            prop_assert_eq!(&extracted[0].signature_hex, &original.signature_hex);
+        }
     }
 
     #[test]
