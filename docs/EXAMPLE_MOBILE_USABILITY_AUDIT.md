@@ -25,7 +25,7 @@ not a claim that every secondary screen has been device-verified.
 | Provider action gating | Fixed + verified | With an empty project ID, Send/Mint/Stake/CIP-30/CIP-45/Ledger/Accounts are wired unavailable; widget and physical screenshot verify the Send action is disabled. |
 | Diagnostics failure → retry | Verified locally | Injected widget runner covers visible failure, retry, and recovery. No native failure injection was needed for this contract. |
 | CIP-45 deep-link lifecycle | Fixed + verified locally | `MyApp` retains the subscription, cancels it in `dispose`, and a stream regression test proves forwarding stops after cancellation. Physical two-peer transport remains external. |
-| Narrow layout | Limited | `390x844` widget layout and 411dp physical capture exercised. The 320x568, 375x667, and 430x932 matrix remains pending. |
+| Narrow layout | Verified locally, device scope limited | Widget matrix now exercises `320x568`, `375x667`, `390x844`, and `430x932`; the physical capture remains 411dp. |
 | Secondary screens, forms, keyboard | Limited | Source and existing tests inspected; no complete physical path was run for every screen or native keyboard state. |
 | Provider / transaction journeys | External | Require a live Preview Blockfrost project and intentional testnet operations. No provider or production claim is made here. |
 
@@ -58,9 +58,8 @@ platform stream. After: `MyApp` owns the subscription and cancels it in
   the public async wrapper already dispatches the generated asynchronous FRB
   entrypoint. A frame-timeline/profile investigation is still needed before a
   performance edit is justified.
-- Capability grouping and the remaining 320/375/430 viewport checks are useful
-  follow-ups, but the current `Wrap` layout did not provide direct evidence of
-  clipping in this pass.
+- Capability grouping remains a useful follow-up, but the current `Wrap` layout
+  and viewport matrix did not provide direct evidence of clipping.
 
 ## Commands and artifacts
 

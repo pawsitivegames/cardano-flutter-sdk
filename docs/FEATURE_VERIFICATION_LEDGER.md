@@ -314,8 +314,10 @@ regression covers injected failure → visible recovery state → retry success.
 physical CPH2841 Android 16 run verified the missing-provider warning and the
 disabled Send action at 411dp. The current web build completed successfully;
 local example analysis reports only the 13 documented experimental API
-warnings. Local integration-test sources cover send, mint, seed, packaging, and
-bug-fix journeys, and the example’s CIP-45 deep-link subscription is
+warnings. The home widget matrix covers 320x568, 375x667, 390x844, and
+430x932; the physical capture remains 411dp. Local integration-test sources
+cover send, mint, seed, packaging, and bug-fix journeys, and the example’s
+CIP-45 deep-link subscription is
 lifecycle-owned and cancellation-tested. iOS/macOS results and Android
 emulator/16 KB results are separate dated evidence; Play Store acceptance and
 provider-backed journeys remain open. **Status: verified for the stated L +
@@ -323,10 +325,11 @@ current Android home D scope; historical iOS/macOS D, and store/provider S/R
 pending.**
 
 Current local evidence: `PUB_CACHE=/tmp/cardano_flutter_sdk_pub_cache flutter
-test test/widget_test.dart` — 4 passed, including provider gating, deep-link
-cancellation, and the failure/retry journey; `flutter analyze --no-fatal-warnings` — no errors, with
-13 known warnings for explicitly experimental hardware and scoped web APIs. The
-focused device checklist is in
+test test/widget_test.dart` — 5 passed, including provider gating, deep-link
+cancellation, the viewport matrix, and the failure/retry journey;
+`flutter analyze --no-fatal-warnings` — no errors, with 13 known warnings for
+explicitly experimental hardware and scoped web APIs. The focused device
+checklist is in
 [`EXAMPLE_MOBILE_USABILITY_AUDIT.md`](EXAMPLE_MOBILE_USABILITY_AUDIT.md).
 
 ## Ledger decision

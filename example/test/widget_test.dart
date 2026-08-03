@@ -62,6 +62,34 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('home screen survives the compact and expanded viewport matrix',
+      (tester) async {
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    tester.view.physicalSize = const Size(320, 568);
+    await tester.pumpWidget(
+      MyApp(diagnosticsRunner: () async {}),
+    );
+    await tester.pump();
+
+    for (final size in const [
+      Size(320, 568),
+      Size(375, 667),
+      Size(430, 932),
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pump();
+
+      expect(find.text('SDK playground'), findsOneWidget,
+          reason: 'home title missing at ${size.width}x${size.height}');
+      expect(find.text('Open Send ADA demo'), findsOneWidget,
+          reason: 'primary action missing at ${size.width}x${size.height}');
+      expect(tester.takeException(), isNull,
+          reason: 'home rendered an exception at ${size.width}x${size.height}');
+    }
+  });
+
   testWidgets('diagnostics failure can recover through retry', (tester) async {
     var shouldFail = true;
     tester.view
