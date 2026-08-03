@@ -4,6 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:cardano_flutter_rs_example/main.dart';
 
 void main() {
+  test('provider-backed demos require both keys and a project id', () {
+    expect(providerDemoReady(projectId: null, hasKeys: true), isFalse);
+    expect(providerDemoReady(projectId: '', hasKeys: true), isFalse);
+    expect(
+        providerDemoReady(projectId: 'preview-key', hasKeys: false), isFalse);
+    expect(providerDemoReady(projectId: 'preview-key', hasKeys: true), isTrue);
+  });
+
   testWidgets('home screen exposes its real first-run actions', (tester) async {
     tester.view
       ..physicalSize = const Size(390, 844)
@@ -17,6 +25,15 @@ void main() {
     expect(find.text('SDK playground'), findsOneWidget);
     expect(find.text('Re-run diagnostics'), findsOneWidget);
     expect(find.text('Open Send ADA demo'), findsOneWidget);
+    expect(find.text('Network demos are not configured'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Open Send ADA demo'),
+          )
+          .onPressed,
+      isNull,
+    );
 
     await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));

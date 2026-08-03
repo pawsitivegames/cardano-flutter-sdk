@@ -24,6 +24,13 @@ const String kFlutterVersion =
 // Increment this every build so the running version is visible on screen.
 const String kBuildLabel = 'build-008 · Phase 4.2';
 
+/// Whether a network-backed reference-app capability has the configuration it
+/// needs before navigation can succeed.
+@visibleForTesting
+bool providerDemoReady({required String? projectId, required bool hasKeys}) {
+  return hasKeys && projectId?.isNotEmpty == true;
+}
+
 void main() {
   runApp(const MyApp());
 }
@@ -50,6 +57,13 @@ class _MyAppState extends State<MyApp> {
   bool _diagnosticsRunning = false;
   String? _blockfrostProjectId;
   KeyDerivationResult? _derivedKeys;
+
+  bool get _providerDemoReady => providerDemoReady(
+        projectId: _blockfrostProjectId,
+        hasKeys: _derivedKeys != null,
+      );
+
+  bool get _providerConfigured => _blockfrostProjectId?.isNotEmpty == true;
 
   final AppLinks _appLinks = AppLinks();
 
@@ -523,8 +537,7 @@ class _MyAppState extends State<MyApp> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    if (_blockfrostProjectId == null ||
-                        _blockfrostProjectId!.isEmpty)
+                    if (!_providerConfigured)
                       Card(
                         color: colorScheme.tertiaryContainer,
                         child: Padding(
@@ -533,7 +546,7 @@ class _MyAppState extends State<MyApp> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Warning: BLOCKFROST_PROJECT_ID not set',
+                                'Network demos are not configured',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: colorScheme.onTertiaryContainer,
@@ -541,6 +554,7 @@ class _MyAppState extends State<MyApp> {
                               ),
                               const SizedBox(height: 8),
                               Text(
+                                'Set BLOCKFROST_PROJECT_ID before using Send, Mint, Stake, CIP-30, CIP-45, Ledger, or Accounts.\n\n'
                                 'Run with: flutter run --dart-define=BLOCKFROST_PROJECT_ID=your_project_id\n\n'
                                 'Get a free testnet API key from https://blockfrost.io',
                                 style: TextStyle(
@@ -620,7 +634,7 @@ class _MyAppState extends State<MyApp> {
                       width: double.infinity,
                       child: FilledButton.icon(
                         onPressed:
-                            _derivedKeys != null ? _navigateToSendScreen : null,
+                            _providerDemoReady ? _navigateToSendScreen : null,
                         icon: const Icon(Icons.send),
                         label: const Text('Open Send ADA demo'),
                       ),
@@ -645,14 +659,13 @@ class _MyAppState extends State<MyApp> {
                         _HomeAction(
                           label: 'Mint NFT',
                           icon: Icons.token,
-                          onPressed: _derivedKeys != null
-                              ? _navigateToMintScreen
-                              : null,
+                          onPressed:
+                              _providerDemoReady ? _navigateToMintScreen : null,
                         ),
                         _HomeAction(
                           label: 'Stake ADA',
                           icon: Icons.account_balance,
-                          onPressed: _derivedKeys != null
+                          onPressed: _providerDemoReady
                               ? _navigateToStakeScreen
                               : null,
                         ),
@@ -666,26 +679,28 @@ class _MyAppState extends State<MyApp> {
                         _HomeAction(
                           label: 'CIP-30',
                           icon: Icons.hub,
-                          onPressed:
-                              _libInitialized ? _navigateToCip30Screen : null,
+                          onPressed: _libInitialized && _providerConfigured
+                              ? _navigateToCip30Screen
+                              : null,
                         ),
                         _HomeAction(
                           label: 'CIP-45',
                           icon: Icons.cable,
-                          onPressed: _libInitialized
+                          onPressed: _libInitialized && _providerConfigured
                               ? () => _navigateToCip45Screen()
                               : null,
                         ),
                         _HomeAction(
                           label: 'Ledger',
                           icon: Icons.memory,
-                          onPressed:
-                              _libInitialized ? _navigateToLedgerScreen : null,
+                          onPressed: _libInitialized && _providerConfigured
+                              ? _navigateToLedgerScreen
+                              : null,
                         ),
                         _HomeAction(
                           label: 'Accounts',
                           icon: Icons.account_tree,
-                          onPressed: _libInitialized
+                          onPressed: _libInitialized && _providerConfigured
                               ? _navigateToAccountsScreen
                               : null,
                         ),

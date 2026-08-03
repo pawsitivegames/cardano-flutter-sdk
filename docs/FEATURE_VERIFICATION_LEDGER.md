@@ -1,6 +1,6 @@
 # Feature verification ledger
 
-> Last reviewed: 2026-08-02
+> Last reviewed: 2026-08-03
 
 This ledger records the contract, failure behavior, acceptance criteria, and
 evidence boundary for each user-facing SDK or example feature. A passing local
@@ -232,18 +232,22 @@ input, loading/error states, platform permissions, absent hardware, and absent
 WASM/FFI artifacts must be visible and recoverable.
 
 **Acceptance and evidence:** `example/test/widget_test.dart` checks the home
-journey and tap-target guidance, and the diagnostics regression covers injected
-failure → visible recovery state → retry success. The web target builds; local
-example analysis and integration-test sources cover send, mint, seed, packaging,
-and bug-fix journeys. iOS/macOS results and Android emulator/16 KB results are
-separate dated evidence; the 2026-08-02 CPH2841 run adds physical smoke
-evidence, while Play Store acceptance remains open. **Status: L; historical
-iOS/macOS D, Android physical smoke D, and store/provider S/R pending.**
+journey, provider-readiness gating, and tap-target guidance, and the diagnostics
+regression covers injected failure → visible recovery state → retry success. A
+physical CPH2841 Android 16 run verified the missing-provider warning and the
+disabled Send action at 411dp. The web target builds; local example analysis and
+integration-test sources cover send, mint, seed, packaging, and bug-fix
+journeys. iOS/macOS results and Android emulator/16 KB results are separate
+dated evidence; Play Store acceptance and provider-backed journeys remain open.
+**Status: L + current Android home D; historical iOS/macOS D, and store/provider
+S/R pending.**
 
 Current local evidence: `PUB_CACHE=/tmp/cardano_flutter_sdk_pub_cache flutter
-test test/widget_test.dart` — 2 passed, including the failure/retry journey;
-`flutter analyze --no-fatal-warnings` — no errors, with 13 known warnings for
-explicitly experimental hardware and scoped web APIs.
+test test/widget_test.dart` — 3 passed, including provider gating and the
+failure/retry journey; `flutter analyze --no-fatal-warnings` — no errors, with
+13 known warnings for explicitly experimental hardware and scoped web APIs. The
+focused device checklist is in
+[`EXAMPLE_MOBILE_USABILITY_AUDIT.md`](EXAMPLE_MOBILE_USABILITY_AUDIT.md).
 
 ## Ledger decision
 

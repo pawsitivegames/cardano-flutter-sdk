@@ -29,6 +29,8 @@ support that contract and do not replace it.
   identity, provenance, and coverage guarantees for interoperability JSON.
 - [Feature verification ledger](FEATURE_VERIFICATION_LEDGER.md) — contracts,
   failure states, acceptance criteria, and evidence boundaries by feature.
+- [Example mobile usability audit](EXAMPLE_MOBILE_USABILITY_AUDIT.md) — focused
+  first-run and home-screen evidence, fixes, and remaining device limitations.
 - [Property-based testing](property-testing.md) — generated invariants,
   shrinking scope, and the limits of randomized evidence.
 - [Mutation testing](mutation-testing.md) — reversible high-risk mutations,
