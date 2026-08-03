@@ -1,6 +1,6 @@
 # cardano_flutter_rs
 
-Production-grade Cardano SDK for Flutter. Native platforms use a thin Dart API
+Cardano SDK for Flutter, heading toward a production-ready `0.12.0` RC. Native platforms use a thin Dart API
 over `flutter_rust_bridge` into a Rust wrapper around Emurgo's
 `cardano-serialization-lib` (CSL). Web uses a scoped CML-JS backend through Dart
 JS interop, not Rust/WASM FFI.

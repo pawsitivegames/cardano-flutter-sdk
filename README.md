@@ -17,7 +17,10 @@ A production-grade Flutter SDK for Cardano, built on Emurgo's Cardano Serializat
 
 The Cardano ecosystem has lacked a production-grade Flutter SDK for years. Existing attempts reimplemented Cardano cryptography in pure Dart with mixed results. 
 
-This SDK takes the correct approach: wrap `cardano-serialization-lib` (the canonical Rust library, auto-generated from Cardano's CDDL spec) via FFI. Protocol upgrades flow downstream automatically. Correctness is guaranteed.
+This SDK wraps `cardano-serialization-lib` (the canonical Rust library,
+auto-generated from Cardano's CDDL spec) via FFI. Protocol upgrades can flow
+downstream through that dependency, while the repository's tests and release
+gates define the behavior that is currently verified.
 
 ## Architecture
 
