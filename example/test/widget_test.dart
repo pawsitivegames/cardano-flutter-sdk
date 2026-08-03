@@ -1,9 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cardano_flutter_rs_example/main.dart';
 
 void main() {
+  test('CIP-45 deep-link subscription stops forwarding after cancellation',
+      () async {
+    final links = StreamController<Uri>();
+    addTearDown(links.close);
+    final received = <String>[];
+    final subscription = subscribeToCip45Links(
+      links: links.stream,
+      onConnection: received.add,
+    );
+
+    links.add(Uri.parse('web+cardano://connect/first'));
+    await Future<void>.delayed(Duration.zero);
+    expect(received, ['web+cardano://connect/first']);
+
+    await subscription.cancel();
+    links.add(Uri.parse('web+cardano://connect/second'));
+    await Future<void>.delayed(Duration.zero);
+    expect(received, ['web+cardano://connect/first']);
+  });
+
   test('provider-backed demos require both keys and a project id', () {
     expect(providerDemoReady(projectId: null, hasKeys: true), isFalse);
     expect(providerDemoReady(projectId: '', hasKeys: true), isFalse);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -31,6 +32,22 @@ bool providerDemoReady({required String? projectId, required bool hasKeys}) {
   return hasKeys && projectId?.isNotEmpty == true;
 }
 
+@visibleForTesting
+StreamSubscription<Uri> subscribeToCip45Links({
+  required Stream<Uri> links,
+  required void Function(String uri) onConnection,
+}) {
+  return links.listen(
+    (uri) {
+      final value = uri.toString();
+      if (value.startsWith('${Cip45ConnectionUri.scheme}://')) {
+        onConnection(value);
+      }
+    },
+    onError: (_) {},
+  );
+}
+
 void main() {
   runApp(const MyApp());
 }
@@ -57,6 +74,7 @@ class _MyAppState extends State<MyApp> {
   bool _diagnosticsRunning = false;
   String? _blockfrostProjectId;
   KeyDerivationResult? _derivedKeys;
+  StreamSubscription<Uri>? _deepLinkSubscription;
 
   bool get _providerDemoReady => providerDemoReady(
         projectId: _blockfrostProjectId,
@@ -84,12 +102,16 @@ class _MyAppState extends State<MyApp> {
   /// to the CIP-45 wallet screen.
   void _initDeepLinks() {
     if (kIsWeb) return;
-    _appLinks.uriLinkStream.listen((uri) {
-      final s = uri.toString();
-      if (s.startsWith('${Cip45ConnectionUri.scheme}://')) {
-        _navigateToCip45Screen(initialUri: s);
-      }
-    }, onError: (_) {});
+    _deepLinkSubscription = subscribeToCip45Links(
+      links: _appLinks.uriLinkStream,
+      onConnection: (uri) => _navigateToCip45Screen(initialUri: uri),
+    );
+  }
+
+  @override
+  void dispose() {
+    _deepLinkSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _testSDK() async {

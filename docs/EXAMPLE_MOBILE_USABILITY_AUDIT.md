@@ -24,6 +24,7 @@ not a claim that every secondary screen has been device-verified.
 | Home / first run | Verified | Widget test at `390x844`; physical CPH2841 Android 16 capture at 411dp. Diagnostics completed and the missing-provider state was visible. |
 | Provider action gating | Fixed + verified | With an empty project ID, Send/Mint/Stake/CIP-30/CIP-45/Ledger/Accounts are wired unavailable; widget and physical screenshot verify the Send action is disabled. |
 | Diagnostics failure → retry | Verified locally | Injected widget runner covers visible failure, retry, and recovery. No native failure injection was needed for this contract. |
+| CIP-45 deep-link lifecycle | Fixed + verified locally | `MyApp` retains the subscription, cancels it in `dispose`, and a stream regression test proves forwarding stops after cancellation. Physical two-peer transport remains external. |
 | Narrow layout | Limited | `390x844` widget layout and 411dp physical capture exercised. The 320x568, 375x667, and 430x932 matrix remains pending. |
 | Secondary screens, forms, keyboard | Limited | Source and existing tests inspected; no complete physical path was run for every screen or native keyboard state. |
 | Provider / transaction journeys | External | Require a live Preview Blockfrost project and intentional testnet operations. No provider or production claim is made here. |
@@ -42,6 +43,13 @@ network-backed home actions. The warning names the affected capabilities and
 keeps the setup command visible. Local-only actions retain their own readiness
 rules. `example/test/widget_test.dart` covers the predicate and rendered Send
 state.
+
+### Fixed: deep-link subscription ownership
+
+Before: the home state listened to the CIP-45 URI stream without retaining the
+subscription, so disposing the app could leave the callback attached to the
+platform stream. After: `MyApp` owns the subscription and cancels it in
+`dispose`; the forwarding helper’s cancellation behavior is regression-tested.
 
 ## Deferred findings
 
