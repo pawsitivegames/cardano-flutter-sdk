@@ -72,8 +72,8 @@ pub fn sign_message(
     message: String,
     signing_key_bech32: String,
     address: Option<String>,
-) -> Result<SignedMessage, String> {
-    sign_message_internal(message, signing_key_bech32, address).map_err(|e| e.to_string())
+) -> Result<SignedMessage, CardanoError> {
+    sign_message_internal(message, signing_key_bech32, address)
 }
 
 pub fn sign_message_internal(
@@ -158,8 +158,8 @@ pub fn sign_message_internal(
 pub fn verify_message(
     signed_message: SignedMessage,
     expected_address: Option<String>,
-) -> Result<bool, String> {
-    verify_message_internal(signed_message, expected_address).map_err(|e| e.to_string())
+) -> Result<bool, CardanoError> {
+    verify_message_internal(signed_message, expected_address)
 }
 
 pub fn verify_message_internal(
@@ -434,6 +434,12 @@ mod tests {
 
         let result = sign_message_internal(invalid_hex, payment_key, None);
         assert!(result.is_err(), "Should reject invalid hex message");
+    }
+
+    #[test]
+    fn public_message_errors_keep_the_typed_contract() {
+        let result = sign_message("abc".to_string(), "not-a-key".to_string(), None);
+        assert!(matches!(result, Err(CardanoError::InvalidParameter { .. })));
     }
 
     #[test]

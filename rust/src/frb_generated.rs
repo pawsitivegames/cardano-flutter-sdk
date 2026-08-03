@@ -132,7 +132,7 @@ fn wire__crate__seed__benchmark_kdf_impl(
             let api_iterations = <u32>::sse_decode(&mut deserializer);
             let api_parallelism = <u32>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok =
                     crate::seed::benchmark_kdf(api_mem_kib, api_iterations, api_parallelism)?;
                 Ok(output_ok)
@@ -805,7 +805,7 @@ fn wire__crate__seed__decrypt_seed_impl(
             let api_blob_hex = <String>::sse_decode(&mut deserializer);
             let api_password = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok = crate::seed::decrypt_seed(api_blob_hex, api_password)?;
                 Ok(output_ok)
             })())
@@ -866,7 +866,7 @@ fn wire__crate__wallet__derive_account_key_impl(
             let api_role = <u32>::sse_decode(&mut deserializer);
             let api_index = <u32>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok =
                     crate::wallet::derive_account_key(api_account_key, api_role, api_index)?;
                 Ok(output_ok)
@@ -939,7 +939,7 @@ fn wire__crate__wallet__derive_address_impl(
             let api_index = <u32>::sse_decode(&mut deserializer);
             let api_network_id = <u8>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok = crate::wallet::derive_address(
                     api_account_key,
                     api_role,
@@ -1018,7 +1018,7 @@ fn wire__crate__wallet__derive_keys_from_mnemonic_impl(
             let api_account_index = <u32>::sse_decode(&mut deserializer);
             let api__is_testnet = <bool>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok = crate::wallet::derive_keys_from_mnemonic(
                     api_mnemonic,
                     api_passphrase,
@@ -1095,7 +1095,7 @@ fn wire__crate__seed__encrypt_seed_impl(
             let api_secret = <String>::sse_decode(&mut deserializer);
             let api_password = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok = crate::seed::encrypt_seed(api_secret, api_password)?;
                 Ok(output_ok)
             })())
@@ -1129,7 +1129,7 @@ fn wire__crate__seed__encrypt_seed_with_params_impl(
             let api_iterations = <u32>::sse_decode(&mut deserializer);
             let api_parallelism = <u32>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok = crate::seed::encrypt_seed_with_params(
                     api_secret,
                     api_password,
@@ -1577,7 +1577,7 @@ fn wire__crate__message__sign_message_impl(
             let api_signing_key_bech32 = <String>::sse_decode(&mut deserializer);
             let api_address = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok =
                     crate::message::sign_message(api_message, api_signing_key_bech32, api_address)?;
                 Ok(output_ok)
@@ -1648,7 +1648,7 @@ fn wire__crate__sign__sign_tx_impl(
             let api_tx_body_cbor_hex = <String>::sse_decode(&mut deserializer);
             let api_payment_keys_hex = <Vec<String>>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok = crate::sign::sign_tx(api_tx_body_cbor_hex, api_payment_keys_hex)?;
                 Ok(output_ok)
             })())
@@ -1716,7 +1716,7 @@ fn wire__crate__sign__sign_tx_with_metadata_impl(
             let api_aux_data_cbor_hex = <Option<String>>::sse_decode(&mut deserializer);
             let api_base_witness_set_cbor_hex = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok = crate::sign::sign_tx_with_metadata(
                     api_tx_body_cbor_hex,
                     api_payment_keys_hex,
@@ -1852,7 +1852,7 @@ fn wire__crate__address__validate_address_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_address_str = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok = crate::address::validate_address(api_address_str)?;
                 Ok(output_ok)
             })())
@@ -1976,7 +1976,7 @@ fn wire__crate__message__verify_message_impl(
             let api_signed_message = <crate::message::SignedMessage>::sse_decode(&mut deserializer);
             let api_expected_address = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, String>((move || {
+            transform_result_sse::<_, crate::error::CardanoError>((move || {
                 let output_ok =
                     crate::message::verify_message(api_signed_message, api_expected_address)?;
                 Ok(output_ok)

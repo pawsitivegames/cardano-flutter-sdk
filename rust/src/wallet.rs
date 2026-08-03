@@ -28,9 +28,8 @@ pub fn derive_keys_from_mnemonic(
     passphrase: String,
     account_index: u32,
     _is_testnet: bool,
-) -> Result<KeyDerivationResult, String> {
+) -> Result<KeyDerivationResult, CardanoError> {
     derive_keys_from_mnemonic_internal(&mnemonic, &passphrase, account_index, false)
-        .map_err(|e| e.to_string())
 }
 
 pub fn derive_keys_from_mnemonic_internal(
@@ -73,8 +72,12 @@ pub fn derive_keys_from_mnemonic_internal(
 }
 
 #[frb(sync)]
-pub fn derive_account_key(account_key: String, role: u32, index: u32) -> Result<String, String> {
-    derive_account_key_internal(&account_key, role, index).map_err(|e| e.to_string())
+pub fn derive_account_key(
+    account_key: String,
+    role: u32,
+    index: u32,
+) -> Result<String, CardanoError> {
+    derive_account_key_internal(&account_key, role, index)
 }
 
 pub fn derive_account_key_internal(
@@ -117,8 +120,8 @@ pub fn derive_address(
     role: u32,
     index: u32,
     network_id: u8,
-) -> Result<DerivedAddress, String> {
-    derive_address_internal(&account_key, role, index, network_id).map_err(|e| e.to_string())
+) -> Result<DerivedAddress, CardanoError> {
+    derive_address_internal(&account_key, role, index, network_id)
 }
 
 pub fn derive_address_internal(
@@ -205,6 +208,13 @@ mod tests {
     fn test_invalid_mnemonic() {
         let result = derive_keys_from_mnemonic_internal("invalid mnemonic", "", 0, false);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn public_mnemonic_errors_keep_the_typed_contract() {
+        let result =
+            derive_keys_from_mnemonic("invalid mnemonic".to_string(), "".to_string(), 0, false);
+        assert!(matches!(result, Err(CardanoError::InvalidMnemonic(_))));
     }
 
     #[test]

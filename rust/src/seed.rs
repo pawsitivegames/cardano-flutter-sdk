@@ -123,9 +123,8 @@ pub struct EncryptedSeed {
 /// Returns a hex container safe to persist. Salt and nonce are freshly random
 /// per call, so encrypting the same secret twice yields different blobs.
 #[frb(sync)]
-pub fn encrypt_seed(secret: String, password: String) -> Result<EncryptedSeed, String> {
+pub fn encrypt_seed(secret: String, password: String) -> Result<EncryptedSeed, CardanoError> {
     encrypt_seed_internal(secret.as_bytes(), password.as_bytes(), KdfParams::default())
-        .map_err(|e| e.to_string())
 }
 
 /// Like `encrypt_seed` but with explicit Argon2id cost parameters (tune via
@@ -138,27 +137,27 @@ pub fn encrypt_seed_with_params(
     mem_kib: u32,
     iterations: u32,
     parallelism: u32,
-) -> Result<EncryptedSeed, String> {
+) -> Result<EncryptedSeed, CardanoError> {
     let params = KdfParams {
         mem_kib,
         iterations,
         parallelism,
     };
-    encrypt_seed_internal(secret.as_bytes(), password.as_bytes(), params).map_err(|e| e.to_string())
+    encrypt_seed_internal(secret.as_bytes(), password.as_bytes(), params)
 }
 
 /// Decrypt a `CFS1` container produced by `encrypt_seed`. Returns the original
 /// UTF-8 secret. A wrong password and a tampered blob are indistinguishable —
 /// both surface as an authentication failure (fails closed, never partial).
 #[frb(sync)]
-pub fn decrypt_seed(blob_hex: String, password: String) -> Result<String, String> {
-    decrypt_seed_internal(&blob_hex, password.as_bytes()).map_err(|e| e.to_string())
+pub fn decrypt_seed(blob_hex: String, password: String) -> Result<String, CardanoError> {
+    decrypt_seed_internal(&blob_hex, password.as_bytes())
 }
 
 /// Measure the wall-clock cost (milliseconds) of the Argon2id KDF for the given
 /// parameters on this device. Use to tune params to a target unlock latency.
 #[frb(sync)]
-pub fn benchmark_kdf(mem_kib: u32, iterations: u32, parallelism: u32) -> Result<u64, String> {
+pub fn benchmark_kdf(mem_kib: u32, iterations: u32, parallelism: u32) -> Result<u64, CardanoError> {
     let params = KdfParams {
         mem_kib,
         iterations,
@@ -166,7 +165,7 @@ pub fn benchmark_kdf(mem_kib: u32, iterations: u32, parallelism: u32) -> Result<
     };
     let salt = [0u8; SALT_LEN];
     let start = std::time::Instant::now();
-    let _key = derive_key(b"benchmark-password", &salt, params).map_err(|e| e.to_string())?;
+    let _key = derive_key(b"benchmark-password", &salt, params)?;
     Ok(start.elapsed().as_millis() as u64)
 }
 
@@ -465,6 +464,12 @@ mod tests {
             },
         );
         assert!(r.is_err());
+    }
+
+    #[test]
+    fn public_seed_errors_keep_the_typed_contract() {
+        let result = encrypt_seed_with_params(MNEMONIC.to_string(), "pw".to_string(), 0, 1, 1);
+        assert!(matches!(result, Err(CardanoError::InvalidParameter { .. })));
     }
 
     #[test]

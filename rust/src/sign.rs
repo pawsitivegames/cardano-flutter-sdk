@@ -38,14 +38,13 @@ pub fn sign_tx_with_metadata(
     payment_keys_hex: Vec<String>,
     aux_data_cbor_hex: Option<String>,
     base_witness_set_cbor_hex: Option<String>,
-) -> Result<SignedTx, String> {
+) -> Result<SignedTx, CardanoError> {
     sign_tx_with_metadata_internal(
         tx_body_cbor_hex,
         payment_keys_hex,
         aux_data_cbor_hex,
         base_witness_set_cbor_hex,
     )
-    .map_err(|e| e.to_string())
 }
 
 pub fn sign_tx_with_metadata_internal(
@@ -137,8 +136,8 @@ pub fn sign_tx_with_metadata_internal(
 pub fn sign_tx(
     tx_body_cbor_hex: String,
     payment_keys_hex: Vec<String>,
-) -> Result<SignedTx, String> {
-    sign_tx_internal(tx_body_cbor_hex, payment_keys_hex).map_err(|e| e.to_string())
+) -> Result<SignedTx, CardanoError> {
+    sign_tx_internal(tx_body_cbor_hex, payment_keys_hex)
 }
 
 pub fn sign_tx_internal(
@@ -318,6 +317,12 @@ mod tests {
             }
             e => panic!("Expected InvalidKey error, got {:?}", e),
         }
+    }
+
+    #[test]
+    fn public_signing_errors_keep_the_typed_contract() {
+        let result = sign_tx("00".to_string(), vec!["not-a-key".to_string()]);
+        assert!(matches!(result, Err(CardanoError::InvalidKey(_))));
     }
 
     #[test]

@@ -408,7 +408,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_u_64,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateSeedBenchmarkKdfConstMeta,
       argValues: [memKib, iterations, parallelism],
@@ -1047,7 +1047,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateSeedDecryptSeedConstMeta,
       argValues: [blobHex, password],
@@ -1095,7 +1095,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateWalletDeriveAccountKeyConstMeta,
       argValues: [accountKey, role, index],
@@ -1154,7 +1154,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_derived_address,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateWalletDeriveAddressConstMeta,
       argValues: [accountKey, role, index, networkId],
@@ -1216,7 +1216,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_key_derivation_result,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateWalletDeriveKeysFromMnemonicConstMeta,
       argValues: [mnemonic, passphrase, accountIndex, isTestnet],
@@ -1274,7 +1274,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_encrypted_seed,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateSeedEncryptSeedConstMeta,
       argValues: [secret, password],
@@ -1306,7 +1306,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_encrypted_seed,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateSeedEncryptSeedWithParamsConstMeta,
       argValues: [secret, password, memKib, iterations, parallelism],
@@ -1663,7 +1663,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_signed_message,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateMessageSignMessageConstMeta,
       argValues: [message, signingKeyBech32, address],
@@ -1718,7 +1718,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_signed_tx,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateSignSignTxConstMeta,
       argValues: [txBodyCborHex, paymentKeysHex],
@@ -1774,7 +1774,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_signed_tx,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateSignSignTxWithMetadataConstMeta,
       argValues: [
@@ -1896,7 +1896,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_address_info,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateAddressValidateAddressConstMeta,
       argValues: [addressStr],
@@ -1995,7 +1995,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
-        decodeErrorData: sse_decode_String,
+        decodeErrorData: sse_decode_cardano_error,
       ),
       constMeta: kCrateMessageVerifyMessageConstMeta,
       argValues: [signedMessage, expectedAddress],

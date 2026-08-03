@@ -9,8 +9,8 @@ pub struct AddressInfo {
 }
 
 #[frb(sync)]
-pub fn validate_address(address_str: String) -> Result<AddressInfo, String> {
-    validate_address_internal(&address_str).map_err(|e| e.to_string())
+pub fn validate_address(address_str: String) -> Result<AddressInfo, CardanoError> {
+    validate_address_internal(&address_str)
 }
 
 pub fn validate_address_internal(address_str: &str) -> Result<AddressInfo, CardanoError> {
@@ -80,6 +80,6 @@ mod tests {
         // Test that short invalid addresses are rejected
         let addr = "addr123";
         let result = validate_address(addr.to_string());
-        assert!(result.is_err());
+        assert!(matches!(result, Err(CardanoError::InvalidAddress(_))));
     }
 }
