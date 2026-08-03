@@ -16,9 +16,11 @@ consumers that load them:
 - `tools/cose-interop/vectors.json` is generated reference-library output used
   to maintain the Rust interop regression vectors. It is test material derived
   from the documented Emurgo libraries and shared fixture mnemonic, not a user
-  secret or a claim about live chain state. A Rust test parses this file and
-  compares both named vectors with the embedded constants, so regeneration
-  cannot silently leave the checked-in source and executable gate out of sync.
+  secret or a claim about live chain state. Dart contract tests validate its
+  source, shared 12-word fixture, named vector keys, and lowercase even-length
+  hex shape; a Rust test also compares both named vectors with embedded
+  constants, so regeneration cannot silently leave the checked-in source and
+  executable gates out of sync.
 
 The executable gate is:
 

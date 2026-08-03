@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _goldenPath = 'test/conformance/golden_cbor.json';
 const _crossWalletPath = 'test/fixtures/cross_wallet_signatures.json';
+const _coseInteropPath = '../tools/cose-interop/vectors.json';
 
 const _goldenFields = {'id', 'category', 'op', 'input', 'expected'};
 const _categories = {'address', 'value', 'plutus', 'witness', 'cose'};
@@ -171,6 +172,71 @@ void main() {
         if (fixture.containsKey('expectAccept') &&
             fixture['expectAccept'] is! bool) {
           errors.add('$prefix.expectAccept must be boolean when present');
+        }
+      }
+    }
+
+    expect(errors, isEmpty, reason: errors.join('\n'));
+  });
+
+  test('COSE interop generator fixture retains its source and vector shape',
+      () {
+    final decoded = jsonDecode(File(_coseInteropPath).readAsStringSync());
+    expect(decoded, isA<Map<String, dynamic>>());
+    final root = Map<String, dynamic>.from(decoded as Map);
+    final errors = <String>[];
+
+    _expectExactKeys(
+      root,
+      {
+        'source',
+        'mnemonic',
+        'baseAddressBech32',
+        'rewardAddressBech32',
+        'vectors'
+      },
+      'coseInterop',
+      errors,
+    );
+    _nonEmptyString(root['source'], 'coseInterop.source', errors);
+    final mnemonic = root['mnemonic'];
+    if (mnemonic is! String ||
+        mnemonic.trim().split(RegExp(r'\s+')).length != 12) {
+      errors.add('coseInterop.mnemonic must retain the 12-word test fixture');
+    }
+    _nonEmptyString(
+        root['baseAddressBech32'], 'coseInterop.baseAddressBech32', errors);
+    _nonEmptyString(
+        root['rewardAddressBech32'], 'coseInterop.rewardAddressBech32', errors);
+
+    final vectors = root['vectors'];
+    if (vectors is! Map) {
+      errors.add('coseInterop.vectors must be an object');
+    } else {
+      final vectorMap = Map<String, dynamic>.from(vectors);
+      const vectorNames = {'base_payment', 'reward_stake'};
+      _expectExactKeys(vectorMap, vectorNames, 'coseInterop.vectors', errors);
+      for (final name in vectorNames) {
+        final value = vectorMap[name];
+        final prefix = 'coseInterop.vectors.$name';
+        if (value is! Map) {
+          errors.add('$prefix must be an object');
+          continue;
+        }
+        final vector = Map<String, dynamic>.from(value);
+        _expectExactKeys(
+          vector,
+          {'addressHex', 'payloadHex', 'signatureHex', 'keyHex'},
+          prefix,
+          errors,
+        );
+        for (final field in const {
+          'addressHex',
+          'payloadHex',
+          'signatureHex',
+          'keyHex',
+        }) {
+          _validateHex(vector[field], '$prefix.$field', errors);
         }
       }
     }
