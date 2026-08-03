@@ -8,6 +8,8 @@ the [getting-started guide](https://mutants.rs/getting-started.html) and
 
 ## Current local audit
 
+The scoped audit was revalidated on 2026-08-03 after the current changes.
+
 `cargo-mutants` is not installed in this checkout (`RUSTUP_TOOLCHAIN=stable
 cargo mutants --version` reports `no such command`). A reversible, manually
 scoped audit covered the highest-risk seams instead of claiming a mutation

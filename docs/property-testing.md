@@ -7,8 +7,9 @@ invariants. The current acceptance criteria are deliberately domain-specific:
   generated `(policy, asset)` entry;
 - generated Plutus byte payloads and signed integer values round-trip through
   CSL without changing bytes;
-- generated CIP-25 text is either one valid text value or UTF-8-safe chunks of
-  at most 64 bytes that reassemble exactly;
+- generated CIP-25 text, including arbitrary generated Unicode, is either one
+  valid text value or UTF-8-safe chunks of at most 64 bytes that reassemble
+  exactly;
 - generated coin-selection pools conserve ADA as `target + fee + change` and
   return every asset from selected inputs for ADA-only targets; and
 - generated fixed-width hardware witness bytes survive assemble → extract
@@ -24,6 +25,11 @@ cargo test tx
 cargo test plutus
 cargo test metadata
 ```
+
+On 2026-08-03, the focused property modules passed with
+`PROPTEST_CASES=1024`: coin selection 10 tests, transaction 19, Plutus 15,
+metadata 11, and hardware 13. The Unicode CIP-25 property and exact 64-byte
+boundary regression are included in the metadata count.
 
 The strategies are chosen so related fields shrink together where possible.
 Targeted tests remain necessary for values such as `i64::MIN`, empty payloads,

@@ -372,6 +372,28 @@ mod tests {
                 prop_assert_eq!(reassembled, text);
             }
         }
+
+        #[test]
+        fn cip25_unicode_text_or_chunks_preserve_utf8_and_content(
+            chars in prop::collection::vec(any::<char>(), 0..=180)
+        ) {
+            let text: String = chars.into_iter().collect();
+            let metadata = text_or_chunks(&text).expect("valid Unicode text should encode");
+
+            if text.len() <= 64 {
+                prop_assert_eq!(metadata.as_text().unwrap(), text);
+            } else {
+                let chunks = metadata.as_list().expect("long text should chunk");
+                let mut reassembled = String::new();
+                for i in 0..chunks.len() {
+                    let chunk = chunks.get(i).as_text().expect("chunk must be UTF-8 text");
+                    prop_assert!(!chunk.is_empty(), "chunks must not be empty");
+                    prop_assert!(chunk.len() <= 64, "chunk exceeded metadata byte limit");
+                    reassembled.push_str(&chunk);
+                }
+                prop_assert_eq!(reassembled, text);
+            }
+        }
     }
 
     /// A short value (≤64 bytes) stays a single text string, not a list.
@@ -408,6 +430,15 @@ mod tests {
             image.as_text().is_ok(),
             "a short image URI must stay a single text string"
         );
+    }
+
+    #[test]
+    fn cip25_exact_64_byte_text_stays_text() {
+        let text = "é".repeat(32);
+        assert_eq!(text.len(), 64);
+
+        let metadata = text_or_chunks(&text).unwrap();
+        assert_eq!(metadata.as_text().unwrap(), text);
     }
 
     #[test]
