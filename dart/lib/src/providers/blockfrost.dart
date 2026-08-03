@@ -234,6 +234,8 @@ class PoolInfo {
 /// final params = await provider.fetchProtocolParameters();
 /// ```
 class BlockfrostProvider {
+  static const int _utxoPageSize = 100;
+
   /// Blockfrost project ID (API key). Must not be logged or exposed.
   final String projectId;
 
@@ -272,16 +274,32 @@ class BlockfrostProvider {
   /// }
   /// ```
   Future<List<Utxo>> fetchUtxos(String address) async {
-    final uri = Uri.parse('${network.baseUrl}/addresses/$address/utxos');
-    final response = await _makeRequest('GET', uri);
+    final baseUri = Uri.parse('${network.baseUrl}/addresses/$address/utxos');
+    final allUtxos = <Utxo>[];
+    var page = 1;
 
-    // 404 means address has no UTxOs, treat as empty list
-    if (response.statusCode == 404) {
-      return [];
+    while (true) {
+      // Keep the first request URL stable for callers and fixtures; Blockfrost
+      // treats the absent page parameter as page 1.
+      final uri = page == 1
+          ? baseUri
+          : baseUri.replace(queryParameters: {'page': '$page'});
+      final response = await _makeRequest('GET', uri);
+
+      // 404 means the address has no UTxOs, or there are no more pages.
+      if (response.statusCode == 404) {
+        break;
+      }
+
+      final List<dynamic> jsonList = jsonDecode(response.body);
+      allUtxos.addAll(jsonList.map(_parseUtxo));
+      if (jsonList.length < _utxoPageSize) {
+        break;
+      }
+      page++;
     }
 
-    final List<dynamic> jsonList = jsonDecode(response.body);
-    return jsonList.map((json) => _parseUtxo(json)).toList();
+    return allUtxos;
   }
 
   /// Fetches the current protocol parameters from the network.

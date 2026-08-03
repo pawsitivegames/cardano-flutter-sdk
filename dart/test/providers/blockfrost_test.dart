@@ -69,6 +69,50 @@ void main() {
         )).called(1);
       });
 
+      test('fetches every page when an address has more than 100 UTxOs',
+          () async {
+        const address = 'addr_test1qmany';
+
+        Map<String, dynamic> row(int index) => {
+              'address': address,
+              'tx_hash': 'tx_$index',
+              'tx_index': 0,
+              'output_index': index,
+              'amount': [
+                {'unit': 'lovelace', 'quantity': '${index + 1}'}
+              ],
+            };
+
+        final firstPage = List.generate(100, row);
+        final secondPage = [row(100)];
+        when(mockClient.get(any, headers: anyNamed('headers'))).thenAnswer(
+          (invocation) async {
+            final uri = invocation.positionalArguments.first as Uri;
+            final page = uri.queryParameters['page'];
+            return http.Response(
+              jsonEncode(page == '2' ? secondPage : firstPage),
+              200,
+            );
+          },
+        );
+
+        final utxos = await provider.fetchUtxos(address);
+
+        expect(utxos, hasLength(101));
+        expect(utxos.first.txHash, 'tx_0');
+        expect(utxos.last.txHash, 'tx_100');
+        verify(mockClient.get(
+          Uri.parse(
+              'https://cardano-preview.blockfrost.io/api/v0/addresses/$address/utxos'),
+          headers: anyNamed('headers'),
+        )).called(1);
+        verify(mockClient.get(
+          Uri.parse(
+              'https://cardano-preview.blockfrost.io/api/v0/addresses/$address/utxos?page=2'),
+          headers: anyNamed('headers'),
+        )).called(1);
+      });
+
       test('handles multi-asset response', () async {
         const address =
             'addr_test1qz2fxv2umyhttkxyxp8x0dlsdtqbgf8pq2fwh7tgkz0v9v8w';

@@ -109,8 +109,8 @@ class Cip30Wallet implements Cip30WalletApi<DataSignature> {
   /// `api.getUtxos()` — the wallet's UTxOs as CBOR `TransactionUnspentOutput`
   /// hex strings.
   ///
-  /// Returns an empty list if the address holds no UTxOs. Pagination is not yet
-  /// implemented; all UTxOs are returned in one page.
+  /// Returns an empty list if the address holds no UTxOs. The Blockfrost
+  /// provider follows all result pages before returning.
   Future<List<String>> getUtxos() async {
     final utxos = await provider.fetchUtxos(baseAddress);
     final inputs = utxosToTxInputs(utxos);
