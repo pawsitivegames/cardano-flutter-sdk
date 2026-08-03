@@ -24,6 +24,10 @@ keys remain with the wallet, and signing is an explicit request.
 
 ## 1. Package entrypoints and backend boundary
 
+Status: verified (scoped local and browser evidence)
+Risk: high
+Last reviewed: 2026-08-03
+
 **Contract:** native consumers import `cardano_flutter_rs.dart` and get CSL/Rust
 FFI; web consumers import `cardano_flutter_rs_web.dart` and get only the scoped
 CML-JS/provider surface. The web entrypoint must not pull in `dart:ffi`.
@@ -33,11 +37,17 @@ compile/initialization time; a backend byte mismatch must fail the conformance
 gate rather than be normalized.
 
 **Acceptance and evidence:** Dart analysis and native tests pass; the web
-entrypoint compiles, the browser harness reports `PASS 32 FAIL 0`, and the
-scoped wallet harness reports `PASS 19 FAIL 0`. **Status: L + browser verified;
-host deployment remains a consumer responsibility.**
+entrypoint compiles, the current browser harness reports `PASS 32 FAIL 0`, and
+the scoped wallet harness reports `PASS 19 FAIL 0`. The current run used
+`dart compile js`, `node build.mjs`, `node run-headless.mjs`, and
+`node run-headless-wallet.mjs` on 2026-08-03. **Status: verified for the scoped
+L + browser contract; host deployment remains a consumer responsibility.**
 
 ## 2. Keys, addresses, and HD discovery
+
+Status: verified for local derivation/HD scope; native smoke device evidence
+Risk: high
+Last reviewed: 2026-08-03
 
 **Contract:** derive deterministic account/payment/stake keys from a valid
 mnemonic, passphrase, account index, and network; produce valid network-specific
@@ -51,12 +61,18 @@ but wrong result.
 **Acceptance and evidence:** `dart/test/widget_test.dart`,
 `dart/test/hd_wallet_test.dart`, `dart/test/hardware_test.dart`, and golden
 vectors cover deterministic derivation, invalid inputs, network prefixes,
-account gaps, and public soft derivation. iPhone 13 evidence is historical in
-the release plan; the 2026-08-02 CPH2841 smoke run added Android physical
-evidence for JNI load, version, address validation, and key derivation. **Status:
-L; iOS D historical; Android physical smoke D verified; store/provider S pending.**
+account gaps, and public soft derivation. The current focused run passed 31
+tests. The CPH2841 Android 16 run observed JNI load, version, address
+validation, and key derivation; HD discovery was not claimed as a device
+journey. **Status: verified for L + native smoke D; iOS D historical; provider,
+store, and production evidence remain separate.**
 
 ## 3. Transaction building, signing, and coin selection
+
+Status: verified for local construction/signing scope; provider-backed send
+remains external
+Risk: critical
+Last reviewed: 2026-08-03
 
 **Contract:** build valid Cardano transaction bodies, preserve ADA and every
 native asset, calculate/sign the canonical body, and assemble witnesses without
@@ -70,10 +86,17 @@ unsupported script features must fail explicitly or produce conserved values.
 `dart/test/widget_test.dart`, `dart/test/cip30_test.dart`, and
 `example/integration_test/bugfix_verification_test.dart` cover local invariants
 and regression cases. The documented macOS preview send is historical D+P
-evidence; the current live send requires `BLOCKFROST_PROJECT_ID`. **Status: L;
+evidence; the current live send requires `BLOCKFROST_PROJECT_ID`. The current
+native run passed all 153 Rust tests and 45 focused Dart
+transaction/CIP-30/widget tests. **Status: verified for the stated L scope;
 historical macOS D+P; current provider/production runs external.**
 
 ## 4. Plutus data, metadata, minting, and native scripts
+
+Status: verified for local encoding/building scope; live minting remains
+external
+Risk: high
+Last reviewed: 2026-08-03
 
 **Contract:** encode valid deterministic Plutus/CBOR data, CIP-25/CIP-68
 metadata, native scripts, policy IDs, and mint transactions while preserving
@@ -86,11 +109,18 @@ covered by explicit error or round-trip assertions.
 **Acceptance and evidence:** `dart/test/plutus_test.dart`,
 `dart/test/metadata_test.dart`, `dart/test/minting_test.dart`, Rust property
 tests, and `example/integration_test/bugfix_verification_test.dart` provide L
-coverage. Preview minting is in `example/integration_test/live_mint_test.dart`
-but is conditional on provider credentials and spends testnet funds. **Status:
-L verified; current P/D production-like mint remains external.**
+coverage. The current focused Plutus/metadata/minting run passed 57 Dart tests;
+the full Rust run passed 153 tests. Preview minting is in
+`example/integration_test/live_mint_test.dart` but is conditional on provider
+credentials and spends testnet funds. **Status: verified for the stated L
+scope; current P/D production-like mint remains external.**
 
 ## 5. Staking builders and reward operations
+
+Status: verified for local builder/validation scope; live recheck remains
+external
+Risk: high
+Last reviewed: 2026-08-03
 
 **Contract:** produce registration, delegation, withdrawal, and deregistration
 transactions with the correct stake credentials, pool identifiers, deposits,
@@ -101,12 +131,19 @@ network mismatch, and invalid protocol parameters must surface typed failures or
 produce a transaction the node accepts.
 
 **Acceptance and evidence:** wrapper validation and builder failure behavior are
-covered in `dart/test/widget_test.dart` and Rust staking tests; the dated plan
-records historical preview on-chain staking checks. A fresh provider-backed
-transaction requires credentials and intentional testnet spending. **Status: L;
-historical P/D; current live recheck external.**
+covered in `dart/test/widget_test.dart` and Rust staking tests; the current
+focused run passed 13 Rust staking tests and 25 Dart widget tests. The dated
+plan records historical preview on-chain staking checks. A fresh provider-backed
+transaction requires credentials and intentional testnet spending. **Status:
+verified for the stated L scope; historical P/D; current live recheck
+external.**
 
 ## 6. Legacy message signing
+
+Status: verified as a legacy local compatibility API; interoperable wallet use
+remains out of scope
+Risk: high
+Last reviewed: 2026-08-03
 
 **Contract:** the retained `signMessage`/`verifyMessage` API signs and verifies
 the legacy CBOR message container with payment or stake material. It is not the
@@ -119,10 +156,15 @@ round-trips must be rejected or accepted deterministically.
 
 **Acceptance and evidence:** `dart/test/message_test.dart` and Rust message
 tests cover round-trip, identity binding, wrong-address, and malformed-input
-behavior. **Status: L verified as legacy compatibility; R wallet interop is not
-claimed.**
+behavior. The current focused run passed 4 Dart and 10 Rust message tests.
+**Status: verified as legacy compatibility; R wallet interop is not claimed.**
 
 ## 7. At-rest seed encryption
+
+Status: verified for the cryptographic local contract; secure-store/device
+composition remains external
+Risk: critical
+Last reviewed: 2026-08-03
 
 **Contract:** encrypt and decrypt arbitrary UTF-8 secrets using the documented
 CFS1 format, Argon2id parameters, random salt/nonce, and authenticated
@@ -133,12 +175,19 @@ magic/hex, invalid KDF parameters, repeated encryption, and device secure-store
 absence must be distinguishable and safe.
 
 **Acceptance and evidence:** `dart/test/seed_encryption_test.dart` covers the
-cryptographic contract locally; `example/integration_test/seed_vault_test.dart`
-covers Keychain/Keystore composition on a real target when run. iPhone 13
-evidence is historical; the Android smoke run did not exercise secure storage.
-**Status: L; historical iOS D; Android secure-store D/S external.**
+cryptographic contract locally; the current focused run passed 12 Dart and 15
+Rust seed tests. `example/integration_test/seed_vault_test.dart` covers
+Keychain/Keystore composition on a real target when run. iPhone 13 evidence is
+historical; the Android smoke run did not exercise secure storage. **Status:
+verified for the stated L scope; historical iOS D; Android secure-store D/S
+external.**
 
 ## 8. Native CIP-30 wallet
+
+Status: verified for local/native contract and external fixture scope; provider
+and production use remain external
+Risk: critical
+Last reviewed: 2026-08-03
 
 **Contract:** expose CIP-30-shaped network ID, UTxOs, balance, change/used/
 unused/reward addresses, transaction signing, data signing, and submission. Used
@@ -152,9 +201,11 @@ not yield a false successful wallet result.
 
 **Acceptance and evidence:** `dart/test/cip30_test.dart`,
 `dart/test/cross_wallet_verify_test.dart`, fixture-contract tests, Rust tests,
-golden vectors, and the documented Eternl fixture provide L evidence. Live
-Blockfrost reads/submission are conditional P evidence; no R claim is made.
-**Status: L + external fixture verified; current P/D/S/R remain separate.**
+golden vectors, and the documented Eternl fixture provide L evidence. The
+current focused run passed 23 Rust CIP-30 tests and 25 Dart CIP-30/fixture
+tests. Live Blockfrost reads/submission are conditional P evidence; no R claim
+is made. **Status: verified for the stated L + external-fixture scope; current
+P/D/S/R remain separate.**
 
 ## 9. Scoped web CIP-30 wallet
 
@@ -173,6 +224,11 @@ production deployment remain external.**
 
 ## 10. Blockfrost provider
 
+Status: verified for mocked REST contract; live provider and production use
+remain external
+Risk: critical
+Last reviewed: 2026-08-03
+
 **Contract:** map REST responses to typed UTxO, protocol, account, address,
 pool, transaction-status, retry, and submission models; select the requested
 network and include the project header.
@@ -183,11 +239,18 @@ responses must map to typed errors or documented empty results.
 
 **Acceptance and evidence:** `dart/test/providers/blockfrost_test.dart` uses
 mock HTTP responses for parsing, errors, retries, headers, paging, and polling.
-Live tests are explicitly skipped unless `BLOCKFROST_PROJECT_ID` is supplied;
-the credential, provider availability, and chain state are **P external**.
-**Status: L verified; current P/R not claimed.**
+The current provider run passed 40 tests, including the multi-page UTxO
+regression. Live tests are explicitly skipped unless `BLOCKFROST_PROJECT_ID` is
+supplied; the credential, provider availability, and chain state are **P
+external**. **Status: verified for the stated L scope; current P/R not
+claimed.**
 
 ## 11. CIP-45 transport core and example transport
+
+Status: verified for local protocol/lifecycle scope; cross-device transport
+remains external
+Risk: high
+Last reviewed: 2026-08-03
 
 **Contract:** parse/build the `web+cardano://` connection URI, announce the
 CIP-30 method surface, dispatch supported calls, reject invalid/unsupported
@@ -198,12 +261,19 @@ missing/null parameters, unsupported methods, tracker/WebRTC disconnect, timeout
 and callback error responses must be explicit and recoverable.
 
 **Acceptance and evidence:** `dart/test/cip45_test.dart` covers the pure
-protocol core and dispatch failures. The WebView/Bugout two-peer path has dated
-iOS live evidence; Android-device and native WebRTC two-peer runs remain
-external. **Status: L verified core; historical iOS D; Android/two-peer current
+protocol core and dispatch failures; the current focused run passed 18 tests.
+The example widget suite also passes the deep-link cancellation regression.
+The WebView/Bugout two-peer path has dated iOS live evidence; Android-device
+and native WebRTC two-peer runs remain external. **Status: verified for the
+stated L protocol/lifecycle scope; historical iOS D; Android/two-peer current
 verification pending.**
 
 ## 12. Hardware wallet seam
+
+Status: verified for software/mock seam only; physical Ledger signing remains
+external
+Risk: critical
+Last reviewed: 2026-08-03
 
 **Contract:** derive watch-only addresses from an account xpub, decompose a
 supported payment body, delegate signing to a device adapter, re-derive witness
@@ -217,11 +287,18 @@ fail closed.
 
 **Acceptance and evidence:** `dart/test/hardware_test.dart` and Rust hardware
 tests use real software signatures plus a mock device and prove byte-identical
-assembly. No physical Ledger signing or on-device UX is claimed; the adapter
-remains `@experimental` pending the checklist in `docs/hardware-wallets.md`.
-**Status: L verified seam; D/S/R blocked on hardware and external review.**
+assembly. The current focused run passed 14 Dart and 13 Rust hardware tests. No
+physical Ledger signing or on-device UX is claimed; the adapter remains
+`@experimental` pending the checklist in `docs/hardware-wallets.md`. **Status:
+verified for the stated software/mock seam; D/S/R blocked on hardware and
+external review.**
 
 ## 13. Example app and release journeys
+
+Status: verified for current local/home journey and Android first-run slice;
+store/provider/production journeys remain external
+Risk: high
+Last reviewed: 2026-08-03
 
 **Contract:** the example exposes understandable first-run actions, remains
 accessible at small viewport sizes, and routes to the scoped demos without
@@ -235,13 +312,15 @@ WASM/FFI artifacts must be visible and recoverable.
 journey, provider-readiness gating, and tap-target guidance, and the diagnostics
 regression covers injected failure → visible recovery state → retry success. A
 physical CPH2841 Android 16 run verified the missing-provider warning and the
-disabled Send action at 411dp. The web target builds; local example analysis and
-integration-test sources cover send, mint, seed, packaging, and bug-fix
-journeys, and the example’s CIP-45 deep-link subscription is lifecycle-owned
-and cancellation-tested. iOS/macOS results and Android emulator/16 KB results are separate
-dated evidence; Play Store acceptance and provider-backed journeys remain open.
-**Status: L + current Android home D; historical iOS/macOS D, and store/provider
-S/R pending.**
+disabled Send action at 411dp. The current web build completed successfully;
+local example analysis reports only the 13 documented experimental API
+warnings. Local integration-test sources cover send, mint, seed, packaging, and
+bug-fix journeys, and the example’s CIP-45 deep-link subscription is
+lifecycle-owned and cancellation-tested. iOS/macOS results and Android
+emulator/16 KB results are separate dated evidence; Play Store acceptance and
+provider-backed journeys remain open. **Status: verified for the stated L +
+current Android home D scope; historical iOS/macOS D, and store/provider S/R
+pending.**
 
 Current local evidence: `PUB_CACHE=/tmp/cardano_flutter_sdk_pub_cache flutter
 test test/widget_test.dart` — 4 passed, including provider gating, deep-link
